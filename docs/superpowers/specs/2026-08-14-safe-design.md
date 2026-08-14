@@ -51,8 +51,12 @@ Ce que le design ne garantit pas, explicitement:
 
 ## 3. Choix cryptographiques
 
-Bibliothèque: `sodium_libs` 4.0.1 (liaison FFI vers libsodium, code natif
-audité).
+Bibliothèque: `sodium` 4.0.4 (liaison FFI vers libsodium, code natif
+audité), variante **sumo** — Argon2id (`crypto_pwhash`) n'existe que là.
+Le paquet `sodium_libs` est déprécié depuis la 4.x, ses fonctions ayant
+été absorbées par `sodium`, qui embarque désormais libsodium via les
+*native assets* de Dart. Vérifié sur cette machine: `SodiumSumoInit.init()`
+et une dérivation Argon2id à 128 Mio passent sous `flutter test`.
 
 | Rôle | Primitive | Paramètres |
 |---|---|---|

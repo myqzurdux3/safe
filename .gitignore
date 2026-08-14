@@ -3,3 +3,4 @@ build/
 .flutter-plugins*
 *.safe
 *.safe.bak
+.idea/
