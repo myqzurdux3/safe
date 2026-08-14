@@ -6,7 +6,7 @@ import 'package:sodium/sodium_sumo.dart';
 
 import '../crypto/vault_crypto.dart';
 import '../model/vault.dart';
-import '../storage/vault_file.dart';
+import '../storage/vault_store.dart';
 import '../util/clipboard.dart';
 
 /// État du coffre pour toute l'application: verrouillé ou déverrouillé.
@@ -17,7 +17,7 @@ import '../util/clipboard.dart';
 class VaultSession extends ChangeNotifier {
   VaultSession({
     required VaultCrypto crypto,
-    required VaultFile storage,
+    required VaultStore storage,
     required SecureClipboard clipboard,
     Duration autoLockDelay = const Duration(minutes: 2),
     KdfParams kdfParams = KdfParams.defaults,
@@ -28,7 +28,7 @@ class VaultSession extends ChangeNotifier {
        _kdfParams = kdfParams;
 
   final VaultCrypto _crypto;
-  final VaultFile _storage;
+  final VaultStore _storage;
   final SecureClipboard _clipboard;
   final KdfParams _kdfParams;
 

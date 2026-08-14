@@ -1,122 +1,143 @@
 import 'package:flutter/material.dart';
+import 'package:sodium/sodium_sumo.dart';
 
-void main() {
-  runApp(const MyApp());
+import 'crypto/vault_crypto.dart';
+import 'state/vault_session.dart';
+import 'storage/vault_file.dart';
+import 'storage/vault_transfer.dart';
+import 'ui/entries_screen.dart';
+import 'ui/unlock_screen.dart';
+import 'util/clipboard.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final sodium = await SodiumSumoInit.init();
+  final crypto = VaultCrypto(sodium);
+  final storage = VaultFile(await VaultFile.defaultDirectory());
+  final clipboard = SecureClipboard();
+  runApp(
+    SafeApp(
+      session: VaultSession(
+        crypto: crypto,
+        storage: storage,
+        clipboard: clipboard,
+      ),
+      transfer: VaultTransfer(crypto: crypto, storage: storage),
+      clipboard: clipboard,
+    ),
+  );
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class SafeApp extends StatelessWidget {
+  const SafeApp({
+    required this.session,
+    required this.transfer,
+    required this.clipboard,
+    super.key,
+  });
 
-  // This widget is the root of your application.
+  final VaultSession session;
+  final VaultTransfer transfer;
+  final SecureClipboard clipboard;
+
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
+  Widget build(BuildContext context) => MaterialApp(
+    title: 'safe',
+    debugShowCheckedModeBanner: false,
+    theme: ThemeData(
+      colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2F6F4E)),
+      useMaterial3: true,
+    ),
+    darkTheme: ThemeData(
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: const Color(0xFF2F6F4E),
+        brightness: Brightness.dark,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
-    );
-  }
+      useMaterial3: true,
+    ),
+    home: VaultGate(
+      session: session,
+      transfer: transfer,
+      clipboard: clipboard,
+    ),
+  );
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
+/// Aiguillage entre l'écran de verrou et la liste, et point d'ancrage du
+/// verrouillage automatique.
+///
+/// C'est ici que passent les deux signaux qui repoussent ou déclenchent le
+/// verrouillage: les événements pointeur (activité) et le cycle de vie de
+/// l'application (départ en arrière-plan).
+class VaultGate extends StatefulWidget {
+  const VaultGate({
+    required this.session,
+    required this.transfer,
+    required this.clipboard,
+    super.key,
+  });
 
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+  final VaultSession session;
+  final VaultTransfer transfer;
+  final SecureClipboard clipboard;
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<VaultGate> createState() => _VaultGateState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _VaultGateState extends State<VaultGate> with WidgetsBindingObserver {
+  late Future<bool> _vaultExists;
 
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    widget.session.addListener(_onSessionChanged);
+    _vaultExists = widget.session.vaultExists();
   }
 
   @override
-  Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
-          children: [
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ),
-    );
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    widget.session.removeListener(_onSessionChanged);
+    super.dispose();
   }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    widget.session.handleLifecycle(state);
+  }
+
+  void _onSessionChanged() {
+    if (mounted) {
+      setState(() => _vaultExists = widget.session.vaultExists());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Listener(
+    behavior: HitTestBehavior.translucent,
+    onPointerDown: (_) => widget.session.touch(),
+    onPointerSignal: (_) => widget.session.touch(),
+    child: widget.session.isUnlocked
+        ? EntriesScreen(
+            session: widget.session,
+            clipboard: widget.clipboard,
+            transfer: widget.transfer,
+          )
+        : FutureBuilder<bool>(
+            future: _vaultExists,
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const Scaffold(
+                  body: Center(child: CircularProgressIndicator()),
+                );
+              }
+              return UnlockScreen(
+                session: widget.session,
+                isCreation: !snapshot.data!,
+              );
+            },
+          ),
+  );
 }

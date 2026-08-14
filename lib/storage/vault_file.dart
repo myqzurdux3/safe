@@ -3,12 +3,14 @@ import 'dart:typed_data';
 
 import 'package:path_provider/path_provider.dart';
 
+import 'vault_store.dart';
+
 /// Le fichier coffre sur le disque.
 ///
 /// Ne sait rien du chiffrement: elle transporte des octets opaques. Sa seule
 /// responsabilité est qu'une écriture interrompue ne laisse jamais un coffre à
 /// moitié écrit.
-class VaultFile {
+class VaultFile implements VaultStore {
   VaultFile(this.directory);
 
   /// Dossier où vit le coffre, selon la plateforme.
@@ -36,15 +38,18 @@ class VaultFile {
 
   File get _tempFile => File('${directory.path}/vault.safe.tmp');
 
+  @override
   Future<bool> exists() => file.exists();
 
   /// Lève une [FileSystemException] si aucun coffre n'existe.
+  @override
   Future<Uint8List> read() => file.readAsBytes();
 
   /// Remplace le coffre par [bytes], de façon atomique.
   ///
   /// Le `rename` final est atomique sur un même système de fichiers: à tout
   /// instant, `vault.safe` est soit l'ancien contenu complet, soit le nouveau.
+  @override
   Future<void> write(Uint8List bytes) async {
     await directory.create(recursive: true);
     final handle = await _tempFile.open(mode: FileMode.writeOnly);

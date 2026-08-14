@@ -1,17 +1,97 @@
 # safe
 
-A new Flutter project.
+Coffre clef/valeur chiffré, minimaliste, pour Android et Linux. L'utilisateur
+enregistre des paires clef/valeur; tout est chiffré en bloc par un mot de passe
+maître, et rien ne quitte l'appareil.
 
-## Getting Started
+## Ce qu'il fait
 
-This project is a starting point for a Flutter application.
+- Créer un coffre protégé par un mot de passe maître
+- Ajouter, modifier, supprimer, rechercher des entrées
+- Générer des valeurs aléatoires (12 à 64 caractères)
+- Copier une valeur; le presse-papier est effacé 30 s plus tard
+- Verrouiller automatiquement après inactivité (30 s à 5 min, 2 min par défaut)
+  et immédiatement dès que l'application passe en arrière-plan
+- Exporter et importer le coffre chiffré, pour transférer entre appareils
 
-A few resources to get you started if this is your first Flutter project:
+Pas de compte, pas de serveur, pas de synchronisation automatique, pas de
+remplissage de formulaires.
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+## Sécurité
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+| Élément | Choix |
+|---|---|
+| Dérivation de clé | Argon2id, 3 passes, 128 Mio, sel aléatoire de 16 octets |
+| Chiffrement | XChaCha20-Poly1305 (AEAD), nonce de 24 octets tiré à chaque sauvegarde |
+| Bibliothèque | libsodium, via `package:sodium` (FFI) |
+| Portée du chiffrement | Le coffre entier: **les noms de clefs sont chiffrés eux aussi** |
+| Intégrité | L'en-tête en clair sert de données associées: le modifier invalide le tag |
+| Écriture | Fichier temporaire, puis `rename` atomique, avec sauvegarde `.bak` |
+
+**Le mot de passe maître ne peut pas être récupéré.** Il n'existe ni question
+secrète, ni clef de secours, ni porte dérobée: perdre le mot de passe, c'est
+perdre le contenu du coffre. Une copie exportée reste chiffrée et ne sert donc à
+rien sans lui.
+
+Deux limites assumées, décrites en détail dans le document de conception:
+les valeurs déchiffrées vivent dans des `String` Dart, que le langage ne permet
+pas d'effacer de façon déterministe; et un appareil déjà compromis (root,
+enregistreur de frappe) échappe au modèle de menace.
+
+## Lancer
+
+```bash
+flutter run -d linux     # Linux
+flutter run -d <device>  # Android
+```
+
+Vérification:
+
+```bash
+flutter analyze
+flutter test
+```
+
+Compilation:
+
+```bash
+flutter build linux --release
+flutter build apk --release
+```
+
+libsodium est compilée à la première exécution par le *build hook* de
+`package:sodium`; le premier `flutter test` ou `flutter build` est donc plus
+lent que les suivants.
+
+## Où vit le coffre
+
+- Linux: `$XDG_DATA_HOME/safe/vault.safe`, par défaut `~/.local/share/safe/`
+- Android: dossier privé de l'application, inaccessible aux autres applications
+
+À côté du coffre, `vault.safe.bak` conserve l'état précédant la dernière
+sauvegarde.
+
+## Transférer un coffre entre appareils
+
+Réglages → **Exporter le coffre** produit le fichier chiffré tel quel. Il peut
+transiter par n'importe quel canal, y compris peu sûr: sans le mot de passe il
+est inexploitable. Sur l'autre appareil, Réglages → **Importer un coffre**
+demande le mot de passe du fichier et vérifie qu'il l'ouvre **avant** de
+remplacer le coffre existant, dont une copie part en `.bak`.
+
+## Structure
+
+```
+lib/
+  crypto/vault_crypto.dart   Argon2id, XChaCha20-Poly1305, format de fichier
+  model/vault.dart           Entrées et sérialisation JSON
+  storage/vault_store.dart   Interface de stockage
+  storage/vault_file.dart    Fichier sur disque, écriture atomique
+  storage/vault_transfer.dart Export et import vérifié
+  state/vault_session.dart   Verrouillé / déverrouillé, auto-lock
+  ui/                        Verrou, liste, édition, réglages
+  util/                      Générateur, presse-papier auto-effacé
+docs/superpowers/
+  specs/2026-08-14-safe-design.md   Conception et modèle de menace
+  plans/2026-08-14-safe.md          Plan d'implémentation
+```

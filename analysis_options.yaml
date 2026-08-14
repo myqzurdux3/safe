@@ -21,6 +21,9 @@ linter:
   # `// ignore_for_file: name_of_lint` syntax on the line or in the file
   # producing the lint.
   rules:
+    # Dart interdit les paramètres nommés privés: un champ privé alimenté par un
+    # paramètre nommé public ne peut pas devenir un « initializing formal ».
+    prefer_initializing_formals: false
     prefer_final_locals: true
     avoid_print: true
     prefer_single_quotes: true
