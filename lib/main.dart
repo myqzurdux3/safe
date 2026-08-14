@@ -1,8 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:sodium/sodium_sumo.dart';
 
 import 'crypto/vault_crypto.dart';
 import 'state/vault_session.dart';
+import 'storage/blob_store.dart';
 import 'storage/vault_file.dart';
 import 'storage/vault_transfer.dart';
 import 'ui/entries_screen.dart';
@@ -13,13 +16,16 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final sodium = await SodiumSumoInit.init();
   final crypto = VaultCrypto(sodium);
-  final storage = VaultFile(await VaultFile.defaultDirectory());
+  final directory = await VaultFile.defaultDirectory();
+  final storage = VaultFile(directory);
+  final blobs = BlobFileStore(Directory('${directory.path}/blobs'));
   final clipboard = SecureClipboard();
   runApp(
     SafeApp(
       session: VaultSession(
         crypto: crypto,
         storage: storage,
+        blobs: blobs,
         clipboard: clipboard,
       ),
       transfer: VaultTransfer(crypto: crypto, storage: storage),

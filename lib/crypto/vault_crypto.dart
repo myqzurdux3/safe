@@ -119,6 +119,47 @@ class VaultHeader {
   }
 }
 
+/// En-tête d'une pièce jointe chiffrée.
+///
+/// Plus court que celui du coffre: la clé vient de la session, il n'y a donc ni
+/// sel ni paramètres de dérivation à transporter. Le magic distinct empêche de
+/// confondre un blob avec un coffre.
+class BlobHeader {
+  const BlobHeader({required this.nonce});
+
+  /// Relit l'en-tête des [bytes] d'un blob.
+  factory BlobHeader.parse(Uint8List bytes) {
+    if (bytes.length < length + 16) {
+      throw const FormatException('Pièce jointe tronquée');
+    }
+    if (utf8.decode(bytes.sublist(0, magic.length), allowMalformed: true) !=
+        magic) {
+      throw const FormatException('Ce fichier n\'est pas une pièce jointe safe');
+    }
+    final version = bytes[8];
+    if (version != formatVersion) {
+      throw FormatException('Version de pièce jointe inconnue: $version');
+    }
+    return BlobHeader(nonce: Uint8List.sublistView(bytes, 9, length));
+  }
+
+  static const String magic = 'SAFEBLB1';
+  static const int formatVersion = 1;
+
+  /// 8 magic + 1 version + 24 nonce.
+  static const int length = 33;
+
+  final Uint8List nonce;
+
+  Uint8List toBytes() {
+    final bytes = Uint8List(length);
+    bytes.setRange(0, magic.length, utf8.encode(magic));
+    bytes[8] = formatVersion;
+    bytes.setRange(9, length, nonce);
+    return bytes;
+  }
+}
+
 /// Chiffrement du coffre: Argon2id pour la dérivation, XChaCha20-Poly1305 pour
 /// le contenu.
 ///
@@ -133,6 +174,15 @@ class VaultCrypto {
 
   /// Tire un sel neuf pour une dérivation.
   Uint8List newSalt() => _sodium.randombytes.buf(VaultHeader.saltLength);
+
+  /// Tire un identifiant de pièce jointe: 16 octets aléatoires en hexadécimal.
+  ///
+  /// Aléatoire et non dérivé du nom de fichier: le nom d'une pièce jointe est
+  /// un secret, il ne doit pas se retrouver dans un nom de fichier en clair.
+  String newBlobId() => _sodium.randombytes
+      .buf(16)
+      .map((byte) => byte.toRadixString(16).padLeft(2, '0'))
+      .join();
 
   /// Dérive la clé de chiffrement à partir du mot de passe maître.
   ///
@@ -199,6 +249,47 @@ class VaultCrypto {
       return seal(vault, key, salt, params);
     } finally {
       key.dispose();
+    }
+  }
+
+  /// Chiffre le contenu d'une pièce jointe avec la clé de session.
+  ///
+  /// Chaque appel tire son propre nonce; l'en-tête sert de données associées,
+  /// comme pour le coffre.
+  Uint8List sealBytes(Uint8List plaintext, SecureKey key) {
+    final header = BlobHeader(nonce: _sodium.randombytes.buf(_aead.nonceBytes));
+    final headerBytes = header.toBytes();
+    final cipherText = _aead.encrypt(
+      message: plaintext,
+      nonce: header.nonce,
+      key: key,
+      additionalData: headerBytes,
+    );
+    return Uint8List(headerBytes.length + cipherText.length)
+      ..setRange(0, headerBytes.length, headerBytes)
+      ..setRange(
+        headerBytes.length,
+        headerBytes.length + cipherText.length,
+        cipherText,
+      );
+  }
+
+  /// Déchiffre une pièce jointe.
+  ///
+  /// Lève [FormatException] si le fichier n'est pas une pièce jointe lisible,
+  /// et [WrongPasswordException] si la clé ne convient pas ou si le contenu a
+  /// été altéré.
+  Uint8List openBytes(Uint8List blobBytes, SecureKey key) {
+    final header = BlobHeader.parse(blobBytes);
+    try {
+      return _aead.decrypt(
+        cipherText: Uint8List.sublistView(blobBytes, BlobHeader.length),
+        nonce: header.nonce,
+        key: key,
+        additionalData: Uint8List.sublistView(blobBytes, 0, BlobHeader.length),
+      );
+    } on SodiumException {
+      throw const WrongPasswordException();
     }
   }
 

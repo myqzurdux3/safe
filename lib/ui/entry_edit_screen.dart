@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../model/vault.dart';
 import '../state/vault_session.dart';
 import '../util/password_generator.dart';
+import 'attachments_section.dart';
 
 /// Ajout ou modification d'une entrée.
 ///
@@ -27,8 +28,11 @@ class _EntryEditScreenState extends State<EntryEditScreen> {
   );
 
   String? _error;
-  bool _obscure = true;
   bool _busy = false;
+
+  /// Masquée par défaut sur une entrée existante; révélée en création, où il
+  /// n'y a encore aucun secret à l'écran et où l'utilisateur va taper.
+  late bool _obscure = widget.existing != null;
 
   bool get _isCreation => widget.existing == null;
 
@@ -65,12 +69,22 @@ class _EntryEditScreenState extends State<EntryEditScreen> {
       _error = null;
     });
     var updated = vault;
+    // Les pièces jointes sont lues dans le coffre courant, pas dans l'entrée
+    // reçue à l'ouverture: celles ajoutées pendant l'édition n'y figurent pas,
+    // et reconstruire l'entrée sans elles les perdrait.
+    final courant = vault.entries
+        .where((entry) => entry.key == widget.existing?.key)
+        .firstOrNull;
     // Une clef renommée est une nouvelle entrée: l'ancienne doit disparaître.
     if (!_isCreation && widget.existing!.key != key) {
       updated = updated.remove(widget.existing!.key);
     }
     updated = updated.upsert(
-      VaultEntry.now(key: key, value: _valueController.text),
+      VaultEntry.now(
+        key: key,
+        value: _valueController.text,
+        attachments: courant?.attachments ?? const [],
+      ),
     );
     try {
       await widget.session.save(updated);
@@ -123,27 +137,60 @@ class _EntryEditScreenState extends State<EntryEditScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            TextField(
-              key: const Key('value'),
-              controller: _valueController,
-              obscureText: _obscure,
-              maxLines: 1,
-              decoration: InputDecoration(
-                labelText: 'Valeur',
-                border: const OutlineInputBorder(),
-                suffixIcon: IconButton(
-                  icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
-                  tooltip: _obscure ? 'Afficher' : 'Masquer',
-                  onPressed: () => setState(() => _obscure = !_obscure),
+            // Masquée, la valeur n'est pas un champ de saisie: un champ
+            // `obscureText` est forcément sur une ligne, et une ligne unique
+            // supprime silencieusement les retours à la ligne tapés ou collés.
+            // Modifier suppose donc de révéler.
+            if (_obscure)
+              ListTile(
+                key: const Key('value-masked'),
+                contentPadding: EdgeInsets.zero,
+                title: const Text('••••••••'),
+                subtitle: Text(
+                  _valueController.text.contains('\n')
+                      ? 'Valeur sur ${_valueController.text.split('\n').length} '
+                            'lignes — révélez-la pour la modifier'
+                      : 'Révélez la valeur pour la modifier',
+                  style: theme.textTheme.bodySmall,
+                ),
+                trailing: IconButton(
+                  key: const Key('toggle-value'),
+                  icon: const Icon(Icons.visibility),
+                  tooltip: 'Afficher',
+                  onPressed: () => setState(() => _obscure = false),
+                ),
+              )
+            else
+              TextField(
+                key: const Key('value'),
+                controller: _valueController,
+                maxLines: null,
+                minLines: 3,
+                keyboardType: TextInputType.multiline,
+                decoration: InputDecoration(
+                  labelText: 'Valeur',
+                  helperText: 'Les retours à la ligne sont conservés',
+                  border: const OutlineInputBorder(),
+                  suffixIcon: IconButton(
+                    key: const Key('hide-value'),
+                    icon: const Icon(Icons.visibility_off),
+                    tooltip: 'Masquer',
+                    onPressed: () => setState(() => _obscure = true),
+                  ),
                 ),
               ),
-            ),
             const SizedBox(height: 12),
             OutlinedButton.icon(
               key: const Key('generate'),
               onPressed: _generate,
               icon: const Icon(Icons.casino_outlined),
               label: const Text('Générer une valeur'),
+            ),
+            const SizedBox(height: 24),
+            AttachmentsSection(
+              session: widget.session,
+              entryKey: widget.existing?.key,
+              onChanged: () => setState(() {}),
             ),
             if (_error != null) ...[
               const SizedBox(height: 16),

@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:safe/crypto/vault_crypto.dart';
 import 'package:safe/model/vault.dart';
 import 'package:safe/state/vault_session.dart';
+import 'package:safe/storage/blob_store.dart';
 import 'package:safe/storage/vault_file.dart';
 import 'package:safe/util/clipboard.dart';
 import 'package:sodium/sodium_sumo.dart';
@@ -31,6 +32,7 @@ void main() {
   VaultSession makeSession({Duration? autoLock}) => VaultSession(
     crypto: crypto,
     storage: VaultFile(dir),
+    blobs: BlobFileStore(Directory('${dir.path}/blobs')),
     clipboard: SecureClipboard(),
     autoLockDelay: autoLock ?? const Duration(minutes: 2),
     kdfParams: testParams,

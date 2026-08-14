@@ -183,7 +183,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             leading: const Icon(Icons.upload_file_outlined),
             title: const Text('Exporter le coffre'),
             subtitle: const Text(
-              'Fichier chiffré: inutilisable sans le mot de passe',
+              'Fichier chiffré: inutilisable sans le mot de passe. '
+              'Les pièces jointes ne sont pas incluses',
             ),
             enabled: transferDisponible && !_busy,
             onTap: _export,
@@ -201,7 +202,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             padding: EdgeInsets.all(16),
             child: Text(
               'Le mot de passe maître ne peut pas être récupéré. Gardez une '
-              'copie exportée du coffre en lieu sûr: elle reste chiffrée.',
+              'copie exportée du coffre en lieu sûr: elle reste chiffrée.\n\n'
+              'L\'export ne contient que les clefs et les valeurs. Les pièces '
+              'jointes vivent dans des fichiers séparés: exportez-les une par '
+              'une depuis l\'entrée concernée.',
             ),
           ),
         ],

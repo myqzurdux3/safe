@@ -117,12 +117,23 @@ class _EntriesScreenState extends State<EntriesScreen> {
       ),
     );
     if (confirmed ?? false) {
-      final vault = widget.session.vault;
-      if (vault != null) {
-        _revealed.remove(entry.key);
-        await widget.session.save(vault.remove(entry.key));
-      }
+      _revealed.remove(entry.key);
+      // deleteEntry, pas save(vault.remove(...)): il efface aussi les blobs des
+      // pièces jointes, qui resteraient sinon orphelins sur le disque.
+      await widget.session.deleteEntry(entry.key);
     }
+  }
+
+  /// Aperçu d'une valeur révélée: la première ligne seulement.
+  ///
+  /// Une valeur multiligne écraserait la liste, et les lignes suivantes n'ont
+  /// pas à s'afficher tant que l'utilisateur n'a pas ouvert l'entrée.
+  String _preview(String value) {
+    final lines = value.split('\n');
+    if (lines.length == 1) {
+      return value;
+    }
+    return '${lines.first}  (+${lines.length - 1} lignes)';
   }
 
   @override
@@ -202,8 +213,24 @@ class _EntriesScreenState extends State<EntriesScreen> {
                       final entry = entries[index];
                       final revealed = _revealed.contains(entry.key);
                       return ListTile(
-                        title: Text(entry.key),
-                        subtitle: Text(revealed ? entry.value : '••••••••'),
+                        title: Row(
+                          children: [
+                            Flexible(child: Text(entry.key)),
+                            if (entry.attachments.isNotEmpty) ...[
+                              const SizedBox(width: 6),
+                              Icon(
+                                key: Key('has-attachments-${entry.key}'),
+                                Icons.attach_file,
+                                size: 16,
+                                semanticLabel:
+                                    '${entry.attachments.length} pièce(s) jointe(s)',
+                              ),
+                            ],
+                          ],
+                        ),
+                        subtitle: Text(
+                          revealed ? _preview(entry.value) : '••••••••',
+                        ),
                         onTap: () => _openEditor(existing: entry),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,

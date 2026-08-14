@@ -6,8 +6,27 @@ import 'package:sodium/sodium_sumo.dart';
 
 import '../crypto/vault_crypto.dart';
 import '../model/vault.dart';
+import '../storage/blob_store.dart';
 import '../storage/vault_store.dart';
 import '../util/clipboard.dart';
+
+/// Taille maximale d'une pièce jointe.
+///
+/// Une pièce jointe est déchiffrée d'un bloc en mémoire à l'ouverture: au-delà
+/// de cette taille, l'app se ferait tuer sur un téléphone modeste.
+const int maxAttachmentBytes = 25 * 1024 * 1024;
+
+/// Levée quand un fichier dépasse [maxAttachmentBytes].
+class AttachmentTooLargeException implements Exception {
+  const AttachmentTooLargeException(this.size);
+
+  /// Taille refusée, en octets.
+  final int size;
+
+  @override
+  String toString() =>
+      'AttachmentTooLargeException($size > $maxAttachmentBytes)';
+}
 
 /// État du coffre pour toute l'application: verrouillé ou déverrouillé.
 ///
@@ -18,17 +37,20 @@ class VaultSession extends ChangeNotifier {
   VaultSession({
     required VaultCrypto crypto,
     required VaultStore storage,
+    required BlobStore blobs,
     required SecureClipboard clipboard,
     Duration autoLockDelay = const Duration(minutes: 2),
     KdfParams kdfParams = KdfParams.defaults,
   }) : _crypto = crypto,
        _storage = storage,
+       _blobs = blobs,
        _clipboard = clipboard,
        _autoLockDelay = autoLockDelay,
        _kdfParams = kdfParams;
 
   final VaultCrypto _crypto;
   final VaultStore _storage;
+  final BlobStore _blobs;
   final SecureClipboard _clipboard;
   final KdfParams _kdfParams;
 
@@ -89,6 +111,7 @@ class VaultSession extends ChangeNotifier {
       params: header.params,
       vault: opened,
     );
+    await purgeOrphanBlobs();
   }
 
   /// Ferme la session: clé libérée, contenu oublié, presse-papier nettoyé.
@@ -128,6 +151,131 @@ class VaultSession extends ChangeNotifier {
     final key = _crypto.deriveKey(newPassword, salt, _kdfParams);
     await _storage.write(_crypto.seal(current, key, salt, _kdfParams));
     _adopt(key: key, salt: salt, params: _kdfParams, vault: current);
+  }
+
+  /// Attache un fichier à l'entrée [entryKey].
+  ///
+  /// Le contenu part chiffré dans son propre blob; seules ses métadonnées
+  /// entrent dans le coffre. Lève [AttachmentTooLargeException] au-delà de
+  /// [maxAttachmentBytes], et [StateError] si la clef n'existe pas.
+  Future<VaultAttachment> attach({
+    required String entryKey,
+    required String name,
+    required String mimeType,
+    required Uint8List bytes,
+  }) async {
+    if (bytes.length > maxAttachmentBytes) {
+      throw AttachmentTooLargeException(bytes.length);
+    }
+    final key = _key;
+    final vault = _vault;
+    if (key == null || vault == null) {
+      throw StateError('Le coffre est verrouillé');
+    }
+    final entry = vault.entries.where((e) => e.key == entryKey).firstOrNull;
+    if (entry == null) {
+      throw StateError('Aucune entrée nommée $entryKey');
+    }
+
+    final attachment = VaultAttachment(
+      id: _crypto.newBlobId(),
+      name: name,
+      mimeType: mimeType,
+      size: bytes.length,
+      created: DateTime.now().toUtc(),
+    );
+    // Le blob d'abord, la référence ensuite: l'ordre inverse laisserait le
+    // coffre pointer vers un fichier absent si l'écriture échouait.
+    await _blobs.put(attachment.id, _crypto.sealBytes(bytes, key));
+    await save(
+      vault.upsert(
+        VaultEntry(
+          key: entry.key,
+          value: entry.value,
+          created: entry.created,
+          updated: DateTime.now().toUtc(),
+          attachments: [...entry.attachments, attachment],
+        ),
+      ),
+    );
+    return attachment;
+  }
+
+  /// Déchiffre le contenu d'une pièce jointe.
+  Future<Uint8List> readAttachment(VaultAttachment attachment) async {
+    final key = _key;
+    if (key == null) {
+      throw StateError('Le coffre est verrouillé');
+    }
+    return _crypto.openBytes(await _blobs.get(attachment.id), key);
+  }
+
+  /// Détache un fichier et efface son blob.
+  Future<void> removeAttachment({
+    required String entryKey,
+    required VaultAttachment attachment,
+  }) async {
+    final vault = _vault;
+    if (vault == null) {
+      throw StateError('Le coffre est verrouillé');
+    }
+    final entry = vault.entries.where((e) => e.key == entryKey).firstOrNull;
+    if (entry == null) {
+      throw StateError('Aucune entrée nommée $entryKey');
+    }
+    // La référence d'abord, le blob ensuite: si l'effacement échoue, il ne
+    // reste qu'un orphelin, nettoyé au prochain déverrouillage.
+    await save(
+      vault.upsert(
+        VaultEntry(
+          key: entry.key,
+          value: entry.value,
+          created: entry.created,
+          updated: DateTime.now().toUtc(),
+          attachments: [
+            for (final existing in entry.attachments)
+              if (existing.id != attachment.id) existing,
+          ],
+        ),
+      ),
+    );
+    await _blobs.delete(attachment.id);
+  }
+
+  /// Supprime une entrée et toutes ses pièces jointes.
+  Future<void> deleteEntry(String entryKey) async {
+    final vault = _vault;
+    if (vault == null) {
+      throw StateError('Le coffre est verrouillé');
+    }
+    final entry = vault.entries.where((e) => e.key == entryKey).firstOrNull;
+    await save(vault.remove(entryKey));
+    for (final attachment in entry?.attachments ?? const <VaultAttachment>[]) {
+      await _blobs.delete(attachment.id);
+    }
+  }
+
+  /// Efface les blobs qu'aucune entrée ne référence.
+  ///
+  /// Une écriture interrompue entre le blob et le coffre laisse un fichier
+  /// orphelin: il occupe de la place et survit à la suppression de l'entrée.
+  Future<int> purgeOrphanBlobs() async {
+    final vault = _vault;
+    if (vault == null) {
+      return 0;
+    }
+    final referenced = {
+      for (final entry in vault.entries)
+        for (final attachment in entry.attachments) attachment.id,
+    };
+    var removed = 0;
+    for (final id in await _blobs.ids()) {
+      if (!referenced.contains(id)) {
+        await _blobs.delete(id);
+        removed++;
+      }
+    }
+    return removed;
   }
 
   /// Signale une activité de l'utilisateur: repousse le verrouillage.

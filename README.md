@@ -8,7 +8,10 @@ maître, et rien ne quitte l'appareil.
 
 - Créer un coffre protégé par un mot de passe maître
 - Ajouter, modifier, supprimer, rechercher des entrées
-- Générer des valeurs aléatoires (12 à 64 caractères)
+- Valeurs sur plusieurs lignes (notes, clefs SSH, adresses)
+- Joindre des photos et des documents, chiffrés un par fichier, 25 Mio maximum
+- Générer des valeurs aléatoires (12 à 64 caractères), toute la ponctuation
+  ASCII, avec au moins un caractère de chaque classe demandée
 - Copier une valeur; le presse-papier est effacé 30 s plus tard
 - Verrouiller automatiquement après inactivité (30 s à 5 min, 2 min par défaut)
   et immédiatement dès que l'application passe en arrière-plan
@@ -25,6 +28,7 @@ remplissage de formulaires.
 | Chiffrement | XChaCha20-Poly1305 (AEAD), nonce de 24 octets tiré à chaque sauvegarde |
 | Bibliothèque | libsodium, via `package:sodium` (FFI) |
 | Portée du chiffrement | Le coffre entier: **les noms de clefs sont chiffrés eux aussi** |
+| Pièces jointes | Un fichier chiffré par pièce (`blobs/<id>.blob`), nonce propre, identifiant aléatoire sans rapport avec le nom |
 | Intégrité | L'en-tête en clair sert de données associées: le modifier invalide le tag |
 | Écriture | Fichier temporaire, puis `rename` atomique, avec sauvegarde `.bak` |
 
@@ -69,7 +73,7 @@ lent que les suivants.
 - Android: dossier privé de l'application, inaccessible aux autres applications
 
 À côté du coffre, `vault.safe.bak` conserve l'état précédant la dernière
-sauvegarde.
+sauvegarde, et `blobs/` contient les pièces jointes chiffrées.
 
 ## Transférer un coffre entre appareils
 
@@ -78,6 +82,10 @@ transiter par n'importe quel canal, y compris peu sûr: sans le mot de passe il
 est inexploitable. Sur l'autre appareil, Réglages → **Importer un coffre**
 demande le mot de passe du fichier et vérifie qu'il l'ouvre **avant** de
 remplacer le coffre existant, dont une copie part en `.bak`.
+
+**L'export ne contient pas les pièces jointes**: elles vivent dans des fichiers
+séparés et s'exportent une par une depuis l'entrée concernée. Un export en
+archive unique reste à faire.
 
 ## Structure
 
@@ -88,6 +96,7 @@ lib/
   storage/vault_store.dart   Interface de stockage
   storage/vault_file.dart    Fichier sur disque, écriture atomique
   storage/vault_transfer.dart Export et import vérifié
+  storage/blob_store.dart    Pièces jointes chiffrées sur disque
   state/vault_session.dart   Verrouillé / déverrouillé, auto-lock
   ui/                        Verrou, liste, édition, réglages
   util/                      Générateur, presse-papier auto-effacé

@@ -17,7 +17,14 @@ Plateformes visées: Android et Linux, un seul codebase Flutter
 
 Synchronisation cloud, comptes utilisateurs, partage entre utilisateurs,
 remplissage automatique de formulaires, extension navigateur, TOTP,
-pièces jointes, multi-coffres, thèmes.
+multi-coffres, thèmes.
+
+### Ajouté le 2026-08-14, après la première version
+
+- Valeurs multilignes
+- Pièces jointes (photos, documents), chiffrées une par fichier
+- Générateur couvrant toute la ponctuation ASCII, avec au moins un
+  caractère de chaque classe demandée
 
 ## 2. Propriétés de sécurité
 
@@ -76,6 +83,48 @@ aujourd'hui reste lisible si les valeurs par défaut sont durcies plus tard.
 Le nonce de 24 octets de XChaCha20 autorise un tirage purement aléatoire à
 chaque sauvegarde sans risque pratique de collision — pas de compteur à
 gérer, donc pas de bug de compteur possible.
+
+## 3 bis. Pièces jointes
+
+Une pièce jointe est un fichier quelconque rattaché à une entrée. Le
+coffre ne contient que ses métadonnées — identifiant, nom, type, taille,
+date — dans le champ optionnel `att` de l'entrée; les coffres écrits
+avant cette version restent donc lisibles sans migration.
+
+Le contenu vit dans `blobs/<id>.blob`, chiffré avec la clé de session et
+son propre nonce. L'identifiant est tiré au hasard (16 octets), jamais
+dérivé du nom du fichier: un nom de fichier est un secret au même titre
+que le reste.
+
+En-tête d'un blob, 33 octets, servant de données associées:
+
+```
+offset  taille  champ
+0       8       magic "SAFEBLB1"
+8       1       version = 1
+9       24      nonce
+33      n       ciphertext || tag (16 o)
+```
+
+Le magic distinct de celui du coffre empêche de confondre les deux
+formats: présenter un blob à l'ouverture du coffre échoue proprement.
+
+**Plafond: 25 Mio par pièce jointe.** Une pièce jointe est déchiffrée
+d'un bloc en mémoire à l'ouverture; au-delà, l'app se ferait tuer par le
+système sur un téléphone modeste.
+
+Conséquences assumées:
+
+- Le déverrouillage reste instantané quel que soit le volume joint:
+  seules les métadonnées sont déchiffrées avec le coffre.
+- Une écriture interrompue entre le blob et le coffre laisse un blob
+  orphelin. Il est effacé au déverrouillage suivant.
+- **L'export du coffre ne contient pas les pièces jointes**, qui vivent
+  dans des fichiers séparés. L'interface le dit, et chaque pièce jointe
+  peut être exportée individuellement. Une archive unique reste possible
+  plus tard.
+- Exporter une pièce jointe l'écrit en clair sur le disque: c'est le seul
+  moment où un contenu quitte le coffre, et il est explicite.
 
 ## 4. Format de fichier
 

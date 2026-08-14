@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:safe/crypto/vault_crypto.dart';
 import 'package:safe/model/vault.dart';
 import 'package:safe/state/vault_session.dart';
+import 'package:safe/storage/blob_store.dart';
 import 'package:safe/storage/vault_store.dart';
 import 'package:safe/util/clipboard.dart';
 import 'package:sodium/sodium_sumo.dart';
@@ -41,6 +42,29 @@ class MemoryVaultStore implements VaultStore {
   Future<void> write(Uint8List bytes) async => _bytes = bytes;
 }
 
+/// Pièces jointes en mémoire, même raison que [MemoryVaultStore].
+class MemoryBlobStore implements BlobStore {
+  final Map<String, Uint8List> contents = {};
+
+  @override
+  Future<void> put(String id, Uint8List bytes) async => contents[id] = bytes;
+
+  @override
+  Future<Uint8List> get(String id) async {
+    final bytes = contents[id];
+    if (bytes == null) {
+      throw StateError('Pièce jointe absente: $id');
+    }
+    return bytes;
+  }
+
+  @override
+  Future<void> delete(String id) async => contents.remove(id);
+
+  @override
+  Future<Set<String>> ids() async => contents.keys.toSet();
+}
+
 VaultCrypto? _crypto;
 
 /// Initialise libsodium une seule fois pour toute la suite.
@@ -53,11 +77,13 @@ Future<VaultCrypto> testCrypto() async =>
 /// resterait en attente et ferait échouer le test suivant.
 Future<VaultSession> makeTestSession({
   MemoryVaultStore? store,
+  MemoryBlobStore? blobs,
   Duration autoLock = const Duration(minutes: 10),
 }) async {
   final session = VaultSession(
     crypto: await testCrypto(),
     storage: store ?? MemoryVaultStore(),
+    blobs: blobs ?? MemoryBlobStore(),
     clipboard: SecureClipboard(),
     autoLockDelay: autoLock,
     kdfParams: testKdfParams,
@@ -67,8 +93,12 @@ Future<VaultSession> makeTestSession({
 }
 
 /// Une session déjà déverrouillée, contenant [keys].
-Future<VaultSession> makeUnlockedSession({List<String> keys = const []}) async {
-  final session = await makeTestSession();
+Future<VaultSession> makeUnlockedSession({
+  List<String> keys = const [],
+  MemoryVaultStore? store,
+  MemoryBlobStore? blobs,
+}) async {
+  final session = await makeTestSession(store: store, blobs: blobs);
   await session.create(testPassword);
   for (final key in keys) {
     await session.save(

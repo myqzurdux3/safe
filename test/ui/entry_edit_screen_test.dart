@@ -47,6 +47,10 @@ void main() {
     await tester.pumpWidget(
       wrapScreen(EntryEditScreen(session: session, existing: existing)),
     );
+    // Une entrée existante s'ouvre masquée: la valeur n'est modifiable
+    // qu'une fois révélée.
+    await tester.tap(find.byKey(const Key('toggle-value')));
+    await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('value')), 'nouvelle');
     await tester.tap(find.byKey(const Key('save')));
     await tester.pumpAndSettle();
