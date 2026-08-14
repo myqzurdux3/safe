@@ -12,8 +12,8 @@ const testParams = KdfParams(opsLimit: 1, memLimit: 8 * 1024 * 1024);
 void main() {
   late VaultCrypto crypto;
 
-  setUpAll(() {
-    crypto = VaultCrypto(SodiumSumoInit.init());
+  setUpAll(() async {
+    crypto = VaultCrypto(await SodiumSumoInit.init());
   });
 
   Vault vaultAvec(String key, String value) =>
