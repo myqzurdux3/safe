@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Vert du thème de l'application; le dégradé du PNG hérité n'a pas
+         d'équivalent simple ici, la couleur pleine tient mieux au rognage. -->
+    <color name="ic_launcher_background">#255C42</color>
+</resources>

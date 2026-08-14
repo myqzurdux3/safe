@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../crypto/vault_crypto.dart';
 import '../state/vault_session.dart';
+import 'safe_logo.dart';
 
 /// Longueur minimale exigée à la création. Pas de règle de composition: la
 /// longueur est ce qui compte face à Argon2id, les règles arbitraires poussent
@@ -110,11 +111,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Icon(
-                  widget.isCreation ? Icons.shield_outlined : Icons.lock_outline,
-                  size: 56,
-                  color: theme.colorScheme.primary,
-                ),
+                const Center(child: SafeLogo(size: 88)),
                 const SizedBox(height: 16),
                 Text(
                   widget.isCreation ? 'Créer votre coffre' : 'safe',

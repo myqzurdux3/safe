@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=safe
+Comment=Coffre clef/valeur chiffré
+Exec=safe
+Icon=safe
+Terminal=false
+Categories=Utility;Security;
+Keywords=mot de passe;coffre;chiffrement;password;vault;

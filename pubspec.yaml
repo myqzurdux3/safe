@@ -61,6 +61,10 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  assets:
+    # Icône de la fenêtre sous Linux, chargée par le lanceur natif.
+    - assets/icon/safe_256.png
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg

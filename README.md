@@ -87,6 +87,29 @@ remplacer le coffre existant, dont une copie part en `.bak`.
 séparés et s'exportent une par une depuis l'entrée concernée. Un export en
 archive unique reste à faire.
 
+## Logo
+
+L'icône est générée, pas dessinée à la main dans un binaire opaque:
+
+```bash
+python3 tool/generate_icons.py
+```
+
+Le script produit les mipmaps Android (héritées, rondes, adaptatives) et les
+PNG `assets/icon/`. Modifier les couleurs ou la géométrie se fait dans
+`tool/generate_icons.py`, puis on relance la commande. Le même bouclier est
+redessiné à l'écran par `lib/ui/safe_logo.dart`, en vectoriel, pour suivre la
+couleur du thème.
+
+Sous Linux, l'icône de fenêtre est chargée par le lanceur natif depuis les
+ressources empaquetées. Pour une installation système, `linux/packaging/safe.desktop`
+attend l'icône dans le thème `hicolor`:
+
+```bash
+install -Dm644 assets/icon/safe_256.png ~/.local/share/icons/hicolor/256x256/apps/safe.png
+install -Dm644 linux/packaging/safe.desktop ~/.local/share/applications/safe.desktop
+```
+
 ## Structure
 
 ```
@@ -99,7 +122,9 @@ lib/
   storage/blob_store.dart    Pièces jointes chiffrées sur disque
   state/vault_session.dart   Verrouillé / déverrouillé, auto-lock
   ui/                        Verrou, liste, édition, réglages
+  ui/safe_logo.dart          Logo vectoriel, dessiné au trait
   util/                      Générateur, presse-papier auto-effacé
+tool/generate_icons.py       Génération des icônes Android et Linux
 docs/superpowers/
   specs/2026-08-14-safe-design.md   Conception et modèle de menace
   plans/2026-08-14-safe.md          Plan d'implémentation
