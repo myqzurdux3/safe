@@ -115,17 +115,39 @@ class _VaultGateState extends State<VaultGate> with WidgetsBindingObserver {
   }
 
   void _onSessionChanged() {
-    if (mounted) {
-      setState(() => _vaultExists = widget.session.vaultExists());
+    if (!mounted) {
+      return;
     }
+    // Un écran empilé (édition, réglages) survivrait au verrouillage et
+    // resterait affiché par-dessus l'écran de verrou: on le dépile.
+    if (!widget.session.isUnlocked) {
+      final navigator = Navigator.maybeOf(context);
+      if (navigator != null && navigator.canPop()) {
+        navigator.popUntil((route) => route.isFirst);
+      }
+    }
+    // Corps en bloc, pas en flèche: une lambda en flèche rend la valeur
+    // assignée, donc un Future, ce que setState refuse.
+    final exists = widget.session.vaultExists();
+    setState(() {
+      _vaultExists = exists;
+    });
   }
 
   @override
-  Widget build(BuildContext context) => Listener(
-    behavior: HitTestBehavior.translucent,
-    onPointerDown: (_) => widget.session.touch(),
-    onPointerSignal: (_) => widget.session.touch(),
-    child: widget.session.isUnlocked
+  Widget build(BuildContext context) => Focus(
+    canRequestFocus: false,
+    // Les frappes remontent jusqu'ici depuis le champ qui a le focus: clavier
+    // matériel comme logiciel, toute frappe vaut activité.
+    onKeyEvent: (_, _) {
+      widget.session.touch();
+      return KeyEventResult.ignored;
+    },
+    child: Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (_) => widget.session.touch(),
+      onPointerSignal: (_) => widget.session.touch(),
+      child: widget.session.isUnlocked
         ? EntriesScreen(
             session: widget.session,
             clipboard: widget.clipboard,
@@ -142,8 +164,9 @@ class _VaultGateState extends State<VaultGate> with WidgetsBindingObserver {
               return UnlockScreen(
                 session: widget.session,
                 isCreation: !snapshot.data!,
-              );
-            },
-          ),
+                );
+              },
+            ),
+    ),
   );
 }

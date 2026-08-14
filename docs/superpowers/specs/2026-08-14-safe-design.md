@@ -223,9 +223,18 @@ si le coffre se verrouille entre-temps.
 
 Deux déclencheurs:
 
-- minuterie d'inactivité, réinitialisée par toute interaction utilisateur
+- minuterie d'inactivité, réinitialisée par toute interaction utilisateur —
+  **frappes comprises**. Sur un clavier logiciel, saisir un caractère rare
+  (parenthèse, symbole) demande de changer de page: la frappe est alors la
+  seule activité, et l'ignorer verrouille le coffre sous les doigts de
+  l'utilisateur.
 - `AppLifecycleState.paused` ou `inactive`: verrouillage immédiat quand
   l'app passe en arrière-plan ou dans le sélecteur d'applications
+
+Au verrouillage, les écrans empilés (édition, réglages) sont dépilés. Sans
+cela, un formulaire ouvert resterait affiché par-dessus l'écran de verrou,
+adossé à un coffre fermé: la saisie continuerait, et l'enregistrement
+échouerait en silence.
 
 Verrouiller signifie: libérer la `SecureKey`, vider les entrées en
 mémoire, revenir à l'écran de verrou, et effacer le presse-papier s'il

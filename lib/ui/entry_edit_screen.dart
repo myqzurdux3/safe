@@ -54,6 +54,14 @@ class _EntryEditScreenState extends State<EntryEditScreen> {
     }
     final vault = widget.session.vault;
     if (vault == null) {
+      // Le coffre a pu se verrouiller pendant la saisie. Se taire ici donnerait
+      // un bouton « Enregistrer » sans effet, et l'utilisateur croirait avoir
+      // enregistré.
+      setState(
+        () => _error =
+            'Le coffre s\'est verrouillé pendant la saisie. Déverrouillez-le, '
+            'puis enregistrez de nouveau.',
+      );
       return;
     }
     final collision = vault.entries.any(
@@ -130,6 +138,9 @@ class _EntryEditScreenState extends State<EntryEditScreen> {
               key: const Key('key'),
               controller: _keyController,
               autofocus: _isCreation,
+              // La frappe est souvent la seule activité pendant une saisie
+              // longue: sans cela, le coffre se verrouille sous les doigts.
+              onChanged: (_) => widget.session.touch(),
               decoration: const InputDecoration(
                 labelText: 'Clef',
                 helperText: 'Par exemple: gmail, banque, wifi maison',
@@ -164,6 +175,7 @@ class _EntryEditScreenState extends State<EntryEditScreen> {
               TextField(
                 key: const Key('value'),
                 controller: _valueController,
+                onChanged: (_) => widget.session.touch(),
                 maxLines: null,
                 minLines: 3,
                 keyboardType: TextInputType.multiline,

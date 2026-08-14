@@ -97,8 +97,13 @@ Future<VaultSession> makeUnlockedSession({
   List<String> keys = const [],
   MemoryVaultStore? store,
   MemoryBlobStore? blobs,
+  Duration autoLock = const Duration(minutes: 10),
 }) async {
-  final session = await makeTestSession(store: store, blobs: blobs);
+  final session = await makeTestSession(
+    store: store,
+    blobs: blobs,
+    autoLock: autoLock,
+  );
   await session.create(testPassword);
   for (final key in keys) {
     await session.save(

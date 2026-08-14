@@ -1,0 +1,108 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:safe/main.dart';
+import 'package:safe/model/vault.dart';
+import 'package:safe/storage/vault_transfer.dart';
+import 'package:safe/ui/entries_screen.dart';
+import 'package:safe/ui/entry_edit_screen.dart';
+import 'package:safe/ui/unlock_screen.dart';
+import 'package:safe/util/clipboard.dart';
+
+import '../support/session_fixture.dart';
+
+void main() {
+  testWidgets('taper au clavier repousse le verrouillage automatique', (
+    tester,
+  ) async {
+    // Sur un clavier logiciel, saisir des caractères rares demande de changer
+    // de page: la frappe est la seule activité, et elle doit compter.
+    final session = await makeUnlockedSession(
+      autoLock: const Duration(milliseconds: 200),
+    );
+    await tester.pumpWidget(wrapScreen(EntryEditScreen(session: session)));
+
+    await tester.pump(const Duration(milliseconds: 150));
+    await tester.enterText(find.byKey(const Key('key')), 'banque (');
+    await tester.pump(const Duration(milliseconds: 150));
+    await tester.enterText(find.byKey(const Key('key')), 'banque (pro)');
+    await tester.pump(const Duration(milliseconds: 150));
+
+    expect(
+      session.isUnlocked,
+      isTrue,
+      reason: 'la frappe doit réarmer la minuterie',
+    );
+    session.lock();
+  });
+
+  testWidgets('enregistrer sur un coffre verrouillé le dit au lieu de se taire',
+      (tester) async {
+    final session = await makeUnlockedSession();
+    await tester.pumpWidget(wrapScreen(EntryEditScreen(session: session)));
+    await tester.enterText(find.byKey(const Key('key')), 'banque (pro)');
+    await tester.enterText(find.byKey(const Key('value')), 'secret');
+
+    session.lock();
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('save')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('verrouillé'), findsOneWidget);
+  });
+
+  testWidgets('le verrouillage ferme l\'écran d\'édition resté ouvert', (
+    tester,
+  ) async {
+    final session = await makeUnlockedSession(keys: ['gmail']);
+    await tester.pumpWidget(
+      SafeApp(
+        session: session,
+        transfer: VaultTransfer(
+          crypto: await testCrypto(),
+          storage: MemoryVaultStore(),
+        ),
+        clipboard: SecureClipboard(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('add')));
+    await tester.pumpAndSettle();
+    expect(find.byType(EntryEditScreen), findsOneWidget);
+
+    session.lock();
+    await tester.pumpAndSettle();
+
+    // Sans dépilage, l'éditeur resterait au-dessus de l'écran de verrou et
+    // l'utilisateur taperait dans un formulaire mort.
+    expect(find.byType(EntryEditScreen), findsNothing);
+    expect(find.byType(UnlockScreen), findsOneWidget);
+  });
+
+  testWidgets('la recherche compte comme une activité', (tester) async {
+    final session = await makeUnlockedSession(
+      keys: ['gmail'],
+      autoLock: const Duration(milliseconds: 200),
+    );
+    await tester.pumpWidget(wrapScreen(EntriesScreen(session: session)));
+    await tester.pump(const Duration(milliseconds: 150));
+    await tester.enterText(find.byKey(const Key('search')), 'gm');
+    await tester.pump(const Duration(milliseconds: 150));
+    expect(session.isUnlocked, isTrue);
+    session.lock();
+  });
+
+  test('sauvegarder après verrouillage lève, sans écrire à moitié', () async {
+    final store = MemoryVaultStore();
+    final session = await makeUnlockedSession(store: store);
+    await session.save(
+      session.vault!.upsert(VaultEntry.now(key: 'banque (pro)', value: 'v')),
+    );
+    final avant = await store.read();
+    session.lock();
+    expect(
+      () => session.save(const Vault([])),
+      throwsStateError,
+    );
+    expect(await store.read(), avant);
+  });
+}
