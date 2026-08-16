@@ -13,6 +13,8 @@ maître, et rien ne quitte l'appareil.
 - Générer des valeurs aléatoires (12 à 64 caractères), toute la ponctuation
   ASCII, avec au moins un caractère de chaque classe demandée
 - Copier une valeur; le presse-papier est effacé 30 s plus tard
+- Bloquer les captures d'écran et vider la vignette des applications récentes
+  (Android). Actif par défaut, désactivable dans les réglages
 - Verrouiller automatiquement après inactivité (30 s à 5 min, 2 min par défaut).
   Le temps passé en arrière-plan compte comme de l'inactivité, mais changer
   d'application ne verrouille pas en soi. La frappe compte comme une activité,

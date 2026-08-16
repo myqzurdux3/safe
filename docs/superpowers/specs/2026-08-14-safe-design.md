@@ -243,8 +243,29 @@ veille profonde, et l'horloge murale, qui couvre la veille mais peut reculer.
 Retenir le maximum verrouille toujours au plus tôt.
 
 Contrepartie assumée: un coffre déverrouillé survit en arrière-plan. Elle est
-compensée par `FLAG_SECURE` (déjà en place), qui vide la vignette du sélecteur
-d'applications et interdit les captures d'écran. Reste hors couverture: un
+compensée par `FLAG_SECURE`, qui vide la vignette du sélecteur d'applications
+et interdit les captures d'écran.
+
+`FLAG_SECURE` est réglable par l'utilisateur (ajouté le 2026-08-16), parce
+qu'il empêche aussi les usages légitimes: capture d'écran pour un support
+technique, partage d'écran, enregistrement d'une démonstration. Trois garde-fous
+autour de ce choix:
+
+- actif par défaut, et un fichier de réglages absent ou abîmé retombe sur
+  « actif »;
+- l'activité Android le pose dès `onCreate`, avant que Flutter ait lu les
+  réglages: le démarrage n'a pas de fenêtre non protégée, et Flutter ne fait
+  que le relâcher ensuite si l'utilisateur l'a demandé;
+- l'interface dit ce que la désactivation coûte, vignette des applications
+  récentes comprise.
+
+Le réglage vit dans `settings.json`, en clair à côté du coffre: il ne dit rien
+du contenu, et le chiffrer imposerait de déverrouiller le coffre avant de
+pouvoir protéger l'écran.
+
+Sous Linux, il n'existe pas d'équivalent: l'appel natif est absent et le canal
+retombe silencieusement. Quelqu'un capable de capturer l'écran y est déjà
+devant la session déverrouillée. Reste hors couverture: un
 téléphone déverrouillé physiquement pris en main dans la fenêtre du délai.
 
 Au verrouillage, les écrans empilés (édition, réglages) sont dépilés. Sans

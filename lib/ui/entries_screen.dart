@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../model/vault.dart';
 import '../state/vault_session.dart';
+import '../storage/app_settings.dart';
 import '../storage/vault_transfer.dart';
 import '../util/clipboard.dart';
 import 'entry_edit_screen.dart';
@@ -17,10 +18,14 @@ class EntriesScreen extends StatefulWidget {
     required this.session,
     this.clipboard,
     this.transfer,
+    this.settings,
     super.key,
   });
 
   final VaultSession session;
+
+  /// Préférences de l'application, transmises à l'écran de réglages.
+  final SettingsStore? settings;
 
   /// Presse-papier auto-effaçant; celui par défaut suffit hors tests.
   final SecureClipboard? clipboard;
@@ -155,6 +160,7 @@ class _EntriesScreenState extends State<EntriesScreen> {
                   builder: (context) => SettingsScreen(
                     session: widget.session,
                     transfer: widget.transfer,
+                    settings: widget.settings,
                   ),
                 ),
               );

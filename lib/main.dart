@@ -5,12 +5,14 @@ import 'package:sodium/sodium_sumo.dart';
 
 import 'crypto/vault_crypto.dart';
 import 'state/vault_session.dart';
+import 'storage/app_settings.dart';
 import 'storage/blob_store.dart';
 import 'storage/vault_file.dart';
 import 'storage/vault_transfer.dart';
 import 'ui/entries_screen.dart';
 import 'ui/unlock_screen.dart';
 import 'util/clipboard.dart';
+import 'util/screen_security.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,6 +22,15 @@ Future<void> main() async {
   final storage = VaultFile(directory);
   final blobs = BlobFileStore(Directory('${directory.path}/blobs'));
   final clipboard = SecureClipboard();
+
+  // Le natif démarre en mode bloqué; on ne le relâche que si l'utilisateur l'a
+  // explicitement demandé, une fois les réglages lus.
+  final settings = SettingsFile(directory);
+  final loaded = await settings.read();
+  if (!loaded.blockScreenshots) {
+    await const ScreenSecurity().setBlocked(false);
+  }
+
   runApp(
     SafeApp(
       session: VaultSession(
@@ -30,6 +41,7 @@ Future<void> main() async {
       ),
       transfer: VaultTransfer(crypto: crypto, storage: storage),
       clipboard: clipboard,
+      settings: settings,
     ),
   );
 }
@@ -39,12 +51,14 @@ class SafeApp extends StatelessWidget {
     required this.session,
     required this.transfer,
     required this.clipboard,
+    this.settings,
     super.key,
   });
 
   final VaultSession session;
   final VaultTransfer transfer;
   final SecureClipboard clipboard;
+  final SettingsStore? settings;
 
   @override
   Widget build(BuildContext context) => MaterialApp(
@@ -65,6 +79,7 @@ class SafeApp extends StatelessWidget {
       session: session,
       transfer: transfer,
       clipboard: clipboard,
+      settings: settings,
     ),
   );
 }
@@ -80,12 +95,14 @@ class VaultGate extends StatefulWidget {
     required this.session,
     required this.transfer,
     required this.clipboard,
+    this.settings,
     super.key,
   });
 
   final VaultSession session;
   final VaultTransfer transfer;
   final SecureClipboard clipboard;
+  final SettingsStore? settings;
 
   @override
   State<VaultGate> createState() => _VaultGateState();
@@ -152,6 +169,7 @@ class _VaultGateState extends State<VaultGate> with WidgetsBindingObserver {
             session: widget.session,
             clipboard: widget.clipboard,
             transfer: widget.transfer,
+            settings: widget.settings,
           )
         : FutureBuilder<bool>(
             future: _vaultExists,

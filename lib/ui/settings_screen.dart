@@ -6,7 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../state/vault_session.dart';
+import '../storage/app_settings.dart';
 import '../storage/vault_transfer.dart';
+import '../util/screen_security.dart';
 import 'unlock_screen.dart';
 
 /// Délais d'inactivité proposés avant verrouillage automatique.
@@ -19,12 +21,25 @@ const List<Duration> autoLockChoices = [
 
 /// Réglages: mot de passe maître, délai de verrouillage, export et import.
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({required this.session, this.transfer, super.key});
+  const SettingsScreen({
+    required this.session,
+    required this.settings,
+    this.transfer,
+    this.screen = const ScreenSecurity(),
+    super.key,
+  });
 
   final VaultSession session;
 
+  /// Préférences persistées, relues à l'ouverture de l'écran. Absent dans les
+  /// tests d'interface qui ne touchent pas à ce réglage: la bascule fonctionne
+  /// alors sans rien écrire.
+  final SettingsStore? settings;
+
   /// Absent quand l'export/import n'est pas disponible (tests d'interface).
   final VaultTransfer? transfer;
+
+  final ScreenSecurity screen;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -32,6 +47,24 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _busy = false;
+  AppSettings _settings = const AppSettings();
+
+  @override
+  void initState() {
+    super.initState();
+    widget.settings?.read().then((loaded) {
+      if (mounted) {
+        setState(() => _settings = loaded);
+      }
+    });
+  }
+
+  Future<void> _setBlockScreenshots(bool blocked) async {
+    final updated = _settings.copyWith(blockScreenshots: blocked);
+    setState(() => _settings = updated);
+    await widget.screen.setBlocked(blocked);
+    await widget.settings?.write(updated);
+  }
 
   Future<void> _changePassword() async {
     final nouveau = await showDialog<String>(
@@ -175,6 +208,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   setState(() => widget.session.autoLockDelay = value);
                 }
               },
+            ),
+          ),
+          const Divider(height: 1),
+          SwitchListTile(
+            key: const Key('block-screenshots'),
+            secondary: const Icon(Icons.screenshot_monitor_outlined),
+            value: _settings.blockScreenshots,
+            onChanged: _busy ? null : _setBlockScreenshots,
+            title: const Text('Bloquer les captures d\'écran'),
+            subtitle: Text(
+              _settings.blockScreenshots
+                  ? 'Captures d\'écran refusées, et vignette vide dans les '
+                        'applications récentes'
+                  : 'Captures d\'écran autorisées: le contenu du coffre '
+                        'apparaîtra aussi dans les applications récentes',
             ),
           ),
           const Divider(height: 1),
