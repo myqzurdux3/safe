@@ -131,3 +131,8 @@ docs/superpowers/
   specs/2026-08-14-safe-design.md   Conception et modèle de menace
   plans/2026-08-14-safe.md          Plan d'implémentation
 ```
+
+## Compiler et installer
+
+Voir [DEPLOY.md](DEPLOY.md): rebuild et réinstallation sur Android et Linux,
+emplacement des données, sauvegarde.
