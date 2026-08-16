@@ -13,9 +13,10 @@ maître, et rien ne quitte l'appareil.
 - Générer des valeurs aléatoires (12 à 64 caractères), toute la ponctuation
   ASCII, avec au moins un caractère de chaque classe demandée
 - Copier une valeur; le presse-papier est effacé 30 s plus tard
-- Verrouiller automatiquement après inactivité (30 s à 5 min, 2 min par défaut)
-  et immédiatement dès que l'application passe en arrière-plan. La frappe compte
-  comme une activité, et le verrouillage ferme les écrans ouverts
+- Verrouiller automatiquement après inactivité (30 s à 5 min, 2 min par défaut).
+  Le temps passé en arrière-plan compte comme de l'inactivité, mais changer
+  d'application ne verrouille pas en soi. La frappe compte comme une activité,
+  et le verrouillage ferme les écrans ouverts
 - Exporter et importer le coffre chiffré, pour transférer entre appareils
 
 Pas de compte, pas de serveur, pas de synchronisation automatique, pas de

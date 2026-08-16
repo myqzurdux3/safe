@@ -56,6 +56,16 @@ class VaultSession extends ChangeNotifier {
 
   Duration _autoLockDelay;
   Timer? _autoLockTimer;
+
+  /// Depuis quand l'utilisateur n'a rien fait.
+  ///
+  /// Deux horloges, parce qu'aucune ne suffit seule: le `Stopwatch` est
+  /// monotone et resiste a un changement d'heure systeme, mais il n'avance pas
+  /// pendant la veille profonde d'Android; l'horloge murale couvre la veille,
+  /// mais recule si on change l'heure. On retient l'ecart le plus grand des
+  /// deux, ce qui verrouille toujours au plus tot.
+  final Stopwatch _idleWatch = Stopwatch();
+  DateTime _lastActivity = DateTime.now();
   SecureKey? _key;
   Uint8List? _salt;
   KdfParams? _fileParams;
@@ -72,7 +82,13 @@ class VaultSession extends ChangeNotifier {
   set autoLockDelay(Duration value) {
     _autoLockDelay = value;
     if (isUnlocked) {
-      _restartAutoLock();
+      // Repartir de la dernière activité, pas de maintenant: choisir « 30 s »
+      // dans les réglages ne doit pas offrir 30 s de sursis supplémentaire.
+      final remaining = value - idleTime;
+      _autoLockTimer?.cancel();
+      _autoLockTimer = remaining.isNegative
+          ? Timer(Duration.zero, lock)
+          : Timer(remaining, lock);
     }
     notifyListeners();
   }
@@ -285,19 +301,43 @@ class VaultSession extends ChangeNotifier {
     }
   }
 
-  /// Verrouille dès que l'application quitte le premier plan.
+  /// Temps écoulé depuis la dernière activité réelle.
+  Duration get idleTime {
+    final monotonic = _idleWatch.elapsed;
+    final wall = DateTime.now().difference(_lastActivity);
+    return wall > monotonic ? wall : monotonic;
+  }
+
+  /// Passer en arrière-plan ne verrouille pas: seul le délai d'inactivité
+  /// décide.
   ///
-  /// `inactive` couvre le sélecteur d'applications d'Android, où le contenu
-  /// serait autrement visible en vignette.
+  /// Le temps passé en arrière-plan compte comme de l'inactivité. La minuterie
+  /// continue de tourner, mais Android peut geler le processus et l'empêcher de
+  /// se déclencher: au retour, on recalcule donc l'inactivité réelle plutôt que
+  /// de faire confiance à la minuterie.
+  ///
+  /// La contrepartie — un coffre ouvert survit en arrière-plan — est compensée
+  /// par `FLAG_SECURE` côté Android, qui vide la vignette du sélecteur
+  /// d'applications.
+  ///
+  /// `detached` reste un verrouillage immédiat: le processus s'arrête.
   void handleLifecycle(AppLifecycleState state) {
     if (!isUnlocked) {
       return;
     }
-    if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.inactive ||
-        state == AppLifecycleState.hidden ||
-        state == AppLifecycleState.detached) {
+    if (state == AppLifecycleState.detached) {
       lock();
+      return;
+    }
+    if (state == AppLifecycleState.resumed) {
+      if (idleTime >= _autoLockDelay) {
+        lock();
+      } else {
+        // Réarmer sur le temps restant, sans remettre le compteur à zéro:
+        // revenir sur l'app n'est pas une activité.
+        _autoLockTimer?.cancel();
+        _autoLockTimer = Timer(_autoLockDelay - idleTime, lock);
+      }
     }
   }
 
@@ -318,6 +358,10 @@ class VaultSession extends ChangeNotifier {
 
   void _restartAutoLock() {
     _autoLockTimer?.cancel();
+    _lastActivity = DateTime.now();
+    _idleWatch
+      ..reset()
+      ..start();
     _autoLockTimer = Timer(_autoLockDelay, lock);
   }
 

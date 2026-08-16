@@ -95,17 +95,18 @@ void main() {
     expect(session.isUnlocked, isTrue);
   });
 
-  test('arrière-plan verrouille immédiatement', () async {
+  test('arrière-plan ne verrouille pas: seul le délai décide', () async {
     final session = makeSession();
     await session.create('motdepasse123');
     session.handleLifecycle(AppLifecycleState.paused);
-    expect(session.isUnlocked, isFalse);
+    expect(session.isUnlocked, isTrue);
+    session.lock();
   });
 
   test('le retour au premier plan ne déverrouille pas', () async {
     final session = makeSession();
     await session.create('motdepasse123');
-    session.handleLifecycle(AppLifecycleState.paused);
+    session.lock();
     session.handleLifecycle(AppLifecycleState.resumed);
     expect(session.isUnlocked, isFalse);
   });

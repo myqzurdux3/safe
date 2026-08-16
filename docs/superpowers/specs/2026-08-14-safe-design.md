@@ -228,8 +228,24 @@ Deux déclencheurs:
   (parenthèse, symbole) demande de changer de page: la frappe est alors la
   seule activité, et l'ignorer verrouille le coffre sous les doigts de
   l'utilisateur.
-- `AppLifecycleState.paused` ou `inactive`: verrouillage immédiat quand
-  l'app passe en arrière-plan ou dans le sélecteur d'applications
+- `AppLifecycleState.detached` uniquement: le processus s'arrête.
+
+**Le passage en arrière-plan ne verrouille plus** (changé le 2026-08-16).
+Consulter une autre app puis revenir ne doit pas coûter une saisie du mot de
+passe maître. Le temps passé en arrière-plan compte comme de l'inactivité: le
+délai reste seul juge.
+
+Android peut geler le processus, donc la minuterie Dart n'est pas fiable en
+arrière-plan. Au retour au premier plan, l'inactivité réelle est recalculée à
+partir de deux horloges, en retenant l'écart le plus grand: un `Stopwatch`
+monotone, insensible à un changement d'heure système mais arrêté pendant la
+veille profonde, et l'horloge murale, qui couvre la veille mais peut reculer.
+Retenir le maximum verrouille toujours au plus tôt.
+
+Contrepartie assumée: un coffre déverrouillé survit en arrière-plan. Elle est
+compensée par `FLAG_SECURE` (déjà en place), qui vide la vignette du sélecteur
+d'applications et interdit les captures d'écran. Reste hors couverture: un
+téléphone déverrouillé physiquement pris en main dans la fenêtre du délai.
 
 Au verrouillage, les écrans empilés (édition, réglages) sont dépilés. Sans
 cela, un formulaire ouvert resterait affiché par-dessus l'écran de verrou,
