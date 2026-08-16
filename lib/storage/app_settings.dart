@@ -1,13 +1,24 @@
 import 'dart:convert';
 import 'dart:io';
 
+/// Bornes du délai de verrouillage automatique.
+///
+/// Elles servent à valider ce qui est relu du disque: un fichier modifié à la
+/// main ne doit pas pouvoir garder le coffre ouvert indéfiniment.
+const Duration minAutoLockDelay = Duration(seconds: 30);
+const Duration maxAutoLockDelay = Duration(minutes: 5);
+const Duration defaultAutoLockDelay = Duration(minutes: 2);
+
 /// Préférences de l'application.
 ///
 /// Rien de secret ici, d'où un simple fichier JSON en clair à côté du coffre:
 /// ces réglages ne disent rien du contenu du coffre. Tout ce qui touche aux
 /// données reste chiffré dans `vault.safe`.
 class AppSettings {
-  const AppSettings({this.blockScreenshots = true});
+  const AppSettings({
+    this.blockScreenshots = true,
+    this.autoLockDelay = defaultAutoLockDelay,
+  });
 
   /// Bloquer les captures d'écran et vider la vignette du sélecteur
   /// d'applications (`FLAG_SECURE` sur Android).
@@ -16,16 +27,39 @@ class AppSettings {
   /// en arrière-plan ne verrouille plus le coffre.
   final bool blockScreenshots;
 
-  AppSettings copyWith({bool? blockScreenshots}) =>
-      AppSettings(blockScreenshots: blockScreenshots ?? this.blockScreenshots);
+  /// Inactivité tolérée avant verrouillage.
+  final Duration autoLockDelay;
 
-  Map<String, Object?> toJson() => {'blockScreenshots': blockScreenshots};
+  AppSettings copyWith({bool? blockScreenshots, Duration? autoLockDelay}) =>
+      AppSettings(
+        blockScreenshots: blockScreenshots ?? this.blockScreenshots,
+        autoLockDelay: autoLockDelay ?? this.autoLockDelay,
+      );
+
+  Map<String, Object?> toJson() => {
+    'blockScreenshots': blockScreenshots,
+    'autoLockSeconds': autoLockDelay.inSeconds,
+  };
 
   /// Toute valeur absente ou d'un type inattendu retombe sur le défaut, qui
   /// est le réglage le plus protecteur.
   factory AppSettings.fromJson(Map<String, Object?> json) {
-    final value = json['blockScreenshots'];
-    return AppSettings(blockScreenshots: value is bool ? value : true);
+    final blocked = json['blockScreenshots'];
+    final seconds = json['autoLockSeconds'];
+    return AppSettings(
+      blockScreenshots: blocked is bool ? blocked : true,
+      autoLockDelay: seconds is int
+          ? _clampDelay(Duration(seconds: seconds))
+          : defaultAutoLockDelay,
+    );
+  }
+
+  /// Ramène un délai relu du disque entre les bornes autorisées.
+  static Duration _clampDelay(Duration value) {
+    if (value < minAutoLockDelay) {
+      return minAutoLockDelay;
+    }
+    return value > maxAutoLockDelay ? maxAutoLockDelay : value;
   }
 }
 

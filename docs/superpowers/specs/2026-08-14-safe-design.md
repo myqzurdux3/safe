@@ -263,6 +263,12 @@ Le réglage vit dans `settings.json`, en clair à côté du coffre: il ne dit ri
 du contenu, et le chiffrer imposerait de déverrouiller le coffre avant de
 pouvoir protéger l'écran.
 
+Le délai de verrouillage y est conservé aussi (ajouté le 2026-08-16). Comme le
+fichier est en clair et modifiable, la valeur relue est bornée entre 30 s et
+5 min: éditer `settings.json` à la main ne permet pas de garder le coffre
+ouvert des heures. Une valeur absente, d'un type inattendu ou hors bornes
+retombe sur 2 min.
+
 Sous Linux, il n'existe pas d'équivalent: l'appel natif est absent et le canal
 retombe silencieusement. Quelqu'un capable de capturer l'écran y est déjà
 devant la session déverrouillée. Reste hors couverture: un

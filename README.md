@@ -15,7 +15,8 @@ maître, et rien ne quitte l'appareil.
 - Copier une valeur; le presse-papier est effacé 30 s plus tard
 - Bloquer les captures d'écran et vider la vignette des applications récentes
   (Android). Actif par défaut, désactivable dans les réglages
-- Verrouiller automatiquement après inactivité (30 s à 5 min, 2 min par défaut).
+- Verrouiller automatiquement après inactivité (30 s à 5 min, 2 min par défaut,
+  choix conservé d'un lancement à l'autre).
   Le temps passé en arrière-plan compte comme de l'inactivité, mais changer
   d'application ne verrouille pas en soi. La frappe compte comme une activité,
   et le verrouillage ferme les écrans ouverts

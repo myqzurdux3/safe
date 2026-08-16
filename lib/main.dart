@@ -23,10 +23,13 @@ Future<void> main() async {
   final blobs = BlobFileStore(Directory('${directory.path}/blobs'));
   final clipboard = SecureClipboard();
 
-  // Le natif démarre en mode bloqué; on ne le relâche que si l'utilisateur l'a
-  // explicitement demandé, une fois les réglages lus.
+  // Réglages lus avant de construire quoi que ce soit: le délai de
+  // verrouillage doit être le bon dès la première seconde.
   final settings = SettingsFile(directory);
   final loaded = await settings.read();
+
+  // Le natif démarre en mode bloqué; on ne le relâche que si l'utilisateur l'a
+  // explicitement demandé.
   if (!loaded.blockScreenshots) {
     await const ScreenSecurity().setBlocked(false);
   }
@@ -38,6 +41,7 @@ Future<void> main() async {
         storage: storage,
         blobs: blobs,
         clipboard: clipboard,
+        autoLockDelay: loaded.autoLockDelay,
       ),
       transfer: VaultTransfer(crypto: crypto, storage: storage),
       clipboard: clipboard,

@@ -54,9 +54,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.initState();
     widget.settings?.read().then((loaded) {
       if (mounted) {
-        setState(() => _settings = loaded);
+        setState(() {
+          _settings = loaded;
+          // La session peut avoir été construite avant la lecture des
+          // réglages: on la remet d'accord avec le fichier.
+          widget.session.autoLockDelay = loaded.autoLockDelay;
+        });
       }
     });
+  }
+
+  Future<void> _setAutoLockDelay(Duration value) async {
+    final updated = _settings.copyWith(autoLockDelay: value);
+    setState(() {
+      _settings = updated;
+      widget.session.autoLockDelay = value;
+    });
+    await widget.settings?.write(updated);
   }
 
   Future<void> _setBlockScreenshots(bool blocked) async {
@@ -205,7 +219,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
               onChanged: (value) {
                 if (value != null) {
-                  setState(() => widget.session.autoLockDelay = value);
+                  _setAutoLockDelay(value);
                 }
               },
             ),
