@@ -91,11 +91,15 @@ rm -rf ~/.local/lib/safe ~/.local/bin/safe \
 
 | Plateforme | Coffre |
 |---|---|
-| Linux | `~/.local/share/safe/` (`vault.safe`, `vault.safe.bak`, `blobs/`) |
+| Linux | `~/.local/share/safe/` (`vault.safe`, `vault.safe.bak`, `blobs/`, `settings.json`) |
 | Android | répertoire privé de l'app, illisible sans root |
 
-Sauvegarde Linux: copier tout le dossier `~/.local/share/safe/`. Le contenu
-est chiffré, une copie sur clé USB ou disque externe ne l'expose pas.
+Sauvegarde Linux: copier tout le dossier `~/.local/share/safe/`. Le coffre et
+les pièces jointes sont chiffrés, une copie sur clé USB ou disque externe ne
+les expose pas. Seul `settings.json` est en clair: il ne contient que des
+préférences (blocage des captures d'écran, délai de verrouillage), aucun
+secret. Le supprimer fait repartir sur les valeurs par défaut, qui sont les
+plus protectrices.
 
 Android n'offre aucun accès à ces fichiers (`adb pull` échoue, l'app n'est pas
 debuggable — c'est voulu). La seule sauvegarde possible est Réglages →
