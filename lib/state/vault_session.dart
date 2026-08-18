@@ -118,7 +118,7 @@ class VaultSession extends ChangeNotifier {
   /// Crée un coffre vide protégé par [password] et ouvre la session.
   Future<void> create(String password) async {
     final salt = _crypto.newSalt();
-    final key = _crypto.deriveKey(password, salt, _kdfParams);
+    final key = await _crypto.deriveKeyAsync(password, salt, _kdfParams);
     final empty = Vault.empty;
     final generation = _generation;
     try {
@@ -141,7 +141,11 @@ class VaultSession extends ChangeNotifier {
   Future<void> unlock(String password) async {
     final bytes = await _storage.read();
     final header = VaultHeader.parse(bytes);
-    final key = _crypto.deriveKey(password, header.salt, header.params);
+    final key = await _crypto.deriveKeyAsync(
+      password,
+      header.salt,
+      header.params,
+    );
     final Vault opened;
     try {
       opened = _crypto.openWithKey(bytes, key);
@@ -233,13 +237,20 @@ class VaultSession extends ChangeNotifier {
   /// par la file. Un verrouillage pendant l'écriture ne l'annule donc pas — le
   /// nouveau mot de passe est bien celui du fichier — mais ne rouvre pas la
   /// session.
-  Future<void> changePassword(String newPassword) {
-    final current = _vault;
-    if (current == null) {
+  Future<void> changePassword(String newPassword) async {
+    if (_vault == null) {
       throw StateError('Le coffre est verrouillé');
     }
     final salt = _crypto.newSalt();
-    final key = _crypto.deriveKey(newPassword, salt, _kdfParams);
+    final generation = _generation;
+    // La dérivation est longue: le coffre peut être verrouillé pendant. Rien
+    // n'ayant encore été écrit, on abandonne franchement.
+    final key = await _crypto.deriveKeyAsync(newPassword, salt, _kdfParams);
+    final current = _vault;
+    if (generation != _generation || current == null) {
+      key.dispose();
+      throw StateError('Le coffre est verrouillé');
+    }
     final Uint8List sealed;
     try {
       sealed = _crypto.seal(current, key, salt, _kdfParams);
@@ -247,7 +258,6 @@ class VaultSession extends ChangeNotifier {
       key.dispose();
       rethrow;
     }
-    final generation = _generation;
     return _serialized(() async {
       try {
         // Pas de copie de l'ancienne génération: l'ancien mot de passe

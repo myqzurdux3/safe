@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:sodium/sodium_sumo.dart';
@@ -172,15 +173,56 @@ class BlobHeader {
   }
 }
 
+/// Dérivation exécutée dans un isolat neuf.
+///
+/// Fonction de premier niveau: `Isolate.run` ne peut pas emporter d'objet natif,
+/// donc libsodium est ré-initialisée ici. Le coût de cette initialisation est
+/// négligeable devant celui d'Argon2id.
+Future<Uint8List> _deriveInIsolate(
+  String password,
+  Uint8List salt,
+  int opsLimit,
+  int memLimit,
+  int outLen,
+) async {
+  final sodium = await SodiumSumoInit.init();
+  final passwordBytes = Int8List.fromList(utf8.encode(password));
+  final SecureKey key;
+  try {
+    key = sodium.crypto.pwhash(
+      outLen: outLen,
+      password: passwordBytes,
+      salt: salt,
+      opsLimit: opsLimit,
+      memLimit: memLimit,
+      alg: CryptoPwhashAlgorithm.argon2id13,
+    );
+  } finally {
+    passwordBytes.fillRange(0, passwordBytes.length, 0);
+  }
+  try {
+    return key.extractBytes();
+  } finally {
+    key.dispose();
+  }
+}
+
 /// Chiffrement du coffre: Argon2id pour la dérivation, XChaCha20-Poly1305 pour
 /// le contenu.
 ///
 /// Ne touche jamais au disque: elle prend et rend des octets. C'est ce qui la
 /// rend testable sans système de fichiers, et lisible d'un seul tenant.
 class VaultCrypto {
-  VaultCrypto(this._sodium);
+  VaultCrypto(this._sodium, {this.useIsolate = true});
 
   final SodiumSumo _sodium;
+
+  /// Dériver dans un isolat séparé, plutôt que sur place.
+  ///
+  /// `false` dans les tests de widgets: ils tournent sous une horloge simulée où
+  /// un isolat ne rend jamais sa réponse. Le chemin isolat a ses propres tests,
+  /// qui vérifient qu'il produit exactement la même clé.
+  final bool useIsolate;
 
   Aead get _aead => _sodium.crypto.aeadXChaCha20Poly1305IETF;
 
@@ -212,6 +254,39 @@ class VaultCrypto {
       );
     } finally {
       passwordBytes.fillRange(0, passwordBytes.length, 0);
+    }
+  }
+
+  /// Dérive la clé sans bloquer l'isolat appelant.
+  ///
+  /// Argon2id à 128 Mio sur 3 passes prend de l'ordre d'une seconde et alloue
+  /// 128 Mio: exécuté sur l'isolat qui dessine l'interface, il gèle l'écran et
+  /// expose l'application à une mise à mort pour non-réponse par Android.
+  ///
+  /// Contrepartie assumée: les 32 octets de la clé traversent un port de
+  /// message, donc du tas ordinaire, avant d'être recopiés dans la mémoire
+  /// verrouillée d'une [SecureKey]. Le tampon de transit est remis à zéro juste
+  /// après; sa copie côté isolat, elle, n'est pas effaçable. Rester sur l'isolat
+  /// d'interface évitait cette exposition, au prix d'un gel d'une seconde à
+  /// chaque déverrouillage — et d'un risque d'arrêt forcé pendant une écriture.
+  Future<SecureKey> deriveKeyAsync(
+    String password,
+    Uint8List salt,
+    KdfParams params,
+  ) async {
+    if (!useIsolate) {
+      return deriveKey(password, salt, params);
+    }
+    final opsLimit = params.opsLimit;
+    final memLimit = params.memLimit;
+    final outLen = _aead.keyBytes;
+    final raw = await Isolate.run(
+      () => _deriveInIsolate(password, salt, opsLimit, memLimit, outLen),
+    );
+    try {
+      return SecureKey.fromList(_sodium, raw);
+    } finally {
+      raw.fillRange(0, raw.length, 0);
     }
   }
 

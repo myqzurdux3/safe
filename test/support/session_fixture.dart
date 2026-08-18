@@ -130,8 +130,11 @@ class MemorySettingsStore implements SettingsStore {
 VaultCrypto? _crypto;
 
 /// Initialise libsodium une seule fois pour toute la suite.
+/// `useIsolate: false`: les tests de widgets tournent sous une horloge simulée
+/// où un isolat ne rend jamais sa réponse. Le chemin isolat a ses propres tests,
+/// dans `test/crypto/derive_isolate_test.dart`.
 Future<VaultCrypto> testCrypto() async =>
-    _crypto ??= VaultCrypto(await SodiumSumoInit.init());
+    _crypto ??= VaultCrypto(await SodiumSumoInit.init(), useIsolate: false);
 
 /// Une session adossée à un coffre en mémoire.
 ///

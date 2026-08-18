@@ -51,16 +51,38 @@ void main() {
   );
 
   test(
-    'un verrouillage pendant un changement de mot de passe ne rouvre pas',
+    'un verrouillage pendant la dérivation abandonne le changement',
     () async {
-      final gate = Completer<void>();
-      store.gate = gate;
+      // La dérivation Argon2id tourne hors de l'isolat d'interface et prend de
+      // l'ordre d'une seconde: le coffre peut être verrouillé pendant. Rien
+      // n'ayant encore été écrit, on abandonne franchement plutôt que de
+      // ré-chiffrer le fichier pour une session déjà fermée.
       final pending = session.changePassword('nouveaumotdepasse');
+      session.lock();
 
+      await expectLater(pending, throwsStateError);
+      expect(session.isUnlocked, isFalse);
+
+      // L'ancien mot de passe ouvre toujours le coffre: rien n'a bougé.
+      await session.unlock(testPassword);
+      expect(session.isUnlocked, isTrue);
+    },
+  );
+
+  test(
+    'un verrouillage pendant l\'écriture du nouveau mot de passe ne rouvre pas',
+    () async {
+      // La dérivation est passée; l'écriture, elle, va au bout — le fichier
+      // porte donc le nouveau mot de passe — mais la session reste fermée.
+      final gate = Completer<void>();
+      final pending = session.changePassword('nouveaumotdepasse');
+      await Future<void>.delayed(Duration.zero);
+      store.gate = gate;
+      await Future<void>.delayed(Duration.zero);
       session.lock();
       store.gate = null;
       gate.complete();
-      await pending;
+      await pending.catchError((_) {});
 
       expect(session.isUnlocked, isFalse);
     },
