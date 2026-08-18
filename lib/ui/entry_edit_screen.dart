@@ -141,6 +141,11 @@ class _EntryEditScreenState extends State<EntryEditScreen> {
               // La frappe est souvent la seule activité pendant une saisie
               // longue: sans cela, le coffre se verrouille sous les doigts.
               onChanged: (_) => widget.session.touch(),
+              // Le clavier ne doit rien apprendre de ce qu'on tape ici: un nom
+              // de clef est chiffré dans le coffre, il n'a pas à ressortir dans
+              // les suggestions d'une autre application.
+              autocorrect: false,
+              enableSuggestions: false,
               decoration: const InputDecoration(
                 labelText: 'Clef',
                 helperText: 'Par exemple: gmail, banque, wifi maison',
@@ -179,6 +184,12 @@ class _EntryEditScreenState extends State<EntryEditScreen> {
                 maxLines: null,
                 minLines: 3,
                 keyboardType: TextInputType.multiline,
+                // Ce champ montre le secret en clair — c'est voulu, une valeur
+                // multiligne doit être relisible. Mais il ne doit pas nourrir
+                // le dictionnaire personnel du clavier: `obscureText`, qui
+                // coupe cet apprentissage ailleurs, n'est pas utilisable ici.
+                autocorrect: false,
+                enableSuggestions: false,
                 decoration: InputDecoration(
                   labelText: 'Valeur',
                   helperText: 'Les retours à la ligne sont conservés',

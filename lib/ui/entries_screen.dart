@@ -187,6 +187,10 @@ class _EntriesScreenState extends State<EntriesScreen> {
             child: TextField(
               key: const Key('search'),
               controller: _searchController,
+              // On y tape des noms de clefs, qui sont chiffrés dans le coffre:
+              // le clavier n'a pas à les apprendre.
+              autocorrect: false,
+              enableSuggestions: false,
               decoration: const InputDecoration(
                 hintText: 'Rechercher une clef',
                 prefixIcon: Icon(Icons.search),
