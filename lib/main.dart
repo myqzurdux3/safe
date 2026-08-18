@@ -68,6 +68,27 @@ class SafeApp extends StatelessWidget {
   Widget build(BuildContext context) => MaterialApp(
     title: 'safe',
     debugShowCheckedModeBanner: false,
+    // Le détecteur d'activité est posé ici, et non dans `VaultGate`: `home:`
+    // est *à l'intérieur* de la première route du `Navigator`, alors que les
+    // écrans empilés — édition, réglages, dialogues, générateur, visionneuse —
+    // en sont des frères dans l'`Overlay`. Un détecteur placé plus bas ne
+    // voyait donc rien de ce qui s'y passait, et le coffre se verrouillait
+    // sous les doigts. `builder` enveloppe le `Navigator` entier.
+    builder: (context, child) => Focus(
+      canRequestFocus: false,
+      // Les frappes remontent jusqu'ici depuis le champ qui a le focus:
+      // clavier matériel comme logiciel, toute frappe vaut activité.
+      onKeyEvent: (_, _) {
+        session.touch();
+        return KeyEventResult.ignored;
+      },
+      child: Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerDown: (_) => session.touch(),
+        onPointerSignal: (_) => session.touch(),
+        child: child ?? const SizedBox.shrink(),
+      ),
+    ),
     theme: ThemeData(
       colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2F6F4E)),
       useMaterial3: true,
@@ -91,9 +112,8 @@ class SafeApp extends StatelessWidget {
 /// Aiguillage entre l'écran de verrou et la liste, et point d'ancrage du
 /// verrouillage automatique.
 ///
-/// C'est ici que passent les deux signaux qui repoussent ou déclenchent le
-/// verrouillage: les événements pointeur (activité) et le cycle de vie de
-/// l'application (départ en arrière-plan).
+/// C'est ici que passe le cycle de vie de l'application. Les signaux
+/// d'activité, eux, sont captés plus haut, au-dessus du `Navigator`.
 class VaultGate extends StatefulWidget {
   const VaultGate({
     required this.session,
@@ -156,39 +176,25 @@ class _VaultGateState extends State<VaultGate> with WidgetsBindingObserver {
   }
 
   @override
-  Widget build(BuildContext context) => Focus(
-    canRequestFocus: false,
-    // Les frappes remontent jusqu'ici depuis le champ qui a le focus: clavier
-    // matériel comme logiciel, toute frappe vaut activité.
-    onKeyEvent: (_, _) {
-      widget.session.touch();
-      return KeyEventResult.ignored;
-    },
-    child: Listener(
-      behavior: HitTestBehavior.translucent,
-      onPointerDown: (_) => widget.session.touch(),
-      onPointerSignal: (_) => widget.session.touch(),
-      child: widget.session.isUnlocked
-        ? EntriesScreen(
-            session: widget.session,
-            clipboard: widget.clipboard,
-            transfer: widget.transfer,
-            settings: widget.settings,
-          )
-        : FutureBuilder<bool>(
-            future: _vaultExists,
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) {
-                return const Scaffold(
-                  body: Center(child: CircularProgressIndicator()),
-                );
-              }
-              return UnlockScreen(
-                session: widget.session,
-                isCreation: !snapshot.data!,
-                );
-              },
-            ),
-    ),
-  );
+  Widget build(BuildContext context) => widget.session.isUnlocked
+      ? EntriesScreen(
+          session: widget.session,
+          clipboard: widget.clipboard,
+          transfer: widget.transfer,
+          settings: widget.settings,
+        )
+      : FutureBuilder<bool>(
+          future: _vaultExists,
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) {
+              return const Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              );
+            }
+            return UnlockScreen(
+              session: widget.session,
+              isCreation: !snapshot.data!,
+            );
+          },
+        );
 }
