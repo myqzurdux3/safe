@@ -134,6 +134,7 @@ class VaultGate extends StatefulWidget {
 
 class _VaultGateState extends State<VaultGate> with WidgetsBindingObserver {
   late Future<bool> _vaultExists;
+  late bool _etaitOuvert = widget.session.isUnlocked;
 
   @override
   void initState() {
@@ -159,20 +160,41 @@ class _VaultGateState extends State<VaultGate> with WidgetsBindingObserver {
     if (!mounted) {
       return;
     }
-    // Un écran empilé (édition, réglages) survivrait au verrouillage et
-    // resterait affiché par-dessus l'écran de verrou: on le dépile.
-    if (!widget.session.isUnlocked) {
-      final navigator = Navigator.maybeOf(context);
-      if (navigator != null && navigator.canPop()) {
-        navigator.popUntil((route) => route.isFirst);
-      }
+    final ouvert = widget.session.isUnlocked;
+    final vientDeFermer = _etaitOuvert && !ouvert;
+    _etaitOuvert = ouvert;
+
+    if (!ouvert) {
+      // Un écran empilé (édition, réglages) survivrait au verrouillage et
+      // resterait affiché par-dessus l'écran de verrou: on le dépile. Après la
+      // frame, pour que les écrans concernés aient d'abord pu réagir au
+      // verrouillage — l'écran d'édition efface sa saisie et lève sa garde de
+      // sortie à ce moment-là.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+        final navigator = Navigator.maybeOf(context);
+        if (navigator != null && navigator.canPop()) {
+          navigator.popUntil((route) => route.isFirst);
+        }
+      });
     }
-    // Corps en bloc, pas en flèche: une lambda en flèche rend la valeur
-    // assignée, donc un Future, ce que setState refuse.
-    final exists = widget.session.vaultExists();
-    setState(() {
-      _vaultExists = exists;
-    });
+
+    if (vientDeFermer) {
+      // Relu seulement ici: cette valeur ne sert qu'à l'écran de verrou, et la
+      // relire à chaque notification faisait un accès disque par sauvegarde,
+      // plus une reconstruction complète de la liste par-dessus la sienne.
+      //
+      // Corps en bloc, pas en flèche: une lambda en flèche rend la valeur
+      // assignée, donc un Future, ce que setState refuse.
+      final exists = widget.session.vaultExists();
+      setState(() {
+        _vaultExists = exists;
+      });
+      return;
+    }
+    setState(() {});
   }
 
   @override

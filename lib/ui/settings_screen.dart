@@ -12,14 +12,6 @@ import '../storage/vault_transfer.dart';
 import '../util/screen_security.dart';
 import 'unlock_screen.dart';
 
-/// Délais d'inactivité proposés avant verrouillage automatique.
-const List<Duration> autoLockChoices = [
-  Duration(seconds: 30),
-  Duration(minutes: 1),
-  Duration(minutes: 2),
-  Duration(minutes: 5),
-];
-
 /// Réglages: mot de passe maître, délai de verrouillage, export et import.
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
@@ -245,14 +237,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ListTile(
             leading: const Icon(Icons.timer_outlined),
             title: const Text('Verrouillage automatique'),
+            // Les deux affichages tirent du même champ: sinon le sous-titre
+            // annonçait un délai que la liste ne montrait pas.
             subtitle: Text(
-              'Après ${_label(widget.session.autoLockDelay)} sans activité',
+              'Après ${_label(_settings.autoLockDelay)} sans activité',
             ),
             trailing: DropdownButton<Duration>(
               key: const Key('auto-lock'),
-              value: autoLockChoices.contains(widget.session.autoLockDelay)
-                  ? widget.session.autoLockDelay
-                  : autoLockChoices[2],
+              value: _settings.autoLockDelay,
               items: [
                 for (final choice in autoLockChoices)
                   DropdownMenuItem(value: choice, child: Text(_label(choice))),

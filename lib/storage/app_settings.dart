@@ -1,10 +1,23 @@
 import 'dart:convert';
 import 'dart:io';
 
-/// Bornes du délai de verrouillage automatique.
+/// Délais d'inactivité proposés avant verrouillage automatique.
 ///
-/// Elles servent à valider ce qui est relu du disque: un fichier modifié à la
-/// main ne doit pas pouvoir garder le coffre ouvert indéfiniment.
+/// Seule liste qui fasse foi: c'est elle que l'écran de réglages affiche, et
+/// c'est à elle que tout délai relu du disque est ramené. Deux sources
+/// donnaient auparavant deux vérités pour un même réglage — le sous-titre
+/// affichait « Après 45 s » avec « 2 min » sélectionné dans la liste.
+const List<Duration> autoLockChoices = [
+  Duration(seconds: 30),
+  Duration(minutes: 1),
+  Duration(minutes: 2),
+  Duration(minutes: 5),
+];
+
+/// Bornes du délai, déduites des choix.
+///
+/// Elles valident ce qui est relu du disque: un fichier modifié à la main ne
+/// doit pas pouvoir garder le coffre ouvert indéfiniment.
 const Duration minAutoLockDelay = Duration(seconds: 30);
 const Duration maxAutoLockDelay = Duration(minutes: 5);
 const Duration defaultAutoLockDelay = Duration(minutes: 2);
@@ -56,12 +69,18 @@ class AppSettings {
     );
   }
 
-  /// Ramène un délai relu du disque entre les bornes autorisées.
+  /// Ramène un délai relu du disque à l'un des [autoLockChoices].
+  ///
+  /// Vers le bas: entre deux choix, on retient le plus court, celui qui
+  /// protège le plus.
   static Duration _clampDelay(Duration value) {
-    if (value < minAutoLockDelay) {
-      return minAutoLockDelay;
+    var retenu = autoLockChoices.first;
+    for (final choice in autoLockChoices) {
+      if (value >= choice) {
+        retenu = choice;
+      }
     }
-    return value > maxAutoLockDelay ? maxAutoLockDelay : value;
+    return retenu;
   }
 }
 
