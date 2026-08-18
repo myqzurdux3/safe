@@ -30,6 +30,12 @@ class _EntryEditScreenState extends State<EntryEditScreen> {
   String? _error;
   bool _busy = false;
 
+  /// La saisie diffère-t-elle de ce qui est enregistré ?
+  ///
+  /// Sert à ne pas jeter silencieusement une saisie en cours sur un retour
+  /// arrière — c'est le geste le plus facile à faire par erreur.
+  bool _dirty = false;
+
   /// Masquée par défaut sur une entrée existante; révélée en création, où il
   /// n'y a encore aucun secret à l'écran et où l'utilisateur va taper.
   late bool _obscure = widget.existing != null;
@@ -37,31 +43,88 @@ class _EntryEditScreenState extends State<EntryEditScreen> {
   bool get _isCreation => widget.existing == null;
 
   @override
+  void initState() {
+    super.initState();
+    widget.session.addListener(_onSession);
+  }
+
+  @override
   void dispose() {
+    widget.session.removeListener(_onSession);
     _keyController.dispose();
     _valueController.dispose();
     super.dispose();
+  }
+
+  /// Au verrouillage, l'écran efface sa saisie et cesse de retenir le retour.
+  ///
+  /// Sans cela, la confirmation d'abandon bloquerait le dépilement déclenché
+  /// par le verrouillage, et le contenu en clair resterait affiché par-dessus
+  /// l'écran de verrou. Effacer les champs enlève aussi le clair de l'écran
+  /// avant même que la route ne disparaisse.
+  void _onSession() {
+    if (!mounted || widget.session.isUnlocked) {
+      return;
+    }
+    _keyController.clear();
+    _valueController.clear();
+    setState(() {
+      _dirty = false;
+      // Dit franchement ce qui vient de se passer: la saisie est perdue, et
+      // elle ne peut pas être gardée — ce serait garder du clair à l'écran et
+      // en mémoire pendant que le coffre est fermé.
+      _error = 'Le coffre s\'est verrouillé: la saisie a été effacée';
+    });
+  }
+
+  void _marquerModifie() {
+    widget.session.touch();
+    if (!_dirty) {
+      setState(() => _dirty = true);
+    }
+  }
+
+  /// Demande confirmation avant de jeter une saisie en cours.
+  Future<bool> _confirmerAbandon() async {
+    final abandonner = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Abandonner les modifications ?'),
+        content: const Text('La saisie en cours ne sera pas enregistrée.'),
+        actions: [
+          TextButton(
+            key: const Key('cancel-discard'),
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Continuer la saisie'),
+          ),
+          FilledButton(
+            key: const Key('confirm-discard'),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Abandonner'),
+          ),
+        ],
+      ),
+    );
+    return abandonner ?? false;
   }
 
   Future<void> _save() async {
     if (_busy) {
       return;
     }
+    // Le verrouillage se vérifie avant la saisie: c'est la vraie cause, et
+    // signaler d'abord une clef vide — que le verrouillage vient justement
+    // d'effacer — enverrait l'utilisateur sur une fausse piste.
+    final vault = widget.session.vault;
+    if (vault == null) {
+      setState(
+        () => _error = 'Le coffre s\'est verrouillé: rien n\'a été enregistré',
+      );
+      return;
+    }
     final key = _keyController.text.trim();
     if (key.isEmpty) {
       setState(() => _error = 'La clef ne peut pas être vide');
-      return;
-    }
-    final vault = widget.session.vault;
-    if (vault == null) {
-      // Le coffre a pu se verrouiller pendant la saisie. Se taire ici donnerait
-      // un bouton « Enregistrer » sans effet, et l'utilisateur croirait avoir
-      // enregistré.
-      setState(
-        () => _error =
-            'Le coffre s\'est verrouillé pendant la saisie. Déverrouillez-le, '
-            'puis enregistrez de nouveau.',
-      );
       return;
     }
     final collision = vault.entries.any(
@@ -129,6 +192,22 @@ class _EntryEditScreenState extends State<EntryEditScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    return PopScope(
+      canPop: !_dirty,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) {
+          return;
+        }
+        final navigator = Navigator.of(context);
+        if (await _confirmerAbandon() && mounted) {
+          navigator.pop();
+        }
+      },
+      child: _corps(theme),
+    );
+  }
+
+  Widget _corps(ThemeData theme) {
     return Scaffold(
       appBar: AppBar(
         title: Text(_isCreation ? 'Nouvelle entrée' : 'Modifier l\'entrée'),
@@ -144,7 +223,7 @@ class _EntryEditScreenState extends State<EntryEditScreen> {
               autofocus: _isCreation,
               // La frappe est souvent la seule activité pendant une saisie
               // longue: sans cela, le coffre se verrouille sous les doigts.
-              onChanged: (_) => widget.session.touch(),
+              onChanged: (_) => _marquerModifie(),
               // Le clavier ne doit rien apprendre de ce qu'on tape ici: un nom
               // de clef est chiffré dans le coffre, il n'a pas à ressortir dans
               // les suggestions d'une autre application.
@@ -184,7 +263,7 @@ class _EntryEditScreenState extends State<EntryEditScreen> {
               TextField(
                 key: const Key('value'),
                 controller: _valueController,
-                onChanged: (_) => widget.session.touch(),
+                onChanged: (_) => _marquerModifie(),
                 maxLines: null,
                 minLines: 3,
                 keyboardType: TextInputType.multiline,
