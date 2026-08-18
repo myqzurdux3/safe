@@ -22,6 +22,8 @@ maître, et rien ne quitte l'appareil.
   activité, sur tous les écrans. Le verrouillage ferme les écrans ouverts et
   efface une saisie en cours
 - Exporter et importer le coffre chiffré, pour transférer entre appareils
+- Restaurer l'état d'avant la dernière modification, depuis la copie conservée
+  à côté du coffre
 
 Pas de compte, pas de serveur, pas de synchronisation automatique, pas de
 remplissage de formulaires.
@@ -40,6 +42,9 @@ remplissage de formulaires.
 | Écritures concurrentes | Sérialisées: une sauvegarde ne peut pas écraser la modification d'une autre |
 | Sauvegarde Android | Désactivée (`allowBackup="false"`): ni Google Drive, ni transfert d'appareil à appareil |
 | Clavier | `autocorrect` et `enableSuggestions` coupés sur les champs de saisie: le dictionnaire du clavier n'apprend pas les secrets |
+| Presse-papier | Marqué sensible (`EXTRA_IS_SENSITIVE`): pas d'aperçu système, pas d'entrée dans l'historique du clavier |
+| Dérivation | Exécutée dans un isolat séparé: l'interface ne gèle pas, et Android ne tue pas l'app pour non-réponse |
+| Droits des fichiers | Dossier du coffre en `0700` sous Linux: les autres comptes de la machine n'y accèdent pas |
 
 **Le mot de passe maître ne peut pas être récupéré.** Il n'existe ni question
 secrète, ni clef de secours, ni porte dérobée: perdre le mot de passe, c'est
@@ -90,6 +95,9 @@ Un seul dossier, cinq choses dedans:
 | `blobs/<id>.blob` | le contenu d'une pièce jointe | oui |
 | `blobs/orphelins/` | pièces jointes qu'aucune entrée ne référence plus | oui |
 | `settings.json` | blocage des captures d'écran, délai de verrouillage | **non** — aucun secret |
+
+Le dossier est créé en `0700`: sous Linux, aucun autre compte de la machine n'y
+accède.
 
 Sauvegarder revient à copier le dossier: le contenu reste chiffré, une copie sur
 une clé USB ne l'expose pas.
@@ -191,6 +199,16 @@ que ce soit.
 
 ## Licence
 
-**Aucune licence n'est déclarée pour l'instant**, ce qui vaut « tous droits
-réservés »: personne d'autre n'a le droit de réutiliser ce code. À trancher —
-c'est un choix qui appartient à l'auteur, pas à un outil.
+[MIT](LICENSE).
+
+Le code hérité du gabarit `flutter create` — dossiers `android/` et `linux/`,
+hors les fichiers listés dans la structure ci-dessus — vient du projet Flutter et
+reste sous sa licence BSD à trois clauses.
+
+## Avertissement
+
+Projet personnel, écrit et audité mais **jamais audité par un tiers**. Le
+chiffrement repose sur libsodium, ce qui est solide; l'assemblage autour, lui,
+n'a pas été relu par quelqu'un d'autre que son auteur et un outil. Les limites
+connues sont listées dans [AUDIT.md](AUDIT.md). Ne confiez pas à ce logiciel des
+secrets dont la perte serait grave sans en garder une copie ailleurs.

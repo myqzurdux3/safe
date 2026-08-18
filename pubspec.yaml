@@ -1,6 +1,6 @@
 name: safe
 description: "Coffre clef/valeur chiffré, hors ligne, pour Android et Linux."
-# Application privée: jamais publiée sur pub.dev.
+# Application, pas paquet: rien à publier sur pub.dev.
 publish_to: 'none'
 
 # versionName + versionCode côté Android.
@@ -16,6 +16,8 @@ dependencies:
   file_selector: ^1.1.0
   share_plus: ^13.3.0
   sodium: ^4.0.4
+  # Normalisation Unicode: le SDK n'en fournit aucune, et sans elle deux
+  # écritures d'une même clef accentuée font deux entrées indistinguables.
   unorm_dart: ^0.3.2
 
 dev_dependencies:
