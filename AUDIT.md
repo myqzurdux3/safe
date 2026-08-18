@@ -1,6 +1,10 @@
 # Audit de `safe`
 
-Audit mené le 2026-08-18 sur `master` à partir du commit `f654a5b`.
+Audit mené le 2026-08-18 sur `master`, à partir du commit `f654a5b`.
+
+Les phases suivent la commande reçue: cartographie, recherche de défauts en
+lecture seule, code mort, corrections, structure, documentation, hygiène. La
+section qui compte est **« Ce qui n'a pas été fait, et pourquoi »**, à la fin.
 
 ## Phase 0 — Cartographie
 
@@ -173,3 +177,276 @@ Dit explicitement, pour que l'absence de ligne dans le tableau ne se lise pas co
 - **Aucun `TODO`/`FIXME`/`HACK`** dans `lib/`, aucun `print`.
 - **Réfuté**: le coffre n'est **pas** réécrit à chaque frappe. `onChanged` ne fait qu'un `touch()`; seule la validation explicite sauvegarde.
 
+## Phase 2 — Code mort et dépendances
+
+Commit: `0a72516`.
+
+### Supprimé, preuve à l'appui
+
+| Élément | Preuve de non-usage |
+|---|---|
+| dépendance `cupertino_icons` | `grep -rni cupertino lib test` → aucune ligne. Reste du template `flutter create`. |
+| `SafeLogo.color` | `grep -rn 'SafeLogo(' lib test` → 3 appels, aucun ne passe `color`; la branche de repli était la seule vivante. |
+| `MemorySettingsStore` déplacée de `lib/` vers `test/support/` | Aucune référence dans `lib/`, 7 dans `test/ui/`. Elle était livrée dans le binaire. Rejoint `MemoryVaultStore` et `MemoryBlobStore`, qui vivaient déjà là. |
+| `VaultHeader.nonceLength` | Aucune référence hors de sa déclaration. **Pas supprimée**: `length` est maintenant calculée à partir d'elle, ce qui empêche la taille de l'en-tête de dériver de la disposition réelle des champs. |
+| ~40 lignes de commentaires du template dans `pubspec.yaml` et `analysis_options.yaml` | Boilerplate `flutter create` jamais édité (commit `19da785`). |
+| `TODO` sur l'`applicationId` dans `build.gradle.kts` | Faux depuis longtemps: l'identifiant **est** personnalisé (commit `19da785`). |
+| `safe.iml`, `android/safe_android.iml`, `coverage/lcov.info` | Fichiers d'éditeur et artefact de build, cessent d'être suivis (commits `19da785`, `44f54ad`). |
+
+### Mort en apparence, gardé sciemment
+
+La règle « pas de modification sans gain mesurable » vaut aussi pour les
+suppressions. Ces éléments ne sont référencés que par les tests, ou pas du tout,
+et sont restés:
+
+| Élément | Pourquoi |
+|---|---|
+| `VaultCrypto.sealWithPassword` | 16 usages, tous dans les tests. Supprimer imposerait de réécrire ces 16 tests pour un gain nul. |
+| `SettingsScreen.screen`, `SecureClipboard.clearAfter`, `generatePassword(random:)` | Points d'injection. En supprimer un ne fait rien gagner et coûte en testabilité — `SettingsScreen.screen` a d'ailleurs servi ensuite, pour tester un blocage d'écran refusé (`eee4757`). |
+| branches `Platform.isIOS` | Inatteignables (pas de dossier `ios/`), mais inoffensives; les retirer serait du bruit dans l'historique. |
+| `assets/icon/safe_64.png`, `safe_128.png`, `safe_512.png` | Non déclarés dans `pubspec.yaml`, mais régénérés par `tool/generate_icons.py` à chaque exécution: les supprimer ne tient pas. |
+| `VaultAttachment.created` | Jamais affiché, mais sérialisé dans le JSON: le retirer changerait le format des coffres existants. |
+
+### Dépendances
+
+`flutter pub outdated`: « all up-to-date » pour les dépendances directes. Huit
+paquets transitifs sont en retard, tous épinglés par les contraintes du SDK
+Flutter, aucun à surface de sécurité. Aucune dépendance utilisée sans être
+déclarée. `pubspec.lock` versionné et cohérent.
+
+## Phase 3 — Corrections
+
+Un commit par correctif, test rouge d'abord. Quand la correction a précédé le
+test (un seul lot, celui des échecs silencieux d'interface), le test a été
+vérifié rouge à rebours, en remisant `lib/` avec `git stash` — c'est dit dans le
+message de commit concerné.
+
+| Gravité | Défaut corrigé | Commit |
+|---|---|---|
+| **bloquant** | `lock()` pendant un `save()` en vol rouvrait le coffre: contenu déchiffré réaffiché, clé déjà libérée | `2dbf692` |
+| **bloquant** | Écritures concurrentes sur un `vault.safe.tmp` partagé, et sans ordre: coffre illisible, ou `PathNotFoundException`, ou modification perdue | `edec57a` |
+| majeur | L'activité sur les écrans empilés ne comptait pas: verrouillage sous les doigts | `dcb53c3` |
+| majeur | Traversée de chemin par l'identifiant d'une pièce jointe relu d'un coffre importé | `0fe0828` |
+| majeur | Le clavier Android apprenait les secrets tapés; Auto Backup emportait coffre et pièces jointes | `424cb55` |
+| majeur | L'ancien mot de passe ouvrait encore `vault.safe.bak` après un changement | `bcf563f` |
+| majeur | Presse-papier jamais effacé quand l'app n'a pas le focus — le cas nominal | `aae7bcc` |
+| majeur | Les réglages affichaient des protections sans vérifier qu'elles avaient été obtenues | `eee4757` |
+| majeur | Sept échecs silencieux dans l'interface | `245f8fe` |
+| majeur | Le nettoyage automatique détruisait les pièces jointes après un import | `020ee40` |
+| majeur | `Vault.fromBytes` levait `TypeError`; tri et immuabilité documentés mais non tenus; clefs en doublon perdues toutes les deux | `f6c7d73` |
+| majeur | Bornes Argon2id d'un fichier hostile trop larges; lecture d'une pièce jointe non bornée | `d17f612` |
+| mineur | Réglages écrits non atomiquement; `HOME` absent donnait le chemin littéral `null/...` | `c90f3f0` |
+| mineur | Une saisie en cours partait sans confirmation | `1dc2108` |
+| mineur | Deux vérités pour le délai de verrouillage; un accès disque par sauvegarde | `6301c5c` |
+
+Le correctif clavier et manifeste (`424cb55`) porte le message générique d'un
+hook de sauvegarde automatique qui a committé pendant une coupure de connexion.
+L'historique n'a pas été réécrit pour le renommer, la consigne étant de demander
+d'abord.
+
+## Phases 4 à 6 — Structure, documentation, hygiène
+
+### Formatage et lint
+
+`dart format` n'avait jamais été passé: 29 des 60 fichiers étaient mis en forme à
+la main (`4d97fa9`). La commande de vérification
+`dart format --output=none --set-exit-if-changed lib test` sort maintenant sans
+rien signaler, et fait partie de la vérification continue.
+
+`analysis_options.yaml` gardait 22 lignes de commentaires du template; les quatre
+règles ajoutées au jeu `flutter_lints` sont conservées et leur raison est dite.
+
+### Documentation
+
+`README.md`: l'emplacement des données ne mentionnait ni `settings.json` ni
+`blobs/orphelins/`; il n'y avait aucune section Configuration, aucune mention des
+prérequis, ni contribution ni licence. La contradiction entre `Exec=safe`
+(fichier versionné) et le chemin absolu de `DEPLOY.md` est maintenant expliquée
+au lieu d'être laissée au lecteur.
+
+`DEPLOY.md` (`defd316`): deux affirmations fausses corrigées, et le bloc
+d'installation Linux **exécuté** dans un faux `HOME` jetable pour vérifier qu'il
+marche — `$HOME` remplace un `/home/user/...` codé en dur, ce qui imposait aussi
+de corriger le heredoc, protégé par des quotes et donc sans substitution.
+
+`docs/superpowers/specs/`: mis à jour (voir le commit `docs:` correspondant).
+`docs/superpowers/plans/`: plan d'exécution historique, ni réécrit ni supprimé,
+mais coiffé d'un encadré qui dit qu'il est terminé et que ses signatures d'API
+n'ont plus cours.
+
+### Hygiène du dépôt
+
+Commits `19da785` et `44f54ad`.
+
+| Élément | Avant | Après |
+|---|---|---|
+| `.gitignore` | 6 lignes; `coverage/`, `*.iml`, `.vscode/`, `*.log` absents | complet et commenté |
+| Fichiers d'éditeur suivis | `safe.iml`, `android/safe_android.iml` | plus suivis |
+| Artefact de build suivi | `coverage/lcov.info` | plus suivi |
+| CI | aucune | `.github/workflows/ci.yml`: format, analyse, tests, puis compilation réelle des deux cibles |
+| `CONTRIBUTING.md` | absent | présent |
+| `pubspec.yaml` | `description: "A new Flutter project."` | description réelle, boilerplate retiré |
+| Licence | absente | **toujours absente, volontairement** — voir « À toi de décider » |
+
+### Cloner depuis zéro
+
+Fait réellement, dans un répertoire propre, en ne suivant que le `README.md`:
+
+```
+git clone <dépôt> && cd <dépôt>
+flutter pub get
+dart format --output=none --set-exit-if-changed lib test   → 0 changed
+flutter analyze                                            → No issues found!
+flutter test                                               → 218 tests, All tests passed!
+flutter build linux --release                               → ✓ Built .../bundle/safe
+```
+
+Aucun fichier manquant, aucune étape non documentée.
+
+## Rapport final
+
+### État initial contre état final
+
+| Mesure | Avant (`f654a5b`) | Après | Vérifié par |
+|---|---|---|---|
+| Tests | 159 | **218** | `flutter test` |
+| Couverture de lignes | 79,0 % (923/1168) | **81,7 %** (1080/1322) | `flutter test --coverage` |
+| `flutter analyze` | No issues found! | No issues found! | idem |
+| `dart format` | 29 fichiers non conformes | **0** | `--set-exit-if-changed` |
+| Lignes dans `lib/` | 3 092 | 3 670 | `wc -l` |
+| Lignes dans `test/` | 2 292 | 3 696 | `wc -l` |
+| Dépendances directes | 6 | **5** | `pubspec.yaml` |
+| Fichiers suivis | 101 | 121 | `git ls-files` |
+| Build Linux | OK | OK | `flutter build linux --release` |
+| Build APK release | OK, 52,6 Mio | OK | `flutter build apk --release` |
+| CI | aucune | format + analyse + tests + 2 builds | `.github/workflows/ci.yml` |
+
+Le nombre de lignes de `lib/` augmente de 19 %: ce sont des gardes, des
+validations et les commentaires qui disent pourquoi elles existent. Aucun
+correctif n'a été fait par réécriture.
+
+### Ce qui n'a pas été fait, et pourquoi
+
+C'est la section importante. Rien ici n'est « propre »; ce sont des choix.
+
+**1. Argon2id tourne toujours sur l'isolat d'interface.** `deriveKey` est un
+appel synchrone depuis `create`, `unlock` et `changePassword`, avec 3 passes sur
+128 Mio. Sur un téléphone modeste: gel de l'écran pendant la dérivation, et
+risque d'ANR Android. *Pas corrigé* parce que la parade — déporter dans un
+isolat — se heurte à `SecureKey`, qui n'est pas transférable entre isolats: il
+faudrait faire transiter les octets de la clé par un port de message, donc les
+sortir de la mémoire verrouillée que `sodium` protège par `mlock`. Ce serait
+échanger une gêne visible contre une régression de sécurité invisible. La bonne
+forme est de déplacer tout `VaultCrypto` dans l'isolat, ce qui est une
+refonte, pas un correctif d'audit. **Non mesuré**: je n'ai pas d'appareil bas de
+gamme sous la main, seul un Pixel 9a.
+
+**2. Le zéroïsage de la mémoire reste largement symbolique.** `seal` efface
+consciencieusement son tampon de clair, mais `Vault.toBytes` a déjà produit deux
+copies non effaçables du coffre entier: la `String` du `jsonEncode` et le tampon
+d'`utf8.encode`. Idem pour le mot de passe, qui vit dans une `String` avant
+d'être encodé. *Pas corrigé* parce que le faire vraiment demande de sérialiser en
+JSON directement vers un tampon d'octets, sans passer par une `String` — donc un
+encodeur maison. Le README annonce déjà cette limite; elle est réelle et plus
+large que ce qu'il laisse croire.
+
+**3. Les pièces jointes en clair ne sont pas zéroïsées.** `sealBytes` et
+`openBytes` laissent le contenu déchiffré sur le tas, contrairement au coffre.
+*Pas corrigé* pour la même raison de fond, et parce qu'un tampon de 25 Mio
+traverse plusieurs couches (`file_selector`, `share_plus`, `Image.memory`) dont
+aucune ne promet de ne pas le copier.
+
+**4. Aucune restriction de permissions sur les fichiers créés.** Sous Linux,
+`~/.local/share/safe/vault.safe` naît en `0644`: lisible par tout autre compte de
+la machine, qui peut alors attaquer Argon2id hors ligne. *Pas corrigé* parce que
+`dart:io` n'expose pas `chmod`: il faudrait un `Process.run('chmod')` — une
+dépendance à un binaire externe sur un chemin critique — ou du code natif. Sous
+Android le répertoire privé protège déjà. **À faire, mais pas à l'aveugle.**
+
+**5. `vault.safe.bak` n'est toujours jamais relue.** Le changement de mot de
+passe ne la laisse plus derrière lui (`bcf563f`), mais aucun chemin de
+restauration n'existe et aucun écran ne la mentionne: c'est un filet dont seul
+qui lit le code sait qu'il existe. *Pas corrigé* parce que le trancher est un
+choix de produit — exposer une restauration, ou supprimer le mécanisme et gagner
+la moitié des entrées/sorties de chaque sauvegarde (la copie double le volume
+écrit). Ce n'est pas à un audit de décider.
+
+**6. Pas de `fsync` du répertoire après le `rename`.** Le contenu du temporaire
+est bien vidé sur le disque, l'entrée de répertoire non. Sur coupure
+d'alimentation, selon le système de fichiers, le coffre peut réapparaître en
+version ancienne. *Pas corrigé*: `dart:io` n'expose pas de `fsync` de
+répertoire. L'atomicité annoncée vaut contre un arrêt du processus, pas contre
+une coupure de courant — c'est désormais dit plutôt que sous-entendu.
+
+**7. `Clipboard.setData` ne pose pas `EXTRA_IS_SENSITIVE`.** Sur Android 13+, le
+secret copié s'affiche dans l'aperçu du presse-papier système, et Gboard le range
+dans son propre historique — un magasin distinct que `clearNow` ne touche pas.
+L'effacement à 30 s ne protège donc pas contre le vecteur le plus probable.
+*Pas corrigé*: il faut un canal natif dédié, du même genre que celui de
+`FLAG_SECURE`. **C'est la plus grosse faille restante côté Android.**
+
+**8. L'APK release est signé avec la clé de debug.** Clé publique, partagée par
+toutes les installations Flutter: n'importe qui peut fabriquer un APK
+substituable à celui-ci lors d'une mise à jour, et hériter du répertoire privé
+existant. *Pas corrigé* parce que changer de clé impose une désinstallation, donc
+la perte du coffre si l'on n'exporte pas d'abord — et parce que le `key.properties`
+correspondant ne peut venir que de toi. Le `TODO` du `build.gradle.kts` porte
+maintenant cette conséquence, qu'il taisait.
+
+**9. Normalisation Unicode.** `toLowerCase()` sans normalisation NFC: `café`
+précomposé et `café` décomposé sont deux clefs distinctes, visuellement
+identiques dans la liste, et chercher l'une ne trouve pas l'autre. *Pas corrigé*
+parce que normaliser à la saisie change des clefs existantes: il faut décider
+d'une migration, pas d'un patch.
+
+**10. Nommage mixte français/anglais** des identifiants (`nouveau`, `courant`,
+`transferDisponible` côtoient `_busy`, `_error`). *Pas corrigé*: c'est de la
+préférence, la règle de cet audit étant qu'une modification doit se justifier par
+un gain mesurable. Renommer produirait un gros diff sans un seul bug évité.
+
+**11. Le générateur n'a pas de test déterministe.** Le paramètre
+`generatePassword(random:)` existe pour ça, mais aucun test ne l'utilise: les
+tests actuels sont statistiques. Le commentaire qui disait « n'existe que pour
+les tests » était donc faux. *Pas corrigé* — c'est un test à écrire, pas un
+défaut de production.
+
+**12. Rien n'a été vérifié sur l'appareil** dans cette session. Les correctifs
+Android — `allowBackup`, clavier, presse-papier hors focus — sont vérifiés par
+le manifeste fusionné de l'APK et par des tests, pas par une manipulation sur
+le Pixel. `FLAG_SECURE` l'avait été lors d'une session précédente.
+
+**13. Le mot de passe maître ne m'a jamais été communiqué**, et je ne l'ai pas
+demandé. Aucun test n'a donc été fait sur ton vrai coffre.
+
+### Risques restants, par priorité
+
+| Priorité | Risque | Où |
+|---|---|---|
+| 1 | Historique du presse-papier de Gboard: le secret survit à l'effacement | `lib/util/clipboard.dart` |
+| 2 | Signature avec la clé de debug: substitution d'APK possible | `android/app/build.gradle.kts` |
+| 3 | Gel de l'interface et risque d'ANR pendant Argon2id | `lib/state/vault_session.dart` |
+| 4 | Fichiers `0644` sous Linux, lisibles par les autres comptes | `lib/storage/*.dart` |
+| 5 | Clair non effaçable en mémoire (`String` Dart) | conception, documenté |
+| 6 | Pas de restauration depuis `vault.safe.bak` | produit |
+| 7 | Doublons Unicode invisibles dans les clefs | `lib/model/vault.dart` |
+| 8 | Couverture faible sur `settings_screen` (41 %) et `attachments_section` (58 %) | tests |
+
+### À toi de décider
+
+1. **La licence.** Aucune n'est déclarée, ce qui vaut « tous droits réservés ».
+   Le `README.md` le dit franchement plutôt que de combler d'office: le choix
+   t'appartient. Si le dépôt reste privé et personnel, ne rien faire est une
+   réponse valable.
+2. **`vault.safe.bak`**: filet exposé à l'utilisateur, ou mécanisme supprimé ?
+   En l'état il ne sert qu'à qui lit le code.
+3. **La clé de release Android.** À faire un jour, avec un export du coffre
+   avant, et en sachant que l'export ne contient pas les pièces jointes.
+4. **Le message du commit `424cb55`**, écrit par un hook de sauvegarde
+   automatique pendant une coupure. Je peux l'amender si tu veux un historique
+   lisible — je ne touche pas à l'historique sans ton accord.
+5. **Vérifier sur le téléphone** ce que je n'ai pu vérifier que par le manifeste
+   et les tests: qu'une capture d'écran est bien refusée, que l'interrupteur des
+   réglages la rétablit, et qu'après une mise à jour ton coffre est intact.
+6. **`blobs/orphelins/`**: regarde s'il contient quelque chose après ta première
+   mise à jour. S'il est vide, tant mieux; s'il ne l'est pas, ce sont des pièces
+   jointes que l'ancien code aurait détruites.
