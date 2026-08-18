@@ -208,7 +208,7 @@ class Vault {
 
   static List<VaultEntry> _sorted(Iterable<VaultEntry> entries) =>
       [...entries]
-        ..sort((a, b) => a.key.toLowerCase().compareTo(b.key.toLowerCase()));
+        ..sort((a, b) => canonicalKey(a.key).compareTo(canonicalKey(b.key)));
 
   /// Relit le clair produit par [toBytes].
   ///

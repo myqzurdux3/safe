@@ -7,6 +7,7 @@ import 'crypto/vault_crypto.dart';
 import 'state/vault_session.dart';
 import 'storage/app_settings.dart';
 import 'storage/blob_store.dart';
+import 'storage/private_directory.dart';
 import 'storage/vault_file.dart';
 import 'storage/vault_transfer.dart';
 import 'ui/entries_screen.dart';
@@ -19,6 +20,10 @@ Future<void> main() async {
   final sodium = await SodiumSumoInit.init();
   final crypto = VaultCrypto(sodium);
   final directory = await VaultFile.defaultDirectory();
+  // Au démarrage et pas seulement à la première écriture: une installation
+  // antérieure au resserrement des droits resterait sinon ouverte aux autres
+  // comptes jusqu'à la prochaine sauvegarde.
+  await createPrivateDirectory(directory);
   final storage = VaultFile(directory);
   final blobs = BlobFileStore(Directory('${directory.path}/blobs'));
   final clipboard = SecureClipboard();

@@ -254,6 +254,16 @@ identique octet pour octet: un coffre déjà écrit se relit sans changement.
 - Android: répertoire privé de l'application (`path_provider`,
   `getApplicationDocumentsDirectory`). Jamais le stockage externe.
 
+Sous Linux, le dossier est créé en `0700` (`createPrivateDirectory`, dans
+`private_directory.dart`): un umask ordinaire lui aurait donné `0755`, donc
+`~/.local/share/safe/` lisible par tout autre compte de la machine, qui
+pouvait copier le coffre et attaquer Argon2id hors ligne. Sans droit de
+traversée sur le dossier, le mode des fichiers qu'il contient n'a plus
+d'importance. L'appel passe par `chmod`, `dart:io` n'exposant pas l'appel
+système directement; il échoue en silence, et un dossier déjà en place
+n'est jamais retouché — l'utilisateur a pu en choisir les droits lui-même.
+Rien à faire sous Android, déjà cloisonné par le système.
+
 Séquence de sauvegarde, à chaque modification (le coffre est un blob
 unique, il n'y a pas de mise à jour partielle):
 
@@ -511,27 +521,43 @@ Crypto:
 - mauvais mot de passe rejeté
 - en-tête falsifié (opslimit modifié) rejeté
 - deux sauvegardes successives produisent des nonces différents
+- dérivation en isolat: même clé qu'une dérivation sur place, y compris
+  `useIsolate: false` (§3)
 
 Stockage:
 - écriture atomique: le fichier cible n'est jamais partiel
 - `.bak` créé après une sauvegarde réussie
 - fichier tronqué ou magic invalide: erreur propre, pas d'exception brute
 - anti-fuite: aucune valeur en clair présente dans les octets du fichier
+- dossier du coffre et des pièces jointes lisibles du seul propriétaire
+  sous Linux, sans retoucher un dossier déjà en place (§5)
 
 Modèle:
 - aller-retour JSON, clefs unicode, valeur vide
+- deux écritures Unicode d'une même clef reconnues comme une seule:
+  recherche, `upsert`, dédoublonnage à la relecture — sans réécrire la
+  clef enregistrée (§4)
 
 Session:
 - expiration de la minuterie efface la clé
 - le passage en arrière-plan seul ne verrouille pas; le retour au premier
   plan après le délai d'inactivité verrouille (§8)
 - `detached` verrouille immédiatement
+- le tampon d'une pièce jointe est effacé après chiffrement, sauf si le
+  fichier est refusé pour sa taille (§3 bis)
+- restauration de la sauvegarde: annonce ce qu'elle contient, refusée
+  coffre verrouillé ou sans sauvegarde, sauvegarde abîmée signalée sans
+  être appliquée (§5)
 
 Widgets:
 - mauvais mot de passe affiche l'erreur
 - entrée ajoutée apparaît dans la liste
 - la recherche filtre la liste
 - le générateur respecte longueur et jeu de caractères demandés
+- copie: passe par le canal natif sensible quand il existe, retombe sur
+  Flutter sinon (§7)
+- Réglages: le dialogue de restauration annonce le nombre d'entrées avant
+  d'agir, et annuler ne change rien (§5)
 
 ## 11. À vérifier au début du plan
 

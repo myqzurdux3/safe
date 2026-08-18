@@ -55,4 +55,22 @@ void main() {
     final vault = Vault.fromBytes(source);
     expect(vault.entries, hasLength(1));
   });
+
+  test('le tri ne sépare pas deux accents écrits différemment', () {
+    // « éclair » précomposé et « épice » décomposé doivent se suivre. Avec une
+    // comparaison brute, le é précomposé (U+00E9) pèse plus lourd qu'un « z »
+    // tandis que le é décomposé commence par un « e »: les deux mots se
+    // retrouvaient de part et d'autre de « zebre ».
+    final vault = Vault([
+      VaultEntry.now(key: 'zebre', value: 'z'),
+      VaultEntry.now(key: '\u00e9clair', value: 'eclair'),
+      VaultEntry.now(key: 'e\u0301pice', value: 'epice'),
+    ]);
+    final ordre = vault.entries.map((e) => e.value).toList();
+    expect(
+      ordre.indexOf('epice') - ordre.indexOf('eclair'),
+      1,
+      reason: 'les deux mots accentués doivent se suivre: $ordre',
+    );
+  });
 }
