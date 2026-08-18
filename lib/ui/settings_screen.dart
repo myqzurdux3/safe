@@ -126,6 +126,69 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  /// Propose de revenir à la copie conservée à côté du coffre.
+  ///
+  /// Annonce d'abord ce qu'elle contient: une restauration à l'aveugle sur un
+  /// coffre-fort n'est pas une offre honnête.
+  Future<void> _restore() async {
+    setState(() => _busy = true);
+    final int? entrees;
+    try {
+      entrees = await widget.session.previousEntryCount();
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+    if (!mounted) {
+      return;
+    }
+    if (entrees == null) {
+      _tell('Aucune sauvegarde exploitable à côté du coffre');
+      return;
+    }
+    final actuelles = widget.session.vault?.entries.length ?? 0;
+    final confirme = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Restaurer la sauvegarde ?'),
+        content: Text(
+          'La sauvegarde contient $entrees entrée(s); le coffre actuel en a '
+          '$actuelles.\n\nLe coffre actuel devient à son tour la sauvegarde: '
+          'cette opération est donc annulable en la refaisant.\n\nLes pièces '
+          'jointes ne sont pas concernées; celles qui ne seraient plus '
+          'référencées partent dans le dossier des orphelins.',
+        ),
+        actions: [
+          TextButton(
+            key: const Key('cancel-restore'),
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            key: const Key('confirm-restore'),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Restaurer'),
+          ),
+        ],
+      ),
+    );
+    if (!(confirme ?? false) || !mounted) {
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      await widget.session.restorePrevious();
+      _tell('Sauvegarde restaurée');
+    } catch (_) {
+      _tell('Restauration impossible: la sauvegarde n\'a pas pu être lue');
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+  }
+
   Future<void> _export() async {
     final transfer = widget.transfer;
     if (transfer == null) {
@@ -271,6 +334,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   : 'Captures d\'écran autorisées: le contenu du coffre '
                         'apparaîtra aussi dans les applications récentes',
             ),
+          ),
+          const Divider(height: 1),
+          ListTile(
+            key: const Key('restore-backup'),
+            leading: const Icon(Icons.restore_outlined),
+            title: const Text('Restaurer la sauvegarde précédente'),
+            subtitle: const Text(
+              'Revient à l\'état d\'avant la dernière modification',
+            ),
+            enabled: !_busy,
+            onTap: _restore,
           ),
           const Divider(height: 1),
           ListTile(

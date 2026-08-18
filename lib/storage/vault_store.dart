@@ -13,6 +13,13 @@ abstract interface class VaultStore {
   /// Rend les octets du coffre; lève si aucun coffre n'existe.
   Future<Uint8List> read();
 
+  /// Rend la génération précédente, ou `null` s'il n'y en a pas.
+  ///
+  /// Conservée à chaque écriture, elle sert à rattraper une suppression
+  /// regrettée. Elle disparaît lors d'un changement de mot de passe, que
+  /// l'ancien mot de passe ouvrirait encore.
+  Future<Uint8List?> readPrevious();
+
   /// Remplace le coffre par [bytes], sans état intermédiaire observable.
   ///
   /// [keepPrevious] à `false` interdit de conserver la génération précédente:

@@ -70,6 +70,10 @@ class VaultFile implements VaultStore {
   @override
   Future<Uint8List> read() => file.readAsBytes();
 
+  @override
+  Future<Uint8List?> readPrevious() async =>
+      await backupFile.exists() ? backupFile.readAsBytes() : null;
+
   /// Remplace le coffre par [bytes], de façon atomique.
   ///
   /// Le `rename` final est atomique sur un même système de fichiers: à tout

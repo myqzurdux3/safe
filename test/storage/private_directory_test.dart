@@ -26,10 +26,9 @@ void main() {
 
   test('le dossier des pièces jointes aussi', () async {
     final dir = Directory('${parent.path}/blobs');
-    await BlobFileStore(dir).put(
-      '0123456789abcdef0123456789abcdef',
-      Uint8List.fromList([1]),
-    );
+    await BlobFileStore(
+      dir,
+    ).put('0123456789abcdef0123456789abcdef', Uint8List.fromList([1]));
     expect(dir.statSync().modeString(), 'rwx------');
   });
 

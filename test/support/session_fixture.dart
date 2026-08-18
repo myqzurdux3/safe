@@ -27,6 +27,7 @@ const testPassword = 'motdepasse123';
 /// [VaultFile] garde ses propres tests, sur de vrais fichiers.
 class MemoryVaultStore implements VaultStore {
   Uint8List? _bytes;
+  Uint8List? _previous;
 
   @override
   Future<bool> exists() async => _bytes != null;
@@ -41,8 +42,13 @@ class MemoryVaultStore implements VaultStore {
   }
 
   @override
-  Future<void> write(Uint8List bytes, {bool keepPrevious = true}) async =>
-      _bytes = bytes;
+  Future<Uint8List?> readPrevious() async => _previous;
+
+  @override
+  Future<void> write(Uint8List bytes, {bool keepPrevious = true}) async {
+    _previous = keepPrevious ? _bytes : null;
+    _bytes = bytes;
+  }
 }
 
 /// Coffre en mémoire dont l'écriture peut être suspendue.
@@ -66,6 +72,9 @@ class GatedVaultStore implements VaultStore {
   Future<Uint8List> read() => inner.read();
 
   @override
+  Future<Uint8List?> readPrevious() => inner.readPrevious();
+
+  @override
   Future<void> write(Uint8List bytes, {bool keepPrevious = true}) async {
     final me = _next++;
     writeOrder.add(me);
@@ -73,7 +82,7 @@ class GatedVaultStore implements VaultStore {
     if (waiting != null) {
       await waiting.future;
     }
-    return inner.write(bytes);
+    return inner.write(bytes, keepPrevious: keepPrevious);
   }
 }
 

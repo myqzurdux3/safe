@@ -276,6 +276,49 @@ class VaultSession extends ChangeNotifier {
     });
   }
 
+  /// Combien d'entrées contient la copie de sauvegarde ?
+  ///
+  /// `null` s'il n'y en a pas, ou si elle est illisible. Sert à dire à
+  /// l'utilisateur ce qu'il récupérerait avant qu'il ne se décide: une
+  /// restauration à l'aveugle sur un coffre-fort n'est pas une offre honnête.
+  Future<int?> previousEntryCount() async {
+    final key = _key;
+    if (key == null) {
+      return null;
+    }
+    final bytes = await _storage.readPrevious();
+    if (bytes == null) {
+      return null;
+    }
+    try {
+      return _crypto.openWithKey(bytes, key).entries.length;
+    } catch (_) {
+      // Copie tronquée, ou écrite sous un autre mot de passe: rien à proposer.
+      return null;
+    }
+  }
+
+  /// Remplace le coffre courant par la copie de sauvegarde.
+  ///
+  /// Vérifie d'abord qu'elle s'ouvre, puis passe par la file d'écriture
+  /// habituelle — la copie de sauvegarde est donc refaite au passage, à partir
+  /// de l'état qu'on abandonne: la restauration est elle-même annulable.
+  ///
+  /// Lève [StateError] si le coffre est verrouillé ou s'il n'y a pas de copie,
+  /// et [WrongPasswordException] ou [FormatException] si elle est illisible.
+  Future<void> restorePrevious() async {
+    final key = _key;
+    if (key == null) {
+      throw StateError('Le coffre est verrouillé');
+    }
+    final bytes = await _storage.readPrevious();
+    if (bytes == null) {
+      throw StateError('Aucune sauvegarde à restaurer');
+    }
+    final restaure = _crypto.openWithKey(bytes, key);
+    await _mutate((_) => restaure);
+  }
+
   /// Attache un fichier à l'entrée [entryKey].
   ///
   /// Le contenu part chiffré dans son propre blob; seules ses métadonnées

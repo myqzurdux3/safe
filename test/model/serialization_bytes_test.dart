@@ -36,10 +36,7 @@ void main() {
     final gmail = relu.entries.firstWhere((e) => e.key == 'gmail (perso)');
     expect(gmail.value, 'p4ss "avec" des \\ échappements\net un retour');
     expect(gmail.attachments.single.name, 'reçu — février.pdf');
-    expect(
-      relu.entries.any((e) => e.key == 'emoji 🔐 et accents éàü'),
-      isTrue,
-    );
+    expect(relu.entries.any((e) => e.key == 'emoji 🔐 et accents éàü'), isTrue);
   });
 
   test('le format sur le disque est inchangé, octet pour octet', () {

@@ -6,23 +6,25 @@ import 'package:safe/state/vault_session.dart';
 import '../support/session_fixture.dart';
 
 void main() {
-  test('le tampon en clair d\'une pièce jointe est effacé après chiffrement',
-      () async {
-    final session = await makeUnlockedSession(keys: ['gmail']);
-    final clair = Uint8List.fromList([1, 2, 3, 4, 5]);
+  test(
+    'le tampon en clair d\'une pièce jointe est effacé après chiffrement',
+    () async {
+      final session = await makeUnlockedSession(keys: ['gmail']);
+      final clair = Uint8List.fromList([1, 2, 3, 4, 5]);
 
-    await session.attach(
-      entryKey: 'gmail',
-      name: 'note.txt',
-      mimeType: 'text/plain',
-      bytes: clair,
-    );
+      await session.attach(
+        entryKey: 'gmail',
+        name: 'note.txt',
+        mimeType: 'text/plain',
+        bytes: clair,
+      );
 
-    // Le contenu vient d'un fichier choisi par l'utilisateur; une fois chiffré
-    // et écrit, il n'a plus aucune raison de traîner sur le tas.
-    expect(clair, everyElement(0));
-    session.lock();
-  });
+      // Le contenu vient d'un fichier choisi par l'utilisateur; une fois chiffré
+      // et écrit, il n'a plus aucune raison de traîner sur le tas.
+      expect(clair, everyElement(0));
+      session.lock();
+    },
+  );
 
   test('la pièce jointe reste lisible après cet effacement', () async {
     final session = await makeUnlockedSession(keys: ['gmail']);
