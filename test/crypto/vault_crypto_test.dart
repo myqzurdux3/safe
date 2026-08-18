@@ -17,7 +17,7 @@ void main() {
   });
 
   Vault vaultAvec(String key, String value) =>
-      const Vault([]).upsert(VaultEntry.now(key: key, value: value));
+      Vault.empty.upsert(VaultEntry.now(key: key, value: value));
 
   test('aller-retour avec le bon mot de passe', () {
     final bytes = crypto.sealWithPassword(
@@ -30,7 +30,7 @@ void main() {
 
   test('mauvais mot de passe rejeté', () {
     final bytes = crypto.sealWithPassword(
-      const Vault([]),
+      Vault.empty,
       'hunter2',
       params: testParams,
     );
@@ -42,7 +42,7 @@ void main() {
 
   test('en-tête falsifié dans les bornes rejeté par le tag', () {
     final bytes = crypto.sealWithPassword(
-      const Vault([]),
+      Vault.empty,
       'hunter2',
       params: testParams,
     );
@@ -55,7 +55,7 @@ void main() {
 
   test('sel falsifié rejeté', () {
     final bytes = crypto.sealWithPassword(
-      const Vault([]),
+      Vault.empty,
       'hunter2',
       params: testParams,
     );
@@ -68,7 +68,7 @@ void main() {
 
   test('paramètres KDF hors bornes rejetés sans tenter la dérivation', () {
     final bytes = crypto.sealWithPassword(
-      const Vault([]),
+      Vault.empty,
       'hunter2',
       params: testParams,
     );
@@ -96,7 +96,7 @@ void main() {
 
   test('magic invalide rejeté', () {
     final bytes = crypto.sealWithPassword(
-      const Vault([]),
+      Vault.empty,
       'hunter2',
       params: testParams,
     );
@@ -106,7 +106,7 @@ void main() {
 
   test('fichier tronqué rejeté', () {
     final bytes = crypto.sealWithPassword(
-      const Vault([]),
+      Vault.empty,
       'hunter2',
       params: testParams,
     );
@@ -118,12 +118,12 @@ void main() {
 
   test('nonce différent à chaque scellement', () {
     final a = crypto.sealWithPassword(
-      const Vault([]),
+      Vault.empty,
       'hunter2',
       params: testParams,
     );
     final b = crypto.sealWithPassword(
-      const Vault([]),
+      Vault.empty,
       'hunter2',
       params: testParams,
     );
@@ -133,7 +133,7 @@ void main() {
 
   test('les paramètres KDF voyagent dans l\'en-tête', () {
     final bytes = crypto.sealWithPassword(
-      const Vault([]),
+      Vault.empty,
       'hunter2',
       params: testParams,
     );

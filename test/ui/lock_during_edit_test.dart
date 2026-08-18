@@ -100,7 +100,7 @@ void main() {
     final avant = await store.read();
     session.lock();
     expect(
-      () => session.save(const Vault([])),
+      () => session.save(Vault.empty),
       throwsStateError,
     );
     expect(await store.read(), avant);

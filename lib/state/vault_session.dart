@@ -119,7 +119,7 @@ class VaultSession extends ChangeNotifier {
   Future<void> create(String password) async {
     final salt = _crypto.newSalt();
     final key = _crypto.deriveKey(password, salt, _kdfParams);
-    const empty = Vault([]);
+    final empty = Vault.empty;
     final generation = _generation;
     try {
       await _storage.write(_crypto.seal(empty, key, salt, _kdfParams));

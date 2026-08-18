@@ -3,6 +3,62 @@ import 'dart:typed_data';
 
 import '../storage/blob_store.dart';
 
+/// Lecture typée du JSON du coffre.
+///
+/// Le clair est authentifié, mais il n'a pas forcément été écrit par nous:
+/// l'import accepte un fichier étranger avec son mot de passe. Des `as` nus
+/// lèveraient alors un `TypeError` — qui n'est pas une `Exception`, et que le
+/// contrat de [Vault.fromBytes] ne promet pas.
+String _string(Map<String, dynamic> json, String field) {
+  final value = json[field];
+  if (value is! String) {
+    throw FormatException('Champ « $field » absent ou invalide');
+  }
+  return value;
+}
+
+int _int(Map<String, dynamic> json, String field) {
+  final value = json[field];
+  if (value is! int) {
+    throw FormatException('Champ « $field » absent ou invalide');
+  }
+  return value;
+}
+
+/// Horodatage en millisecondes, borné.
+///
+/// `DateTime.fromMillisecondsSinceEpoch` lève sur les valeurs extrêmes, et
+/// lèverait un `ArgumentError` plutôt qu'une `FormatException`.
+DateTime _date(Map<String, dynamic> json, String field) {
+  final millis = _int(json, field);
+  if (millis.abs() > _maxTimestampMillis) {
+    throw FormatException('Horodatage « $field » hors bornes: $millis');
+  }
+  return DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true);
+}
+
+/// Un siècle de part et d'autre de l'époque Unix: assez large pour tout coffre
+/// réel, assez étroit pour écarter une valeur fabriquée.
+const int _maxTimestampMillis = 100 * 365 * 24 * 3600 * 1000;
+
+List<dynamic> _list(Map<String, dynamic> json, String field) {
+  final value = json[field];
+  if (value == null) {
+    return const [];
+  }
+  if (value is! List) {
+    throw FormatException('Champ « $field » invalide');
+  }
+  return value;
+}
+
+Map<String, dynamic> _object(Object? raw) {
+  if (raw is! Map<String, dynamic>) {
+    throw const FormatException('Objet attendu');
+  }
+  return raw;
+}
+
 /// Une pièce jointe: photo, document, n'importe quel fichier.
 ///
 /// Seules ses métadonnées vivent dans le coffre; le contenu est chiffré à part,
@@ -22,13 +78,10 @@ class VaultAttachment {
         // Relu d'un fichier qui peut venir d'un tiers: un identifiant est un
         // nom de fichier, il ne doit désigner qu'un blob.
         id: _checkedId(json['id']),
-        name: json['name'] as String,
-        mimeType: json['mime'] as String,
-        size: json['size'] as int,
-        created: DateTime.fromMillisecondsSinceEpoch(
-          json['created'] as int,
-          isUtc: true,
-        ),
+        name: _string(json, 'name'),
+        mimeType: _string(json, 'mime'),
+        size: _int(json, 'size'),
+        created: _date(json, 'created'),
       );
 
   /// Identifiant du blob sur le disque; sans rapport avec le nom du fichier,
@@ -91,21 +144,15 @@ class VaultEntry {
   }
 
   factory VaultEntry._fromJson(Map<String, dynamic> json) => VaultEntry(
-    key: json['k'] as String,
-    value: json['val'] as String,
-    created: DateTime.fromMillisecondsSinceEpoch(
-      json['created'] as int,
-      isUtc: true,
-    ),
-    updated: DateTime.fromMillisecondsSinceEpoch(
-      json['updated'] as int,
-      isUtc: true,
-    ),
+    key: _string(json, 'k'),
+    value: _string(json, 'val'),
+    created: _date(json, 'created'),
+    updated: _date(json, 'updated'),
     // Champ absent des coffres écrits avant les pièces jointes: leur lecture
     // ne demande donc aucune migration.
     attachments: [
-      for (final raw in (json['att'] as List<dynamic>? ?? const []))
-        VaultAttachment._fromJson(raw as Map<String, dynamic>),
+      for (final raw in _list(json, 'att'))
+        VaultAttachment._fromJson(_object(raw)),
     ],
   );
 
@@ -131,7 +178,21 @@ class VaultEntry {
 /// déverrouillée. La sérialisation produit le clair qui sera chiffré en bloc;
 /// aucune méthode de cette classe ne touche au disque.
 class Vault {
-  const Vault(this.entries);
+  /// Les entrées sont conservées triées et non modifiables.
+  ///
+  /// Le tri était documenté sans être établi: un fichier non trié se relisait
+  /// non trié, et l'interface l'affichait dans le désordre jusqu'à la première
+  /// modification.
+  Vault(Iterable<VaultEntry> entries)
+    : entries = List.unmodifiable(_sorted(entries));
+
+  /// Le coffre vide, celui d'un coffre qui vient d'être créé.
+  static final Vault empty = Vault(const []);
+
+  static List<VaultEntry> _sorted(Iterable<VaultEntry> entries) =>
+      [...entries]..sort(
+        (a, b) => a.key.toLowerCase().compareTo(b.key.toLowerCase()),
+      );
 
   /// Relit le clair produit par [toBytes].
   ///
@@ -156,16 +217,25 @@ class Vault {
     if (rawEntries is! List) {
       throw const FormatException('Liste d\'entrées absente');
     }
-    return Vault([
-      for (final raw in rawEntries)
-        VaultEntry._fromJson(raw as Map<String, dynamic>),
-    ]);
+    // Dédoublonnage par clef: rien n'imposait l'unicité à la relecture, et
+    // `upsert` retirait ensuite *toutes* les entrées portant la clef pour n'en
+    // réinsérer qu'une — les deux disparaissaient. La plus récemment modifiée
+    // gagne.
+    final parClef = <String, VaultEntry>{};
+    for (final raw in rawEntries) {
+      final entry = VaultEntry._fromJson(_object(raw));
+      final existing = parClef[entry.key];
+      if (existing == null || entry.updated.isAfter(existing.updated)) {
+        parClef[entry.key] = entry;
+      }
+    }
+    return Vault(parClef.values);
   }
 
   /// Version du clair sérialisé, indépendante de la version du fichier.
   static const int formatVersion = 1;
 
-  /// Entrées triées par clef, casse ignorée.
+  /// Entrées triées par clef, casse ignorée. Non modifiable.
   final List<VaultEntry> entries;
 
   /// Sérialise en JSON UTF-8. C'est ce que la couche crypto chiffre.
@@ -190,11 +260,7 @@ class Vault {
             updated: entry.updated,
             attachments: entry.attachments,
           );
-    final next = [
-      ...entries.where((e) => e.key != entry.key),
-      merged,
-    ]..sort((a, b) => a.key.toLowerCase().compareTo(b.key.toLowerCase()));
-    return Vault(next);
+    return Vault([...entries.where((e) => e.key != entry.key), merged]);
   }
 
   /// Retire l'entrée portant [key]; sans effet si elle n'existe pas.

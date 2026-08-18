@@ -17,7 +17,7 @@ void main() {
   );
 
   test('les pièces jointes survivent à l\'aller-retour JSON', () {
-    final vault = const Vault([]).upsert(
+    final vault = Vault.empty.upsert(
       VaultEntry.now(
         key: 'passeport',
         value: 'numéro',
@@ -34,7 +34,7 @@ void main() {
   });
 
   test('une entrée sans pièce jointe reste lisible', () {
-    final vault = const Vault([]).upsert(VaultEntry.now(key: 'a', value: 'v'));
+    final vault = Vault.empty.upsert(VaultEntry.now(key: 'a', value: 'v'));
     expect(Vault.fromBytes(vault.toBytes()).entries.single.attachments, isEmpty);
   });
 
@@ -49,7 +49,7 @@ void main() {
   });
 
   test('upsert conserve les pièces jointes fournies', () {
-    var vault = const Vault([]).upsert(
+    var vault = Vault.empty.upsert(
       VaultEntry.now(key: 'a', value: 'v', attachments: [attachment()]),
     );
     vault = vault.upsert(
@@ -64,7 +64,7 @@ void main() {
   });
 
   test('valeur multiligne conservée telle quelle', () {
-    final vault = const Vault([]).upsert(
+    final vault = Vault.empty.upsert(
       VaultEntry.now(key: 'note', value: 'ligne 1\nligne 2\n\nligne 4'),
     );
     expect(

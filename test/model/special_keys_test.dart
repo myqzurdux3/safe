@@ -44,7 +44,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test('modèle: toutes ces clefs survivent au JSON', () {
-    var vault = const Vault([]);
+    var vault = Vault.empty;
     for (final clef in clefs) {
       vault = vault.upsert(VaultEntry.now(key: clef, value: 'v-$clef'));
     }

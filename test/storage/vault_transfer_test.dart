@@ -26,7 +26,7 @@ void main() {
     transfer = VaultTransfer(crypto: crypto, storage: storage);
     await storage.write(
       crypto.sealWithPassword(
-        const Vault([]).upsert(VaultEntry.now(key: 'local', value: 'original')),
+        Vault.empty.upsert(VaultEntry.now(key: 'local', value: 'original')),
         'hunter2',
         params: testParams,
       ),
@@ -36,7 +36,7 @@ void main() {
   tearDown(() async => dir.delete(recursive: true));
 
   Uint8List coffreEtranger() => crypto.sealWithPassword(
-    const Vault([]).upsert(VaultEntry.now(key: 'venu', value: 'importé')),
+    Vault.empty.upsert(VaultEntry.now(key: 'venu', value: 'importé')),
     'autre',
     params: testParams,
   );

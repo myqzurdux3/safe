@@ -129,7 +129,7 @@ void main() {
 
   test('sauvegarder sans être déverrouillé est une erreur', () async {
     final session = makeSession();
-    expect(() => session.save(const Vault([])), throwsStateError);
+    expect(() => session.save(Vault.empty), throwsStateError);
   });
 
   test('la session prévient ses auditeurs à chaque transition', () async {

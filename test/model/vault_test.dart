@@ -28,7 +28,7 @@ void main() {
   });
 
   test('upsert remplace une clef existante et trie', () {
-    var vault = const Vault([]);
+    var vault = Vault.empty;
     vault = vault.upsert(VaultEntry.now(key: 'b', value: '1'));
     vault = vault.upsert(VaultEntry.now(key: 'a', value: '2'));
     vault = vault.upsert(VaultEntry.now(key: 'b', value: '3'));
@@ -43,7 +43,7 @@ void main() {
       created: DateTime.utc(2020),
       updated: DateTime.utc(2020),
     );
-    final vault = const Vault([]).upsert(origine).upsert(
+    final vault = Vault.empty.upsert(origine).upsert(
       VaultEntry.now(key: 'a', value: '2'),
     );
     expect(vault.entries.single.created, DateTime.utc(2020));
@@ -51,7 +51,7 @@ void main() {
   });
 
   test('remove enlève la clef', () {
-    final vault = const Vault([])
+    final vault = Vault.empty
         .upsert(VaultEntry.now(key: 'a', value: '1'))
         .upsert(VaultEntry.now(key: 'b', value: '2'))
         .remove('a');
@@ -69,7 +69,7 @@ void main() {
   });
 
   test('recherche insensible à la casse', () {
-    final vault = const Vault([]).upsert(VaultEntry.now(key: 'Gmail', value: 'x'));
+    final vault = Vault.empty.upsert(VaultEntry.now(key: 'Gmail', value: 'x'));
     expect(vault.search('gma').single.key, 'Gmail');
     expect(vault.search('  '), hasLength(1));
     expect(vault.search('zzz'), isEmpty);
