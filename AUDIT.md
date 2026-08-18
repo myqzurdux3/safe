@@ -396,10 +396,28 @@ modèle de menace, à connaître avant de confier ses mots de passe à ce logici
    coupure de connexion, et `aeace53` a balayé au passage des modifications de la
    spec qu'un sous-agent était en train d'écrire. Je peux les amender; je ne
    touche pas à l'historique sans ton accord.
-3. **Vérifier sur le téléphone** ce qui ne se vérifie pas autrement: qu'une
-   capture d'écran est refusée, que l'interrupteur des réglages la rétablit, que
-   le presse-papier n'apparaît plus dans les suggestions du clavier, et
-   qu'après la mise à jour ton coffre est intact.
-4. **`blobs/orphelins/`**: regarde s'il contient quelque chose après la mise à
-   jour. S'il n'est pas vide, ce sont des pièces jointes que l'ancien code aurait
-   détruites.
+3. **`blobs/orphelins/`**: regarde s'il contient quelque chose. S'il n'est pas
+   vide, ce sont des pièces jointes que l'ancien code aurait détruites.
+4. **Le blocage des captures d'écran est désactivé sur le téléphone**
+   (`blockScreenshots: false` dans `settings.json`): la fenêtre n'a pas le
+   drapeau `SECURE`, et une capture rend bien le contenu. C'est un choix
+   possible et l'interrupteur fonctionne — mais c'est aussi ce qui compense le
+   fait que passer en arrière-plan ne verrouille plus le coffre, vignette du
+   sélecteur d'applications comprise. À reconsidérer.
+
+### Vérifié sur l'appareil, le 2026-08-19
+
+Ce que les tests ne pouvaient pas montrer, constaté sur le Pixel 9a après
+installation par `adb install -r`:
+
+| Vérification | Résultat |
+|---|---|
+| Coffre conservé par la mise à jour | `firstInstallTime` inchangé (2026-08-14), écran de déverrouillage et non de création |
+| Sauvegarde Android désactivée | `ALLOW_BACKUP` a disparu des `pkgFlags`; il y était avant |
+| Application non debuggable | `run-as` refusé — ce que `DEPLOY.md` affirmait sans preuve jusqu'ici |
+| Dérivation dans l'isolat | Un mot de passe faux la déclenche: pas de gel, pas de plantage, aucune erreur au journal, et « Mot de passe incorrect » s'affiche |
+| `FLAG_SECURE` | Sur installation neuve (émulateur, sans réglages): drapeau `SECURE` posé et capture d'écran noir uni. Sur le téléphone: absent, parce que le réglage est à `false` |
+
+Le dernier point vaut aussi comme preuve que l'interrupteur fonctionne dans les
+deux sens — ce qui n'avait jamais pu être testé, faute de connaître le mot de
+passe maître.
