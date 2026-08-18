@@ -26,6 +26,9 @@ dev_dependencies:
 
   # Règles de lint; affinées dans analysis_options.yaml.
   flutter_lints: ^6.0.0
+  file_selector_platform_interface: ^2.7.0
+  share_plus_platform_interface: ^7.2.0
+  plugin_platform_interface: ^2.1.8
 
 flutter:
   uses-material-design: true

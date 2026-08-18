@@ -94,7 +94,10 @@ class _AttachmentsSectionState extends State<AttachmentsSection> {
       final bytes = Uint8List.fromList(await file.readAsBytes());
       await widget.session.attach(
         entryKey: key,
-        name: file.name,
+        // Le sélecteur ne garantit pas un nom: certaines implémentations
+        // rendent un fichier en mémoire, sans chemin ni nom. Une pièce jointe
+        // sans nom serait indistinguable des autres dans la liste.
+        name: file.name.trim().isEmpty ? 'pièce jointe' : file.name,
         mimeType: file.mimeType ?? guessMimeType(file.name),
         bytes: bytes,
       );
