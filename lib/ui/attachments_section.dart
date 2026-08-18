@@ -133,7 +133,11 @@ class _AttachmentsSectionState extends State<AttachmentsSection> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Flexible(child: InteractiveViewer(child: Image.memory(bytes))),
+                Flexible(
+                  child: InteractiveViewer(
+                    child: Image.memory(bytes, semanticLabel: attachment.name),
+                  ),
+                ),
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
                   child: const Text('Fermer'),
@@ -286,7 +290,11 @@ class _AttachmentsSectionState extends State<AttachmentsSection> {
                     ? Icons.image_outlined
                     : Icons.description_outlined,
               ),
-              title: Text(attachment.name),
+              title: Text(
+                attachment.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
               subtitle: Text(formatBytes(attachment.size)),
               onTap: _busy ? null : () => _open(attachment),
               trailing: Row(
@@ -295,13 +303,13 @@ class _AttachmentsSectionState extends State<AttachmentsSection> {
                   IconButton(
                     key: Key('export-${attachment.id}'),
                     icon: const Icon(Icons.save_alt),
-                    tooltip: 'Exporter en clair',
+                    tooltip: 'Exporter « ${attachment.name} » en clair',
                     onPressed: _busy ? null : () => _export(attachment),
                   ),
                   IconButton(
                     key: Key('detach-${attachment.id}'),
                     icon: const Icon(Icons.delete_outline),
-                    tooltip: 'Supprimer',
+                    tooltip: 'Supprimer « ${attachment.name} »',
                     onPressed: _busy ? null : () => _detach(attachment),
                   ),
                 ],

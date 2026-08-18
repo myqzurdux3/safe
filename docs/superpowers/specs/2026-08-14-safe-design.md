@@ -37,8 +37,14 @@ Ce que le design garantit:
 - Toute modification du fichier, y compris de son en-tête en clair, est
   détectée au déchiffrement (AEAD + en-tête utilisé comme données
   associées).
-- Aucun secret n'est écrit en clair sur le disque, à aucun moment, y
-  compris pendant la sauvegarde (fichier temporaire chiffré puis `rename`).
+- Aucun secret n'est écrit en clair sur le disque à la sauvegarde (fichier
+  temporaire chiffré puis `rename`). **Seule exception, explicite**: exporter
+  une pièce jointe individuellement l'écrit en clair sur le disque (§3 bis).
+- Sur Android, le coffre et les pièces jointes sont exclus des sauvegardes
+  automatiques du système (`allowBackup="false"` et
+  `res/xml/backup_rules.xml`): sans ça, Auto Backup les envoyait par défaut
+  vers Google Drive et vers le transfert d'appareil à appareil, un canal que
+  rien ici ne prévoyait.
 - Aucune récupération: mot de passe maître perdu = coffre perdu. C'est un
   choix, pas un manque; toute porte de secours serait une seconde cible.
 
@@ -76,6 +82,13 @@ Justification des paramètres Argon2id: le preset `moderate` de libsodium
 l'app à une mise à mort par Android sur appareil bas de gamme. 128 Mio
 conserve la résistance mémoire réelle qui manque à PBKDF2, pour une
 dérivation de l'ordre de 0,5 à 1 s sur téléphone milieu de gamme.
+
+Le fichier borne lui-même ce qu'il peut demander à la relecture: `opsLimit`
+entre 1 et 8, `memLimit` entre 8 et 256 Mio (le double du défaut, pour
+laisser de la marge à un futur durcissement). Argon2id tourne avec ces
+paramètres **avant** que le tag AEAD ne soit vérifié: sans bornes, un fichier
+hostile pourrait demander une allocation qui tue le processus à la simple
+tentative d'ouverture.
 
 Les paramètres sont stockés dans l'en-tête du fichier: un coffre créé
 aujourd'hui reste lisible si les valeurs par défaut sont durcies plus tard.
@@ -118,7 +131,22 @@ Conséquences assumées:
 - Le déverrouillage reste instantané quel que soit le volume joint:
   seules les métadonnées sont déchiffrées avec le coffre.
 - Une écriture interrompue entre le blob et le coffre laisse un blob
-  orphelin. Il est effacé au déverrouillage suivant.
+  orphelin. Un import remplaçant tout le coffre en laisse aussi d'un coup:
+  tous les blobs de l'ancien coffre deviennent orphelins sans être du
+  déchet. Les effacer détruirait des pièces jointes que personne n'a
+  demandé de supprimer: au déverrouillage suivant, ils sont donc mis en
+  quarantaine dans `blobs/orphelins/`, pas effacés. Seuls les `*.blob.tmp`
+  d'un `put` interrompu — incomplets, sans valeur possible — le sont.
+- Un identifiant de pièce jointe relu dans le JSON du coffre est vérifié
+  contre la forme `^[0-9a-f]{32}$`, à la lecture comme dans `BlobFileStore`.
+  Le coffre est authentifié, mais pas forcément écrit par nous: un import
+  accepte un fichier étranger avec son propre mot de passe, et un
+  identifiant comme `../../victime` y ferait lire, écrire ou **effacer** un
+  fichier hors de `blobs/`.
+- La lecture d'une pièce jointe borne aussi la taille du blob lu sur le
+  disque: le plafond de 25 Mio n'était vérifié qu'à l'écriture, si bien
+  qu'un blob importé ou abîmé pouvait faire exploser la mémoire à
+  l'ouverture.
 - **L'export du coffre ne contient pas les pièces jointes**, qui vivent
   dans des fichiers séparés. L'interface le dit, et chaque pièce jointe
   peut être exportée individuellement. Une archive unique reste possible

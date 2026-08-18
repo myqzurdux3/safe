@@ -244,12 +244,15 @@ class _EntryEditScreenState extends State<EntryEditScreen> {
               ListTile(
                 key: const Key('value-masked'),
                 contentPadding: EdgeInsets.zero,
-                title: const Text('••••••••'),
+                // Les puces sont lues une par une par un lecteur d'écran.
+                title: Semantics(
+                  label: 'Valeur masquée',
+                  child: const ExcludeSemantics(child: Text('••••••••')),
+                ),
+                // Sans le nombre de lignes: il renseignait gratuitement un
+                // voisin sur la structure du secret.
                 subtitle: Text(
-                  _valueController.text.contains('\n')
-                      ? 'Valeur sur ${_valueController.text.split('\n').length} '
-                            'lignes — révélez-la pour la modifier'
-                      : 'Révélez la valeur pour la modifier',
+                  'Révélez la valeur pour la modifier',
                   style: theme.textTheme.bodySmall,
                 ),
                 trailing: IconButton(

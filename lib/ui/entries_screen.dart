@@ -240,7 +240,15 @@ class _EntriesScreenState extends State<EntriesScreen> {
                       return ListTile(
                         title: Row(
                           children: [
-                            Flexible(child: Text(entry.key)),
+                            // Une clef longue faisait enfler la tuile, déjà
+                            // occupée par trois boutons.
+                            Flexible(
+                              child: Text(
+                                entry.key,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
                             if (entry.attachments.isNotEmpty) ...[
                               const SizedBox(width: 6),
                               Icon(
@@ -253,9 +261,20 @@ class _EntriesScreenState extends State<EntriesScreen> {
                             ],
                           ],
                         ),
-                        subtitle: Text(
-                          revealed ? _preview(entry.value) : '••••••••',
-                        ),
+                        subtitle: revealed
+                            ? Text(
+                                _preview(entry.value),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              )
+                            // Les puces sont lues une par une par un lecteur
+                            // d'écran; on annonce l'état, pas le remplissage.
+                            : Semantics(
+                                label: 'Valeur masquée',
+                                child: const ExcludeSemantics(
+                                  child: Text('••••••••'),
+                                ),
+                              ),
                         onTap: () => _openEditor(existing: entry),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -267,7 +286,12 @@ class _EntriesScreenState extends State<EntriesScreen> {
                                     ? Icons.visibility_off
                                     : Icons.visibility,
                               ),
-                              tooltip: revealed ? 'Masquer' : 'Révéler',
+                              // La clef, pas la valeur: un lecteur d'écran
+                              // annonçait « Révéler » à l'identique sur chaque
+                              // ligne, sans dire de quelle entrée il parlait.
+                              tooltip: revealed
+                                  ? 'Masquer ${entry.key}'
+                                  : 'Révéler ${entry.key}',
                               onPressed: () {
                                 widget.session.touch();
                                 setState(() {
@@ -280,13 +304,13 @@ class _EntriesScreenState extends State<EntriesScreen> {
                             IconButton(
                               key: Key('copy-${entry.key}'),
                               icon: const Icon(Icons.copy_outlined),
-                              tooltip: 'Copier',
+                              tooltip: 'Copier ${entry.key}',
                               onPressed: () => _copy(entry),
                             ),
                             IconButton(
                               key: Key('delete-${entry.key}'),
                               icon: const Icon(Icons.delete_outline),
-                              tooltip: 'Supprimer',
+                              tooltip: 'Supprimer ${entry.key}',
                               onPressed: () => _confirmDelete(entry),
                             ),
                           ],
