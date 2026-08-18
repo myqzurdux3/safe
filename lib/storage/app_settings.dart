@@ -71,19 +71,6 @@ abstract class SettingsStore {
   Future<void> write(AppSettings settings);
 }
 
-/// Réglages gardés en mémoire, pour les tests.
-class MemorySettingsStore implements SettingsStore {
-  MemorySettingsStore([this._settings = const AppSettings()]);
-
-  AppSettings _settings;
-
-  @override
-  Future<AppSettings> read() async => _settings;
-
-  @override
-  Future<void> write(AppSettings settings) async => _settings = settings;
-}
-
 /// Les réglages sur le disque, dans le même dossier que le coffre.
 class SettingsFile implements SettingsStore {
   const SettingsFile(this.directory);

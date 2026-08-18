@@ -6,19 +6,16 @@ import 'package:flutter/material.dart';
 /// bouclier percé d'une serrure. Dessiné au trait, il reste net à toutes les
 /// tailles et prend la couleur du thème, ce qu'une image figée ne ferait pas.
 class SafeLogo extends StatelessWidget {
-  const SafeLogo({this.size = 72, this.color, super.key});
+  const SafeLogo({this.size = 72, super.key});
 
   final double size;
-
-  /// Couleur du bouclier; par défaut la couleur primaire du thème.
-  final Color? color;
 
   @override
   Widget build(BuildContext context) => SizedBox(
     width: size,
     height: size,
     child: CustomPaint(
-      painter: _SafeLogoPainter(color ?? Theme.of(context).colorScheme.primary),
+      painter: _SafeLogoPainter(Theme.of(context).colorScheme.primary),
       isComplex: false,
     ),
   );

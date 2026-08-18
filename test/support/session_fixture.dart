@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:safe/crypto/vault_crypto.dart';
 import 'package:safe/model/vault.dart';
 import 'package:safe/state/vault_session.dart';
+import 'package:safe/storage/app_settings.dart';
 import 'package:safe/storage/blob_store.dart';
 import 'package:safe/storage/vault_store.dart';
 import 'package:safe/util/clipboard.dart';
@@ -63,6 +64,19 @@ class MemoryBlobStore implements BlobStore {
 
   @override
   Future<Set<String>> ids() async => contents.keys.toSet();
+}
+
+/// Réglages gardés en mémoire, même raison que [MemoryVaultStore].
+class MemorySettingsStore implements SettingsStore {
+  MemorySettingsStore([this._settings = const AppSettings()]);
+
+  AppSettings _settings;
+
+  @override
+  Future<AppSettings> read() async => _settings;
+
+  @override
+  Future<void> write(AppSettings settings) async => _settings = settings;
 }
 
 VaultCrypto? _crypto;

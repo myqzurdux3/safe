@@ -90,8 +90,11 @@ class VaultHeader {
   static const int saltLength = 16;
   static const int nonceLength = 24;
 
-  /// 8 magic + 1 version + 1 kdf + 4 opsLimit + 8 memLimit + 16 sel + 24 nonce.
-  static const int length = 62;
+  /// 8 magic + 1 version + 1 kdf + 4 opsLimit + 8 memLimit, puis sel et nonce.
+  ///
+  /// Calculée, pas écrite en dur: une taille figée dériverait silencieusement
+  /// de la disposition réelle des champs si l'une d'elles changeait.
+  static const int length = 22 + saltLength + nonceLength;
 
   /// Bornes acceptées pour les paramètres lus dans un fichier.
   static const int minOpsLimit = 1;
