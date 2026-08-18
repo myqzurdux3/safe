@@ -66,6 +66,15 @@ class VaultSession extends ChangeNotifier {
   /// abandonne son effet en mémoire s'il a changé.
   int _generation = 0;
 
+  /// File d'attente des écritures.
+  ///
+  /// Deux sauvegardes en vol en même temps se marchent dessus: chacune part
+  /// d'une photo du coffre prise avant son attente, et la dernière arrivée
+  /// écrase les modifications de l'autre. Elles sont donc enchaînées, et toute
+  /// modification calcule son nouveau coffre *dans* la file, à partir de l'état
+  /// courant.
+  Future<void> _writes = Future<void>.value();
+
   /// Depuis quand l'utilisateur n'a rien fait.
   ///
   /// Deux horloges, parce qu'aucune ne suffit seule: le `Stopwatch` est
@@ -167,15 +176,55 @@ class VaultSession extends ChangeNotifier {
   ///
   /// Si le coffre est verrouillé pendant l'écriture, celle-ci va jusqu'au bout
   /// — ce qui est écrit reste écrit — mais la session ne se rouvre pas.
-  Future<void> save(Vault vault) async {
+  Future<void> save(Vault vault) {
+    // Chiffré tout de suite, mis en file ensuite: le coffre peut être
+    // verrouillé — et la clé libérée — avant que la file ne se libère, alors
+    // que la sauvegarde, elle, a bien été demandée avant.
+    final sealed = _seal(vault);
+    final generation = _generation;
+    return _serialized(() => _commit(vault, sealed, generation));
+  }
+
+  /// Enchaîne [action] derrière les écritures déjà en cours.
+  ///
+  /// L'erreur est rendue à l'appelant, mais ne bloque pas la file: une écriture
+  /// ratée ne doit pas condamner les suivantes.
+  Future<T> _serialized<T>(Future<T> Function() action) {
+    final result = _writes.then((_) => action());
+    _writes = result.then((_) {}, onError: (_) {});
+    return result;
+  }
+
+  /// Modifie le coffre à partir de son état courant, une fois la file libre.
+  ///
+  /// [change] n'est appelée qu'au moment d'écrire: elle voit donc l'état réel,
+  /// pas une photo prise avant l'attente. Lève si le coffre a été verrouillé
+  /// entre-temps — on ne modifie pas un coffre fermé.
+  Future<void> _mutate(Vault Function(Vault current) change) =>
+      _serialized(() {
+        final current = _vault;
+        if (current == null) {
+          throw StateError('Le coffre est verrouillé');
+        }
+        final next = change(current);
+        return _commit(next, _seal(next), _generation);
+      });
+
+  /// Chiffre [vault] avec la clé de session. Lève si le coffre est verrouillé.
+  Uint8List _seal(Vault vault) {
     final key = _key;
     final salt = _salt;
     final params = _fileParams;
     if (key == null || salt == null || params == null) {
       throw StateError('Le coffre est verrouillé');
     }
-    final generation = _generation;
-    await _storage.write(_crypto.seal(vault, key, salt, params));
+    return _crypto.seal(vault, key, salt, params);
+  }
+
+  /// Écrit les octets déjà chiffrés, puis adopte [vault] — sauf si la session
+  /// a été verrouillée depuis [generation].
+  Future<void> _commit(Vault vault, Uint8List sealed, int generation) async {
+    await _storage.write(sealed);
     if (generation != _generation) {
       return;
     }
@@ -185,25 +234,39 @@ class VaultSession extends ChangeNotifier {
   }
 
   /// Ré-chiffre le coffre courant sous [newPassword], avec un sel neuf.
-  Future<void> changePassword(String newPassword) async {
+  ///
+  /// Comme [save]: le chiffrement se fait tout de suite, seule l'écriture passe
+  /// par la file. Un verrouillage pendant l'écriture ne l'annule donc pas — le
+  /// nouveau mot de passe est bien celui du fichier — mais ne rouvre pas la
+  /// session.
+  Future<void> changePassword(String newPassword) {
     final current = _vault;
     if (current == null) {
       throw StateError('Le coffre est verrouillé');
     }
     final salt = _crypto.newSalt();
     final key = _crypto.deriveKey(newPassword, salt, _kdfParams);
-    final generation = _generation;
+    final Uint8List sealed;
     try {
-      await _storage.write(_crypto.seal(current, key, salt, _kdfParams));
+      sealed = _crypto.seal(current, key, salt, _kdfParams);
     } catch (_) {
       key.dispose();
       rethrow;
     }
-    if (generation != _generation) {
-      key.dispose();
-      return;
-    }
-    _adopt(key: key, salt: salt, params: _kdfParams, vault: current);
+    final generation = _generation;
+    return _serialized(() async {
+      try {
+        await _storage.write(sealed);
+      } catch (_) {
+        key.dispose();
+        rethrow;
+      }
+      if (generation != _generation) {
+        key.dispose();
+        return;
+      }
+      _adopt(key: key, salt: salt, params: _kdfParams, vault: current);
+    });
   }
 
   /// Attache un fichier à l'entrée [entryKey].
@@ -225,8 +288,7 @@ class VaultSession extends ChangeNotifier {
     if (key == null || vault == null) {
       throw StateError('Le coffre est verrouillé');
     }
-    final entry = vault.entries.where((e) => e.key == entryKey).firstOrNull;
-    if (entry == null) {
+    if (vault.entries.where((e) => e.key == entryKey).isEmpty) {
       throw StateError('Aucune entrée nommée $entryKey');
     }
 
@@ -240,8 +302,14 @@ class VaultSession extends ChangeNotifier {
     // Le blob d'abord, la référence ensuite: l'ordre inverse laisserait le
     // coffre pointer vers un fichier absent si l'écriture échouait.
     await _blobs.put(attachment.id, _crypto.sealBytes(bytes, key));
-    await save(
-      vault.upsert(
+    await _mutate((current) {
+      // Relu ici et pas plus haut: écrire une pièce jointe prend du temps, et
+      // l'utilisateur a pu enregistrer autre chose entre-temps.
+      final entry = current.entries.where((e) => e.key == entryKey).firstOrNull;
+      if (entry == null) {
+        throw StateError('Aucune entrée nommée $entryKey');
+      }
+      return current.upsert(
         VaultEntry(
           key: entry.key,
           value: entry.value,
@@ -249,8 +317,8 @@ class VaultSession extends ChangeNotifier {
           updated: DateTime.now().toUtc(),
           attachments: [...entry.attachments, attachment],
         ),
-      ),
-    );
+      );
+    });
     return attachment;
   }
 
@@ -268,18 +336,14 @@ class VaultSession extends ChangeNotifier {
     required String entryKey,
     required VaultAttachment attachment,
   }) async {
-    final vault = _vault;
-    if (vault == null) {
-      throw StateError('Le coffre est verrouillé');
-    }
-    final entry = vault.entries.where((e) => e.key == entryKey).firstOrNull;
-    if (entry == null) {
-      throw StateError('Aucune entrée nommée $entryKey');
-    }
     // La référence d'abord, le blob ensuite: si l'effacement échoue, il ne
     // reste qu'un orphelin, nettoyé au prochain déverrouillage.
-    await save(
-      vault.upsert(
+    await _mutate((current) {
+      final entry = current.entries.where((e) => e.key == entryKey).firstOrNull;
+      if (entry == null) {
+        throw StateError('Aucune entrée nommée $entryKey');
+      }
+      return current.upsert(
         VaultEntry(
           key: entry.key,
           value: entry.value,
@@ -290,20 +354,22 @@ class VaultSession extends ChangeNotifier {
               if (existing.id != attachment.id) existing,
           ],
         ),
-      ),
-    );
+      );
+    });
     await _blobs.delete(attachment.id);
   }
 
   /// Supprime une entrée et toutes ses pièces jointes.
   Future<void> deleteEntry(String entryKey) async {
-    final vault = _vault;
-    if (vault == null) {
-      throw StateError('Le coffre est verrouillé');
-    }
-    final entry = vault.entries.where((e) => e.key == entryKey).firstOrNull;
-    await save(vault.remove(entryKey));
-    for (final attachment in entry?.attachments ?? const <VaultAttachment>[]) {
+    var detachees = const <VaultAttachment>[];
+    await _mutate((current) {
+      detachees =
+          current.entries.where((e) => e.key == entryKey).firstOrNull
+              ?.attachments ??
+          const <VaultAttachment>[];
+      return current.remove(entryKey);
+    });
+    for (final attachment in detachees) {
       await _blobs.delete(attachment.id);
     }
   }

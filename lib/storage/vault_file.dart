@@ -36,7 +36,13 @@ class VaultFile implements VaultStore {
 
   File get backupFile => File('${directory.path}/vault.safe.bak');
 
-  File get _tempFile => File('${directory.path}/vault.safe.tmp');
+  /// Un temporaire par écriture: un nom fixe serait partagé par deux écritures
+  /// qui se chevauchent, qui entrelaceraient alors leurs octets dans le même
+  /// fichier, ou échoueraient au `rename` — la source ayant déjà été renommée
+  /// par l'autre.
+  File _newTempFile() => File('${directory.path}/vault.safe.${_writes++}.tmp');
+
+  int _writes = 0;
 
   @override
   Future<bool> exists() => file.exists();
@@ -52,16 +58,26 @@ class VaultFile implements VaultStore {
   @override
   Future<void> write(Uint8List bytes) async {
     await directory.create(recursive: true);
-    final handle = await _tempFile.open(mode: FileMode.writeOnly);
+    final temp = _newTempFile();
     try {
-      await handle.writeFrom(bytes);
-      await handle.flush();
-    } finally {
-      await handle.close();
+      final handle = await temp.open(mode: FileMode.writeOnly);
+      try {
+        await handle.writeFrom(bytes);
+        await handle.flush();
+      } finally {
+        await handle.close();
+      }
+      if (await file.exists()) {
+        await file.copy(backupFile.path);
+      }
+      await temp.rename(file.path);
+    } catch (_) {
+      // Une écriture qui échoue ne doit pas laisser son temporaire derrière
+      // elle: personne ne le relira jamais, et il contient le coffre entier.
+      if (await temp.exists()) {
+        await temp.delete();
+      }
+      rethrow;
     }
-    if (await file.exists()) {
-      await file.copy(backupFile.path);
-    }
-    await _tempFile.rename(file.path);
   }
 }
