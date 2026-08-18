@@ -331,128 +331,75 @@ Le nombre de lignes de `lib/` augmente de 19 %: ce sont des gardes, des
 validations et les commentaires qui disent pourquoi elles existent. Aucun
 correctif n'a été fait par réécriture.
 
-### Ce qui n'a pas été fait, et pourquoi
+### Deuxième passe: les points laissés ouverts ont été traités
 
-C'est la section importante. Rien ici n'est « propre »; ce sont des choix.
+La première passe s'arrêtait sur treize points motivés. Ils ont tous été repris
+ensuite, sauf ceux qu'aucun code ne peut résoudre. Ce qui suit remplace la
+section « ce qui n'a pas été fait » de la première rédaction.
 
-**1. Argon2id tourne toujours sur l'isolat d'interface.** `deriveKey` est un
-appel synchrone depuis `create`, `unlock` et `changePassword`, avec 3 passes sur
-128 Mio. Sur un téléphone modeste: gel de l'écran pendant la dérivation, et
-risque d'ANR Android. *Pas corrigé* parce que la parade — déporter dans un
-isolat — se heurte à `SecureKey`, qui n'est pas transférable entre isolats: il
-faudrait faire transiter les octets de la clé par un port de message, donc les
-sortir de la mémoire verrouillée que `sodium` protège par `mlock`. Ce serait
-échanger une gêne visible contre une régression de sécurité invisible. La bonne
-forme est de déplacer tout `VaultCrypto` dans l'isolat, ce qui est une
-refonte, pas un correctif d'audit. **Non mesuré**: je n'ai pas d'appareil bas de
-gamme sous la main, seul un Pixel 9a.
-
-**2. Le zéroïsage de la mémoire reste largement symbolique.** `seal` efface
-consciencieusement son tampon de clair, mais `Vault.toBytes` a déjà produit deux
-copies non effaçables du coffre entier: la `String` du `jsonEncode` et le tampon
-d'`utf8.encode`. Idem pour le mot de passe, qui vit dans une `String` avant
-d'être encodé. *Pas corrigé* parce que le faire vraiment demande de sérialiser en
-JSON directement vers un tampon d'octets, sans passer par une `String` — donc un
-encodeur maison. Le README annonce déjà cette limite; elle est réelle et plus
-large que ce qu'il laisse croire.
-
-**3. Les pièces jointes en clair ne sont pas zéroïsées.** `sealBytes` et
-`openBytes` laissent le contenu déchiffré sur le tas, contrairement au coffre.
-*Pas corrigé* pour la même raison de fond, et parce qu'un tampon de 25 Mio
-traverse plusieurs couches (`file_selector`, `share_plus`, `Image.memory`) dont
-aucune ne promet de ne pas le copier.
-
-**4. Aucune restriction de permissions sur les fichiers créés.** Sous Linux,
-`~/.local/share/safe/vault.safe` naît en `0644`: lisible par tout autre compte de
-la machine, qui peut alors attaquer Argon2id hors ligne. *Pas corrigé* parce que
-`dart:io` n'expose pas `chmod`: il faudrait un `Process.run('chmod')` — une
-dépendance à un binaire externe sur un chemin critique — ou du code natif. Sous
-Android le répertoire privé protège déjà. **À faire, mais pas à l'aveugle.**
-
-**5. `vault.safe.bak` n'est toujours jamais relue.** Le changement de mot de
-passe ne la laisse plus derrière lui (`bcf563f`), mais aucun chemin de
-restauration n'existe et aucun écran ne la mentionne: c'est un filet dont seul
-qui lit le code sait qu'il existe. *Pas corrigé* parce que le trancher est un
-choix de produit — exposer une restauration, ou supprimer le mécanisme et gagner
-la moitié des entrées/sorties de chaque sauvegarde (la copie double le volume
-écrit). Ce n'est pas à un audit de décider.
-
-**6. Pas de `fsync` du répertoire après le `rename`.** Le contenu du temporaire
-est bien vidé sur le disque, l'entrée de répertoire non. Sur coupure
-d'alimentation, selon le système de fichiers, le coffre peut réapparaître en
-version ancienne. *Pas corrigé*: `dart:io` n'expose pas de `fsync` de
-répertoire. L'atomicité annoncée vaut contre un arrêt du processus, pas contre
-une coupure de courant — c'est désormais dit plutôt que sous-entendu.
-
-**7. `Clipboard.setData` ne pose pas `EXTRA_IS_SENSITIVE`.** Sur Android 13+, le
-secret copié s'affiche dans l'aperçu du presse-papier système, et Gboard le range
-dans son propre historique — un magasin distinct que `clearNow` ne touche pas.
-L'effacement à 30 s ne protège donc pas contre le vecteur le plus probable.
-*Pas corrigé*: il faut un canal natif dédié, du même genre que celui de
-`FLAG_SECURE`. **C'est la plus grosse faille restante côté Android.**
-
-**8. L'APK release est signé avec la clé de debug.** Clé publique, partagée par
-toutes les installations Flutter: n'importe qui peut fabriquer un APK
-substituable à celui-ci lors d'une mise à jour, et hériter du répertoire privé
-existant. *Pas corrigé* parce que changer de clé impose une désinstallation, donc
-la perte du coffre si l'on n'exporte pas d'abord — et parce que le `key.properties`
-correspondant ne peut venir que de toi. Le `TODO` du `build.gradle.kts` porte
-maintenant cette conséquence, qu'il taisait.
-
-**9. Normalisation Unicode.** `toLowerCase()` sans normalisation NFC: `café`
-précomposé et `café` décomposé sont deux clefs distinctes, visuellement
-identiques dans la liste, et chercher l'une ne trouve pas l'autre. *Pas corrigé*
-parce que normaliser à la saisie change des clefs existantes: il faut décider
-d'une migration, pas d'un patch.
-
-**10. Nommage mixte français/anglais** des identifiants (`nouveau`, `courant`,
-`transferDisponible` côtoient `_busy`, `_error`). *Pas corrigé*: c'est de la
-préférence, la règle de cet audit étant qu'une modification doit se justifier par
-un gain mesurable. Renommer produirait un gros diff sans un seul bug évité.
-
-**11. Le générateur n'a pas de test déterministe.** Le paramètre
-`generatePassword(random:)` existe pour ça, mais aucun test ne l'utilise: les
-tests actuels sont statistiques. Le commentaire qui disait « n'existe que pour
-les tests » était donc faux. *Pas corrigé* — c'est un test à écrire, pas un
-défaut de production.
-
-**12. Rien n'a été vérifié sur l'appareil** dans cette session. Les correctifs
-Android — `allowBackup`, clavier, presse-papier hors focus — sont vérifiés par
-le manifeste fusionné de l'APK et par des tests, pas par une manipulation sur
-le Pixel. `FLAG_SECURE` l'avait été lors d'une session précédente.
-
-**13. Le mot de passe maître ne m'a jamais été communiqué**, et je ne l'ai pas
-demandé. Aucun test n'a donc été fait sur ton vrai coffre.
-
-### Risques restants, par priorité
-
-| Priorité | Risque | Où |
+| Point ouvert | Traitement | Commit |
 |---|---|---|
-| 1 | Historique du presse-papier de Gboard: le secret survit à l'effacement | `lib/util/clipboard.dart` |
-| 2 | Signature avec la clé de debug: substitution d'APK possible | `android/app/build.gradle.kts` |
-| 3 | Gel de l'interface et risque d'ANR pendant Argon2id | `lib/state/vault_session.dart` |
-| 4 | Fichiers `0644` sous Linux, lisibles par les autres comptes | `lib/storage/*.dart` |
-| 5 | Clair non effaçable en mémoire (`String` Dart) | conception, documenté |
-| 6 | Pas de restauration depuis `vault.safe.bak` | produit |
-| 7 | Doublons Unicode invisibles dans les clefs | `lib/model/vault.dart` |
-| 8 | Couverture faible sur `settings_screen` (41 %) et `attachments_section` (58 %) | tests |
+| Argon2id gelait l'interface | Dérivation dans un isolat séparé | `c4f90e9` |
+| Le clair laissait des copies non effaçables | `JsonUtf8Encoder`: plus de `String` intermédiaire du coffre entier | `6de7a4d` |
+| Pièces jointes en clair jamais effacées | Tampon remis à zéro dès le chiffrement, et après usage dans l'interface | `6de7a4d` |
+| Fichiers lisibles par les autres comptes | Dossier du coffre en `0700` sous Linux | `3b2e7b7` |
+| `vault.safe.bak` jamais relue | Réglages → « Restaurer la sauvegarde précédente », annulable | `4fd8456` |
+| Historique du presse-papier de Gboard | Canal natif posant `EXTRA_IS_SENSITIVE` | `033aa36` |
+| Signature avec la clé de debug | `key.properties` lu s'il existe; procédure de migration documentée | `f89cc34` |
+| Doublons Unicode invisibles | `canonicalKey` (NFC + minuscules) pour toute comparaison | `84e44f8` |
+| Générateur sans test déterministe | Quatre tests via le générateur injecté | `f89cc34` |
+| Nommage mixte français/anglais | Vingt-huit renommages, identifiants en anglais | `ae38793` |
+| Licence absente | MIT, plus la mention du gabarit Flutter sous BSD | `7aaf5b2` |
+
+Deux points restent sans correctif possible, pour des raisons qui ne sont pas des
+arbitrages:
+
+**Pas de `fsync` du répertoire après le `rename`.** `dart:io` ne l'expose pas. La
+conséquence exacte est désormais écrite dans `DEPLOY.md` plutôt que sous-entendue:
+l'écriture atomique couvre un arrêt du processus, pas une coupure d'alimentation
+brutale de la machine, auquel cas le coffre peut réapparaître dans sa version
+précédente — et la restauration de la sauvegarde sert précisément à cela.
+
+**Les valeurs vivent dans des `String` Dart.** Le langage ne permet pas de les
+effacer. Le mot de passe maître aussi, le temps d'être encodé. Ce qui pouvait
+l'être a été effacé; le reste est une limite du langage, annoncée dans le README.
+
+### État après la deuxième passe
+
+| Mesure | Première passe | Après |
+|---|---|---|
+| Tests | 218 | **253** |
+| Dépendances directes | 5 | 6 (`unorm_dart`, en Dart pur) |
+| APK release | 52,5 Mio | 55,5 Mio (tables Unicode) |
+
+### Risques restants
+
+Rien de ce qui suit n'est un défaut connu et non corrigé: ce sont les limites du
+modèle de menace, à connaître avant de confier ses mots de passe à ce logiciel.
+
+| Priorité | Limite | Nature |
+|---|---|---|
+| 1 | Un appareil compromis (root, enregistreur de frappe, débogueur attaché) voit tout | hors modèle de menace, comme pour tout gestionnaire |
+| 2 | Le clair en mémoire n'est pas effaçable (`String` Dart) | limite du langage |
+| 3 | L'APK est signé avec la clé de debug tant que `key.properties` n'existe pas | choix laissé à l'utilisateur, migration documentée |
+| 4 | Coupure d'alimentation pendant une écriture: retour possible à la version précédente | `dart:io` sans `fsync` de répertoire |
+| 5 | Jamais audité par un tiers | dit dans le README |
+| 6 | Couverture faible sur `settings_screen` et `attachments_section` | tests d'interface à compléter |
 
 ### À toi de décider
 
-1. **La licence.** Aucune n'est déclarée, ce qui vaut « tous droits réservés ».
-   Le `README.md` le dit franchement plutôt que de combler d'office: le choix
-   t'appartient. Si le dépôt reste privé et personnel, ne rien faire est une
-   réponse valable.
-2. **`vault.safe.bak`**: filet exposé à l'utilisateur, ou mécanisme supprimé ?
-   En l'état il ne sert qu'à qui lit le code.
-3. **La clé de release Android.** À faire un jour, avec un export du coffre
-   avant, et en sachant que l'export ne contient pas les pièces jointes.
-4. **Le message du commit `424cb55`**, écrit par un hook de sauvegarde
-   automatique pendant une coupure. Je peux l'amender si tu veux un historique
-   lisible — je ne touche pas à l'historique sans ton accord.
-5. **Vérifier sur le téléphone** ce que je n'ai pu vérifier que par le manifeste
-   et les tests: qu'une capture d'écran est bien refusée, que l'interrupteur des
-   réglages la rétablit, et qu'après une mise à jour ton coffre est intact.
-6. **`blobs/orphelins/`**: regarde s'il contient quelque chose après ta première
-   mise à jour. S'il est vide, tant mieux; s'il ne l'est pas, ce sont des pièces
-   jointes que l'ancien code aurait détruites.
+1. **La clé de release Android**, le jour où l'APK circule ailleurs que sur ton
+   téléphone. La procédure est dans `DEPLOY.md`, et elle impose une
+   désinstallation: exporter d'abord.
+2. **Deux messages de commit imprécis**, sans conséquence sur le contenu:
+   `424cb55` a été écrit par un hook de sauvegarde automatique pendant une
+   coupure de connexion, et `aeace53` a balayé au passage des modifications de la
+   spec qu'un sous-agent était en train d'écrire. Je peux les amender; je ne
+   touche pas à l'historique sans ton accord.
+3. **Vérifier sur le téléphone** ce qui ne se vérifie pas autrement: qu'une
+   capture d'écran est refusée, que l'interrupteur des réglages la rétablit, que
+   le presse-papier n'apparaît plus dans les suggestions du clavier, et
+   qu'après la mise à jour ton coffre est intact.
+4. **`blobs/orphelins/`**: regarde s'il contient quelque chose après la mise à
+   jour. S'il n'est pas vide, ce sont des pièces jointes que l'ancien code aurait
+   détruites.
