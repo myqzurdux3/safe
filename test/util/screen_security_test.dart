@@ -21,6 +21,29 @@ void main() {
         .setMockMethodCallHandler(screenSecurityChannel, null);
   });
 
+  test('un appel abouti est rapporté comme tel', () async {
+    expect(await const ScreenSecurity().setBlocked(true), isTrue);
+  });
+
+  test('une plateforme sans implémentation rapporte un échec', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(screenSecurityChannel, (call) async {
+      throw MissingPluginException('non implémenté');
+    });
+    // Sans retour, l'interface affiche « captures bloquées » alors qu'elles ne
+    // le sont pas: pour un coffre-fort, une protection silencieusement absente
+    // est pire qu'une erreur visible.
+    expect(await const ScreenSecurity().setBlocked(true), isFalse);
+  });
+
+  test('un échec côté natif rapporte un échec', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(screenSecurityChannel, (call) async {
+      throw PlatformException(code: 'erreur');
+    });
+    expect(await const ScreenSecurity().setBlocked(true), isFalse);
+  });
+
   test('activer envoie blockScreenshots(true)', () async {
     await const ScreenSecurity().setBlocked(true);
     expect(appels.single.method, 'setBlocked');

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/services.dart';
 
 /// Canal vers le code natif Android qui pose ou retire `FLAG_SECURE`.
@@ -12,16 +14,29 @@ const MethodChannel screenSecurityChannel = MethodChannel('dev.safe/screen');
 class ScreenSecurity {
   const ScreenSecurity();
 
-  Future<void> setBlocked(bool blocked) async {
+  /// La plateforme sait-elle bloquer les captures d'écran ?
+  ///
+  /// Sert à distinguer « le système a refusé » — qu'il faut dire — de « il n'y
+  /// a rien à bloquer ici », qui n'a pas à inquiéter un utilisateur Linux.
+  bool get isSupported => Platform.isAndroid;
+
+  /// Rend `true` si le natif a confirmé, `false` sinon.
+  ///
+  /// Le résultat compte: une protection silencieusement absente est pire
+  /// qu'une erreur visible. L'appelant décide quoi en faire — sous Linux, où
+  /// il n'y a rien à bloquer, un `false` est attendu et sans conséquence.
+  Future<bool> setBlocked(bool blocked) async {
     try {
       await screenSecurityChannel.invokeMethod<void>('setBlocked', {
         'blocked': blocked,
       });
+      return true;
     } on MissingPluginException {
-      // Plateforme sans implémentation native: rien à faire, et surtout pas
-      // remonter une erreur dans les réglages.
+      // Plateforme sans implémentation native.
+      return false;
     } on PlatformException {
-      // Idem: un échec côté natif ne doit pas casser l'écran de réglages.
+      // Le natif a refusé; l'écran de réglages doit le dire, pas planter.
+      return false;
     }
   }
 }

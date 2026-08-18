@@ -54,30 +54,62 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.initState();
     widget.settings?.read().then((loaded) {
       if (mounted) {
-        setState(() {
-          _settings = loaded;
-          // La session peut avoir été construite avant la lecture des
-          // réglages: on la remet d'accord avec le fichier.
-          widget.session.autoLockDelay = loaded.autoLockDelay;
-        });
+        // La session peut avoir été construite avant la lecture des réglages:
+        // on la remet d'accord avec le fichier. Hors du `setState`, ce setter
+        // prévenant ses propres écouteurs.
+        widget.session.autoLockDelay = loaded.autoLockDelay;
+        setState(() => _settings = loaded);
       }
     });
   }
 
   Future<void> _setAutoLockDelay(Duration value) async {
+    final precedent = _settings;
     final updated = _settings.copyWith(autoLockDelay: value);
-    setState(() {
-      _settings = updated;
-      widget.session.autoLockDelay = value;
-    });
-    await widget.settings?.write(updated);
+    // Hors du `setState`: ce setter prévient ses écouteurs, et un effet de bord
+    // n'a pas sa place dans un rappel censé n'être que local.
+    widget.session.autoLockDelay = value;
+    setState(() => _settings = updated);
+    if (!await _enregistre(updated)) {
+      widget.session.autoLockDelay = precedent.autoLockDelay;
+      setState(() => _settings = precedent);
+    }
   }
 
   Future<void> _setBlockScreenshots(bool blocked) async {
+    final precedent = _settings;
     final updated = _settings.copyWith(blockScreenshots: blocked);
     setState(() => _settings = updated);
-    await widget.screen.setBlocked(blocked);
-    await widget.settings?.write(updated);
+
+    final applique = await widget.screen.setBlocked(blocked);
+    if (blocked && widget.screen.isSupported && !applique) {
+      // Afficher « bloqué » alors que rien ne l'est serait pire que l'aveu:
+      // l'utilisateur ferait confiance à une protection absente.
+      if (mounted) {
+        setState(() => _settings = precedent);
+        _tell('Blocage refusé par le système: les captures restent possibles');
+      }
+      return;
+    }
+    if (!await _enregistre(updated)) {
+      await widget.screen.setBlocked(precedent.blockScreenshots);
+      if (mounted) {
+        setState(() => _settings = precedent);
+      }
+    }
+  }
+
+  /// Écrit les réglages; rend `false` et prévient l'utilisateur si l'écriture
+  /// échoue, pour que l'interface n'affiche pas un choix qui sera perdu au
+  /// prochain lancement.
+  Future<bool> _enregistre(AppSettings settings) async {
+    try {
+      await widget.settings?.write(settings);
+      return true;
+    } catch (_) {
+      _tell('Réglage non enregistré: le fichier n\'a pas pu être écrit');
+      return false;
+    }
   }
 
   Future<void> _changePassword() async {
