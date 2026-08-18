@@ -269,10 +269,16 @@ d'installation Linux **exécuté** dans un faux `HOME` jetable pour vérifier qu
 marche — `$HOME` remplace un `/home/user/...` codé en dur, ce qui imposait aussi
 de corriger le heredoc, protégé par des quotes et donc sans substitution.
 
-`docs/superpowers/specs/`: mis à jour (voir le commit `docs:` correspondant).
+`docs/superpowers/specs/` (`11980a3`, plus une partie balayée par erreur dans
+`aeace53`): sept affirmations fausses corrigées — un fichier
+`lib/crypto/secure_key.dart` qui n'a jamais existé, `sodium_libs` donné comme
+dépendance alors que la section 3 disait déjà le contraire, une liste de tests
+qui annonçait l'inverse de la section 8, deux fonctionnalités jamais
+implémentées — et tous les changements de l'audit documentés avec leur pourquoi.
+
 `docs/superpowers/plans/`: plan d'exécution historique, ni réécrit ni supprimé,
 mais coiffé d'un encadré qui dit qu'il est terminé et que ses signatures d'API
-n'ont plus cours.
+n'ont plus cours, exemples à l'appui.
 
 ### Hygiène du dépôt
 
