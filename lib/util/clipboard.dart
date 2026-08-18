@@ -21,10 +21,19 @@ class SecureClipboard {
     await Clipboard.setData(ClipboardData(text: value));
     _pending = value;
     _timer?.cancel();
-    _timer = Timer(clearAfter, clearNow);
+    // `clearNow` rend un `Future`: passée telle quelle à `Timer`, une erreur de
+    // plateforme n'aurait aucun destinataire et remonterait en erreur de zone.
+    _timer = Timer(clearAfter, () => unawaited(clearNow().catchError((_) {})));
   }
 
-  /// Efface immédiatement, si le presse-papier contient encore notre valeur.
+  /// Efface immédiatement, sauf si le presse-papier contient visiblement autre
+  /// chose que notre valeur.
+  ///
+  /// La lecture du presse-papier échoue quand l'application n'a pas le focus —
+  /// c'est la règle sur Android depuis la version 10, et c'est le cas nominal
+  /// ici: on copie, on bascule vers le navigateur, la minuterie se déclenche.
+  /// En cas de doute on efface donc: écraser une copie faite entre-temps est
+  /// désagréable, laisser un mot de passe dans le presse-papier ne l'est pas.
   Future<void> clearNow() async {
     _timer?.cancel();
     _timer = null;
@@ -33,8 +42,13 @@ class SecureClipboard {
     if (pending == null) {
       return;
     }
-    final current = await Clipboard.getData(Clipboard.kTextPlain);
-    if (current?.text == pending) {
+    ClipboardData? current;
+    try {
+      current = await Clipboard.getData(Clipboard.kTextPlain);
+    } catch (_) {
+      current = null;
+    }
+    if (current == null || current.text == pending) {
       await Clipboard.setData(const ClipboardData(text: ''));
     }
   }
