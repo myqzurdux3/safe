@@ -128,7 +128,12 @@ class _EntryEditScreenState extends State<EntryEditScreen> {
       return;
     }
     final collision = vault.entries.any(
-      (entry) => entry.key == key && entry.key != widget.existing?.key,
+      // Comparaison canonique: sans elle, « Gmail » et « gmail », ou deux
+      // écritures Unicode de « café », créaient deux entrées que rien ne
+      // distinguait à l'écran.
+      (entry) =>
+          canonicalKey(entry.key) == canonicalKey(key) &&
+          canonicalKey(entry.key) != canonicalKey(widget.existing?.key ?? ''),
     );
     if (collision) {
       setState(() => _error = 'Cette clef existe déjà');

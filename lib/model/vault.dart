@@ -1,7 +1,24 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:unorm_dart/unorm_dart.dart' as unorm;
+
 import '../storage/blob_store.dart';
+
+/// Forme canonique d'une clef, pour la comparer et la chercher.
+///
+/// Deux problèmes se cumulent. La casse: on veut que « Gmail » et « gmail »
+/// soient la même clef. Et l'écriture Unicode: « café » existe avec un é
+/// précomposé (U+00E9) ou avec un e suivi d'un accent combinant
+/// (U+0065 U+0301) — visuellement identiques, distincts octet pour octet, et un
+/// clavier ou un collage produit l'un ou l'autre sans que l'utilisateur le
+/// sache. Sans normalisation, la liste affichait deux entrées impossibles à
+/// distinguer, et chercher l'une ne trouvait pas l'autre.
+///
+/// Uniquement pour comparer: la clef enregistrée reste celle que l'utilisateur a
+/// tapée. Normaliser à l'écriture réécrirait les coffres existants, ce qui
+/// demanderait une migration.
+String canonicalKey(String key) => unorm.nfc(key).toLowerCase();
 
 /// Lecture typée du JSON du coffre.
 ///
@@ -223,9 +240,9 @@ class Vault {
     final parClef = <String, VaultEntry>{};
     for (final raw in rawEntries) {
       final entry = VaultEntry._fromJson(_object(raw));
-      final existing = parClef[entry.key];
+      final existing = parClef[canonicalKey(entry.key)];
       if (existing == null || entry.updated.isAfter(existing.updated)) {
-        parClef[entry.key] = entry;
+        parClef[canonicalKey(entry.key)] = entry;
       }
     }
     return Vault(parClef.values);
@@ -255,7 +272,10 @@ class Vault {
 
   /// Ajoute ou remplace une entrée, en conservant sa date de création.
   Vault upsert(VaultEntry entry) {
-    final existing = entries.where((e) => e.key == entry.key).firstOrNull;
+    final canonique = canonicalKey(entry.key);
+    final existing = entries
+        .where((e) => canonicalKey(e.key) == canonique)
+        .firstOrNull;
     final merged = existing == null
         ? entry
         : VaultEntry(
@@ -265,21 +285,27 @@ class Vault {
             updated: entry.updated,
             attachments: entry.attachments,
           );
-    return Vault([...entries.where((e) => e.key != entry.key), merged]);
+    return Vault([
+      ...entries.where((e) => canonicalKey(e.key) != canonique),
+      merged,
+    ]);
   }
 
   /// Retire l'entrée portant [key]; sans effet si elle n'existe pas.
-  Vault remove(String key) => Vault([...entries.where((e) => e.key != key)]);
+  Vault remove(String key) {
+    final canonique = canonicalKey(key);
+    return Vault([...entries.where((e) => canonicalKey(e.key) != canonique)]);
+  }
 
   /// Filtre les entrées dont la clef contient [query], casse ignorée.
   List<VaultEntry> search(String query) {
-    final needle = query.trim().toLowerCase();
+    final needle = canonicalKey(query.trim());
     if (needle.isEmpty) {
       return entries;
     }
     return [
       for (final entry in entries)
-        if (entry.key.toLowerCase().contains(needle)) entry,
+        if (canonicalKey(entry.key).contains(needle)) entry,
     ];
   }
 }

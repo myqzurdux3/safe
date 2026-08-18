@@ -342,7 +342,7 @@ class VaultSession extends ChangeNotifier {
     if (key == null || vault == null) {
       throw StateError('Le coffre est verrouillé');
     }
-    if (vault.entries.where((e) => e.key == entryKey).isEmpty) {
+    if (vault.entries.where((e) => _sameKey(e.key, entryKey)).isEmpty) {
       throw StateError('Aucune entrée nommée $entryKey');
     }
 
@@ -368,7 +368,9 @@ class VaultSession extends ChangeNotifier {
     await _mutate((current) {
       // Relu ici et pas plus haut: écrire une pièce jointe prend du temps, et
       // l'utilisateur a pu enregistrer autre chose entre-temps.
-      final entry = current.entries.where((e) => e.key == entryKey).firstOrNull;
+      final entry = current.entries
+          .where((e) => _sameKey(e.key, entryKey))
+          .firstOrNull;
       if (entry == null) {
         throw StateError('Aucune entrée nommée $entryKey');
       }
@@ -410,7 +412,9 @@ class VaultSession extends ChangeNotifier {
     // La référence d'abord, le blob ensuite: si l'effacement échoue, il ne
     // reste qu'un orphelin, nettoyé au prochain déverrouillage.
     await _mutate((current) {
-      final entry = current.entries.where((e) => e.key == entryKey).firstOrNull;
+      final entry = current.entries
+          .where((e) => _sameKey(e.key, entryKey))
+          .firstOrNull;
       if (entry == null) {
         throw StateError('Aucune entrée nommée $entryKey');
       }
@@ -436,7 +440,7 @@ class VaultSession extends ChangeNotifier {
     await _mutate((current) {
       detachees =
           current.entries
-              .where((e) => e.key == entryKey)
+              .where((e) => _sameKey(e.key, entryKey))
               .firstOrNull
               ?.attachments ??
           const <VaultAttachment>[];
@@ -525,6 +529,12 @@ class VaultSession extends ChangeNotifier {
       }
     }
   }
+
+  /// Deux clefs désignent-elles la même entrée ?
+  ///
+  /// Même règle que le modèle: casse ignorée, écritures Unicode confondues.
+  static bool _sameKey(String a, String b) =>
+      canonicalKey(a) == canonicalKey(b);
 
   void _adopt({
     required SecureKey key,

@@ -68,7 +68,7 @@ class _AttachmentsSectionState extends State<AttachmentsSection> {
       return const [];
     }
     return widget.session.vault?.entries
-            .where((entry) => entry.key == key)
+            .where((entry) => canonicalKey(entry.key) == canonicalKey(key))
             .firstOrNull
             ?.attachments ??
         const [];
