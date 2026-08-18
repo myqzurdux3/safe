@@ -405,7 +405,7 @@ modèle de menace, à connaître avant de confier ses mots de passe à ce logici
    fait que passer en arrière-plan ne verrouille plus le coffre, vignette du
    sélecteur d'applications comprise. À reconsidérer.
 
-### Vérifié sur l'appareil, le 2026-08-19
+### Vérifié sur l'appareil, les 2026-08-19
 
 Ce que les tests ne pouvaient pas montrer, constaté sur le Pixel 9a après
 installation par `adb install -r`:
@@ -418,6 +418,26 @@ installation par `adb install -r`:
 | Dérivation dans l'isolat | Un mot de passe faux la déclenche: pas de gel, pas de plantage, aucune erreur au journal, et « Mot de passe incorrect » s'affiche |
 | `FLAG_SECURE` | Sur installation neuve (émulateur, sans réglages): drapeau `SECURE` posé et capture d'écran noir uni. Sur le téléphone: absent, parce que le réglage est à `false` |
 
-Le dernier point vaut aussi comme preuve que l'interrupteur fonctionne dans les
-deux sens — ce qui n'avait jamais pu être testé, faute de connaître le mot de
-passe maître.
+Puis, sur un émulateur Pixel 9a en version debug — ce qui permet enfin
+d'inspecter le répertoire privé, impossible sur un build release:
+
+| Vérification | Résultat |
+|---|---|
+| `settings.json` relu au démarrage | Réglage `blockScreenshots: false` posé à la main, drapeau `SECURE` relâché au lancement suivant |
+| Dérivation dans l'isolat | Création de coffre et déverrouillage réels, sans gel ni erreur |
+| Droits sur le disque | Dossier `0700`, `vault.safe` et blobs `0600` |
+| Format des identifiants de blob | `b77efe845e726028d395ad50d914093d.blob`, 32 caractères hexadécimaux; 69 octets = 33 d'en-tête + 20 de contenu + 16 de tag |
+| Presse-papier sensible | `dumpsys clipboard` → `hasExtras(1)` sur le clip de `dev.safe.safe`: `EXTRA_IS_SENSITIVE` posé |
+| Effacement du presse-papier | Plus aucun `PrimaryClip` après le délai: `clearPrimaryClip` retire l'entrée, il ne la remplace pas par du vide |
+| **Quarantaine des orphelins** | Blob référencé conservé, orphelin **déplacé** dans `blobs/orphelins/`, temporaire `.blob.tmp` supprimé |
+| Interrupteur des captures | `SECURE` apparaît et disparaît des drapeaux de la fenêtre en temps réel, et `settings.json` suit |
+| Restauration de la sauvegarde | Le coffre revient à l'état précédent, l'entrée perd la pièce jointe attendue, et refaire l'opération annule bien la première |
+| Écriture atomique des réglages | Le fichier créé à la main en `0666` ressort en `0600` après réécriture par l'application |
+
+C'est la quarantaine qui comptait le plus: c'est le correctif dont l'ancien
+comportement détruisait des pièces jointes après un import, et il n'avait
+jusqu'ici été vérifié qu'en test unitaire.
+
+L'interrupteur des captures d'écran est aussi la preuve que le réglage
+fonctionne dans les deux sens — ce qui n'avait jamais pu être testé sur le
+téléphone, faute de connaître le mot de passe maître.
