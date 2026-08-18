@@ -57,6 +57,15 @@ class VaultSession extends ChangeNotifier {
   Duration _autoLockDelay;
   Timer? _autoLockTimer;
 
+  /// Numéro de la session ouverte, incrémenté à chaque verrouillage.
+  ///
+  /// Une écriture dure: le coffre peut être verrouillé pendant qu'elle est en
+  /// vol. Sans ce jeton, la suite de l'écriture réaffecte `_vault` et rouvre le
+  /// coffre après coup — contenu déchiffré réaffiché, alors que la clé, elle, a
+  /// bien été libérée. Chaque opération relève le numéro avant son `await` et
+  /// abandonne son effet en mémoire s'il a changé.
+  int _generation = 0;
+
   /// Depuis quand l'utilisateur n'a rien fait.
   ///
   /// Deux horloges, parce qu'aucune ne suffit seule: le `Stopwatch` est
@@ -102,7 +111,17 @@ class VaultSession extends ChangeNotifier {
     final salt = _crypto.newSalt();
     final key = _crypto.deriveKey(password, salt, _kdfParams);
     const empty = Vault([]);
-    await _storage.write(_crypto.seal(empty, key, salt, _kdfParams));
+    final generation = _generation;
+    try {
+      await _storage.write(_crypto.seal(empty, key, salt, _kdfParams));
+    } catch (_) {
+      key.dispose();
+      rethrow;
+    }
+    if (generation != _generation) {
+      key.dispose();
+      return;
+    }
     _adopt(key: key, salt: salt, params: _kdfParams, vault: empty);
   }
 
@@ -132,6 +151,7 @@ class VaultSession extends ChangeNotifier {
 
   /// Ferme la session: clé libérée, contenu oublié, presse-papier nettoyé.
   void lock() {
+    _generation++;
     _autoLockTimer?.cancel();
     _autoLockTimer = null;
     _key?.dispose();
@@ -144,6 +164,9 @@ class VaultSession extends ChangeNotifier {
   }
 
   /// Chiffre et écrit [vault], puis en fait le contenu courant.
+  ///
+  /// Si le coffre est verrouillé pendant l'écriture, celle-ci va jusqu'au bout
+  /// — ce qui est écrit reste écrit — mais la session ne se rouvre pas.
   Future<void> save(Vault vault) async {
     final key = _key;
     final salt = _salt;
@@ -151,7 +174,11 @@ class VaultSession extends ChangeNotifier {
     if (key == null || salt == null || params == null) {
       throw StateError('Le coffre est verrouillé');
     }
+    final generation = _generation;
     await _storage.write(_crypto.seal(vault, key, salt, params));
+    if (generation != _generation) {
+      return;
+    }
     _vault = vault;
     _restartAutoLock();
     notifyListeners();
@@ -165,7 +192,17 @@ class VaultSession extends ChangeNotifier {
     }
     final salt = _crypto.newSalt();
     final key = _crypto.deriveKey(newPassword, salt, _kdfParams);
-    await _storage.write(_crypto.seal(current, key, salt, _kdfParams));
+    final generation = _generation;
+    try {
+      await _storage.write(_crypto.seal(current, key, salt, _kdfParams));
+    } catch (_) {
+      key.dispose();
+      rethrow;
+    }
+    if (generation != _generation) {
+      key.dispose();
+      return;
+    }
     _adopt(key: key, salt: salt, params: _kdfParams, vault: current);
   }
 

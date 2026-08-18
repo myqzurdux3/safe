@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -41,6 +42,38 @@ class MemoryVaultStore implements VaultStore {
 
   @override
   Future<void> write(Uint8List bytes) async => _bytes = bytes;
+}
+
+/// Coffre en mémoire dont l'écriture peut être suspendue.
+///
+/// Sert à observer ce qui arrive quand quelque chose se produit *pendant*
+/// qu'une sauvegarde est en vol: verrouillage, seconde sauvegarde, arrêt.
+class GatedVaultStore implements VaultStore {
+  final inner = MemoryVaultStore();
+
+  /// Écritures suspendues tant que ce jeton n'est pas complété.
+  Completer<void>? gate;
+
+  /// Ordre d'arrivée des écritures, pour vérifier la sérialisation.
+  final List<int> writeOrder = [];
+  int _next = 0;
+
+  @override
+  Future<bool> exists() => inner.exists();
+
+  @override
+  Future<Uint8List> read() => inner.read();
+
+  @override
+  Future<void> write(Uint8List bytes) async {
+    final me = _next++;
+    writeOrder.add(me);
+    final waiting = gate;
+    if (waiting != null) {
+      await waiting.future;
+    }
+    return inner.write(bytes);
+  }
 }
 
 /// Pièces jointes en mémoire, même raison que [MemoryVaultStore].
