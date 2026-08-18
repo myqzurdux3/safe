@@ -15,11 +15,12 @@ maître, et rien ne quitte l'appareil.
 - Copier une valeur; le presse-papier est effacé 30 s plus tard
 - Bloquer les captures d'écran et vider la vignette des applications récentes
   (Android). Actif par défaut, désactivable dans les réglages
-- Verrouiller automatiquement après inactivité (30 s à 5 min, 2 min par défaut,
-  choix conservé d'un lancement à l'autre).
+- Verrouiller automatiquement après inactivité (30 s, 1, 2 ou 5 min; 2 min par
+  défaut, choix conservé d'un lancement à l'autre).
   Le temps passé en arrière-plan compte comme de l'inactivité, mais changer
-  d'application ne verrouille pas en soi. La frappe compte comme une activité,
-  et le verrouillage ferme les écrans ouverts
+  d'application ne verrouille pas en soi. Frappes et gestes comptent comme une
+  activité, sur tous les écrans. Le verrouillage ferme les écrans ouverts et
+  efface une saisie en cours
 - Exporter et importer le coffre chiffré, pour transférer entre appareils
 
 Pas de compte, pas de serveur, pas de synchronisation automatique, pas de
@@ -35,7 +36,10 @@ remplissage de formulaires.
 | Portée du chiffrement | Le coffre entier: **les noms de clefs sont chiffrés eux aussi** |
 | Pièces jointes | Un fichier chiffré par pièce (`blobs/<id>.blob`), nonce propre, identifiant aléatoire sans rapport avec le nom |
 | Intégrité | L'en-tête en clair sert de données associées: le modifier invalide le tag |
-| Écriture | Fichier temporaire, puis `rename` atomique, avec sauvegarde `.bak` |
+| Écriture | Fichier temporaire, puis `rename` atomique, avec sauvegarde `.bak` — supprimée lors d'un changement de mot de passe, que l'ancien ouvrirait encore |
+| Écritures concurrentes | Sérialisées: une sauvegarde ne peut pas écraser la modification d'une autre |
+| Sauvegarde Android | Désactivée (`allowBackup="false"`): ni Google Drive, ni transfert d'appareil à appareil |
+| Clavier | `autocorrect` et `enableSuggestions` coupés sur les champs de saisie: le dictionnaire du clavier n'apprend pas les secrets |
 
 **Le mot de passe maître ne peut pas être récupéré.** Il n'existe ni question
 secrète, ni clef de secours, ni porte dérobée: perdre le mot de passe, c'est
@@ -74,11 +78,36 @@ lent que les suivants.
 
 ## Où vit le coffre
 
-- Linux: `$XDG_DATA_HOME/safe/vault.safe`, par défaut `~/.local/share/safe/`
+- Linux: `$XDG_DATA_HOME/safe/`, par défaut `~/.local/share/safe/`
 - Android: dossier privé de l'application, inaccessible aux autres applications
 
-À côté du coffre, `vault.safe.bak` conserve l'état précédant la dernière
-sauvegarde, et `blobs/` contient les pièces jointes chiffrées.
+Un seul dossier, cinq choses dedans:
+
+| Fichier | Contenu | Chiffré |
+|---|---|---|
+| `vault.safe` | le coffre: clefs, valeurs, métadonnées des pièces jointes | oui |
+| `vault.safe.bak` | l'état précédant la dernière sauvegarde | oui |
+| `blobs/<id>.blob` | le contenu d'une pièce jointe | oui |
+| `blobs/orphelins/` | pièces jointes qu'aucune entrée ne référence plus | oui |
+| `settings.json` | blocage des captures d'écran, délai de verrouillage | **non** — aucun secret |
+
+Sauvegarder revient à copier le dossier: le contenu reste chiffré, une copie sur
+une clé USB ne l'expose pas.
+
+## Configuration
+
+`settings.json`, à côté du coffre, en clair. Deux réglages, tous deux modifiables
+depuis l'écran Réglages:
+
+| Clef | Valeurs | Défaut |
+|---|---|---|
+| `blockScreenshots` | `true` / `false` | `true` |
+| `autoLockSeconds` | 30, 60, 120 ou 300 | 120 |
+
+Une valeur absente, aberrante ou hors de cette liste retombe sur le réglage le
+plus protecteur; un `autoLockSeconds` intermédiaire est ramené au choix
+inférieur. Supprimer le fichier remet les défauts. Il ne contient aucun secret et
+ne dit rien du contenu du coffre.
 
 ## Transférer un coffre entre appareils
 
@@ -91,6 +120,11 @@ remplacer le coffre existant, dont une copie part en `.bak`.
 **L'export ne contient pas les pièces jointes**: elles vivent dans des fichiers
 séparés et s'exportent une par une depuis l'entrée concernée. Un export en
 archive unique reste à faire.
+
+Conséquence sur l'appareil qui reçoit l'import: ses pièces jointes locales ne
+sont plus référencées par le coffre importé. Elles ne sont pas détruites — elles
+partent dans `blobs/orphelins/`, où elles restent chiffrées et récupérables à la
+main.
 
 ## Logo
 
@@ -115,6 +149,11 @@ install -Dm644 assets/icon/safe_256.png ~/.local/share/icons/hicolor/256x256/app
 install -Dm644 linux/packaging/safe.desktop ~/.local/share/applications/safe.desktop
 ```
 
+Le fichier versionné contient `Exec=safe`, qui suppose le binaire dans le
+`PATH`. Beaucoup de lanceurs n'héritent pas du `PATH` du shell: pour une
+installation dans `~/.local`, [DEPLOY.md](DEPLOY.md) donne la variante à chemin
+absolu, à préférer.
+
 ## Structure
 
 ```
@@ -125,6 +164,7 @@ lib/
   storage/vault_file.dart    Fichier sur disque, écriture atomique
   storage/vault_transfer.dart Export et import vérifié
   storage/blob_store.dart    Pièces jointes chiffrées sur disque
+  storage/app_settings.dart  Préférences en clair, bornées à la relecture
   state/vault_session.dart   Verrouillé / déverrouillé, auto-lock
   ui/                        Verrou, liste, édition, réglages
   ui/safe_logo.dart          Logo vectoriel, dessiné au trait
@@ -139,3 +179,18 @@ docs/superpowers/
 
 Voir [DEPLOY.md](DEPLOY.md): rebuild et réinstallation sur Android et Linux,
 emplacement des données, sauvegarde.
+
+Prérequis: Flutter 3.44 ou plus récent, GTK 3 pour la cible Linux, et
+`python3` avec Pillow pour régénérer les icônes.
+
+## Contribuer
+
+Voir [CONTRIBUTING.md](CONTRIBUTING.md). En bref: un test qui échoue d'abord,
+`dart format`, `flutter analyze` et `flutter test` verts avant de proposer quoi
+que ce soit.
+
+## Licence
+
+**Aucune licence n'est déclarée pour l'instant**, ce qui vaut « tous droits
+réservés »: personne d'autre n'a le droit de réutiliser ce code. À trancher —
+c'est un choix qui appartient à l'auteur, pas à un outil.

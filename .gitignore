@@ -1,6 +1,19 @@
+# Sorties de compilation et caches d'outils
 build/
 .dart_tool/
 .flutter-plugins*
+coverage/
+
+# Coffres: ne doivent jamais être versionnés, même par accident
 *.safe
 *.safe.bak
+
+# Fichiers d'éditeur
 .idea/
+.vscode/
+*.iml
+
+# Divers
+migrate_working_dir/
+*.log
+.DS_Store

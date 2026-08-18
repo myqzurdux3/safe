@@ -15,10 +15,7 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "dev.safe.safe"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -27,8 +24,14 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+            // TODO: clé de release dédiée. Signer avec la clé de debug rend
+            // n'importe quel APK substituable à celui-ci lors d'une mise à jour,
+            // et donne alors accès au répertoire privé existant.
+            //
+            // Attention au moment de changer: une signature différente empêche
+            // `adb install -r`, et une réinstallation efface le coffre. Exporter
+            // d'abord (Réglages -> Exporter), sachant que l'export ne contient
+            // pas les pièces jointes.
             signingConfig = signingConfigs.getByName("debug")
         }
     }

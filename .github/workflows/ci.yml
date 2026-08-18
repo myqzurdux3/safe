@@ -1,0 +1,47 @@
+name: Vérification
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  verifier:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.6'
+          channel: stable
+          # Met en cache le SDK Flutter et le cache pub.
+          cache: true
+
+      # La cible Linux a besoin de GTK; l'analyse et les tests n'en ont pas
+      # besoin, mais le build de vérification si.
+      - name: Dépendances système
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libgtk-3-dev
+
+      - run: flutter pub get
+
+      - name: Format
+        run: dart format --output=none --set-exit-if-changed lib test
+
+      - run: flutter analyze
+
+      - run: flutter test
+
+      # Compile réellement les deux cibles: une régression de build ne se voit
+      # ni dans l'analyse ni dans les tests. libsodium est compilée ici par le
+      # build hook de package:sodium, d'où l'étape la plus longue.
+      - run: flutter build linux --release
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - run: flutter build apk --release
