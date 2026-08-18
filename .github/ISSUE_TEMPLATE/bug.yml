@@ -1,0 +1,72 @@
+name: Anomalie
+description: Quelque chose ne marche pas comme annoncé
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        **S'il s'agit d'une faille de sécurité, n'utilisez pas ce formulaire**:
+        une issue est publique. Voir SECURITY.md.
+
+
+        Ne collez jamais un vrai mot de passe, un vrai coffre, ni une capture
+        d'écran montrant vos entrées.
+
+  - type: textarea
+    id: attendu
+    attributes:
+      label: Ce qui devait se passer
+    validations:
+      required: true
+
+  - type: textarea
+    id: constate
+    attributes:
+      label: Ce qui se passe
+      description: Le message d'erreur exact, s'il y en a un.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduire
+    attributes:
+      label: Comment le reproduire
+      description: Sur un coffre de démonstration, pas sur le vôtre.
+      placeholder: |
+        1. Créer un coffre
+        2. Ajouter une entrée « exemple »
+        3. …
+    validations:
+      required: true
+
+  - type: input
+    id: plateforme
+    attributes:
+      label: Plateforme
+      placeholder: Android 16 sur Pixel 9a, ou Linux avec GNOME 48
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: >-
+        Le commit à partir duquel l'application a été compilée
+        (`git rev-parse --short HEAD`).
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: verifications
+    attributes:
+      label: Avant d'envoyer
+      options:
+        - label: >-
+            Ce rapport ne contient aucun secret réel, ni capture d'écran en
+            montrant.
+          required: true
+        - label: >-
+            `flutter test` et `flutter analyze` passent sur ma copie, ou je dis
+            en quoi ils échouent.
+          required: false

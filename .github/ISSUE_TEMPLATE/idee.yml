@@ -1,0 +1,38 @@
+name: Idée
+description: Proposer un changement de comportement ou une fonctionnalité
+labels: [idée]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Ce projet reste volontairement petit: pas de compte, pas de serveur, pas
+        de synchronisation automatique, pas de remplissage de formulaires. Une
+        idée qui suppose l'un de ces quatre points sera refusée, non par manque
+        d'intérêt mais parce qu'elle change ce qu'est le projet.
+
+  - type: textarea
+    id: probleme
+    attributes:
+      label: Le problème
+      description: >-
+        Ce que vous n'arrivez pas à faire aujourd'hui, pas la solution que vous
+        imaginez.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Ce que vous proposez
+    validations:
+      required: true
+
+  - type: textarea
+    id: securite
+    attributes:
+      label: Ce que ça coûterait en sécurité
+      description: >-
+        Toute fonctionnalité élargit la surface d'attaque. Qu'est-ce que celle-ci
+        expose de plus, et à qui ?
+    validations:
+      required: true

@@ -1,0 +1,7 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Faille de sécurité
+    url: https://github.com/myqzurdux3/safe/security/advisories/new
+    about: >-
+      N'ouvrez pas d'issue publique. Passez par le signalement privé, décrit
+      dans SECURITY.md.

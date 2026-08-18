@@ -191,6 +191,11 @@ emplacement des données, sauvegarde.
 Prérequis: Flutter 3.44 ou plus récent, GTK 3 pour la cible Linux, et
 `python3` avec Pillow pour régénérer les icônes.
 
+## Signaler une faille
+
+Pas d'issue publique: voir [SECURITY.md](.github/SECURITY.md), qui décrit le
+canal privé et ce qui est hors du modèle de menace.
+
 ## Contribuer
 
 Voir [CONTRIBUTING.md](CONTRIBUTING.md). En bref: un test qui échoue d'abord,
