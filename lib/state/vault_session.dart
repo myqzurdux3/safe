@@ -326,12 +326,20 @@ class VaultSession extends ChangeNotifier {
   }
 
   /// Déchiffre le contenu d'une pièce jointe.
+  ///
+  /// Lève [AttachmentTooLargeException] si le blob sur le disque dépasse la
+  /// taille annoncée: le plafond n'était vérifié qu'à l'écriture, si bien qu'un
+  /// blob importé ou abîmé faisait exploser la mémoire à l'ouverture.
   Future<Uint8List> readAttachment(VaultAttachment attachment) async {
     final key = _key;
     if (key == null) {
       throw StateError('Le coffre est verrouillé');
     }
-    return _crypto.openBytes(await _blobs.get(attachment.id), key);
+    final bytes = await _blobs.get(attachment.id);
+    if (bytes.length > maxAttachmentBytes + BlobHeader.length + 16) {
+      throw AttachmentTooLargeException(bytes.length);
+    }
+    return _crypto.openBytes(bytes, key);
   }
 
   /// Détache un fichier et efface son blob.

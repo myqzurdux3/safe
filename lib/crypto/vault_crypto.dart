@@ -97,10 +97,17 @@ class VaultHeader {
   static const int length = 22 + saltLength + nonceLength;
 
   /// Bornes acceptées pour les paramètres lus dans un fichier.
+  ///
+  /// Argon2id tourne avec les paramètres du fichier **avant** que le tag AEAD
+  /// ne soit vérifié: un fichier hostile pourrait donc demander une allocation
+  /// qui tue le processus à la simple tentative d'ouverture. Le plafond est
+  /// celui qu'un téléphone modeste encaisse, pas celui que la bibliothèque
+  /// accepte — le double du défaut, ce qui laisse de la marge pour un
+  /// durcissement futur du format.
   static const int minOpsLimit = 1;
-  static const int maxOpsLimit = 32;
+  static const int maxOpsLimit = 8;
   static const int minMemLimit = 8 * 1024 * 1024;
-  static const int maxMemLimit = 1024 * 1024 * 1024;
+  static const int maxMemLimit = 256 * 1024 * 1024;
 
   final int version;
   final KdfParams params;
