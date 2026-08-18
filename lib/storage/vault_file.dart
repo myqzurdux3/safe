@@ -55,8 +55,12 @@ class VaultFile implements VaultStore {
   ///
   /// Le `rename` final est atomique sur un même système de fichiers: à tout
   /// instant, `vault.safe` est soit l'ancien contenu complet, soit le nouveau.
+  ///
+  /// La copie de sauvegarde n'est pas là pour ça — le `rename` suffit — mais
+  /// pour rattraper une suppression regrettée. Elle est donc supprimée quand
+  /// [keepPrevious] est `false`.
   @override
-  Future<void> write(Uint8List bytes) async {
+  Future<void> write(Uint8List bytes, {bool keepPrevious = true}) async {
     await directory.create(recursive: true);
     final temp = _newTempFile();
     try {
@@ -67,10 +71,15 @@ class VaultFile implements VaultStore {
       } finally {
         await handle.close();
       }
-      if (await file.exists()) {
+      if (keepPrevious && await file.exists()) {
         await file.copy(backupFile.path);
       }
       await temp.rename(file.path);
+      if (!keepPrevious && await backupFile.exists()) {
+        // Effacée seulement après le `rename`: tant que le nouveau coffre n'est
+        // pas en place, l'ancienne copie reste le seul filet.
+        await backupFile.delete();
+      }
     } catch (_) {
       // Une écriture qui échoue ne doit pas laisser son temporaire derrière
       // elle: personne ne le relira jamais, et il contient le coffre entier.

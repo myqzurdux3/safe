@@ -256,7 +256,10 @@ class VaultSession extends ChangeNotifier {
     final generation = _generation;
     return _serialized(() async {
       try {
-        await _storage.write(sealed);
+        // Pas de copie de l'ancienne génération: l'ancien mot de passe
+        // l'ouvrirait encore, et changer de mot de passe se fait justement
+        // parce qu'il a fuité.
+        await _storage.write(sealed, keepPrevious: false);
       } catch (_) {
         key.dispose();
         rethrow;

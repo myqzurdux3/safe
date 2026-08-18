@@ -14,5 +14,9 @@ abstract interface class VaultStore {
   Future<Uint8List> read();
 
   /// Remplace le coffre par [bytes], sans état intermédiaire observable.
-  Future<void> write(Uint8List bytes);
+  ///
+  /// [keepPrevious] à `false` interdit de conserver la génération précédente:
+  /// après un changement de mot de passe, une copie que l'ancien mot de passe
+  /// ouvre encore annulerait le changement.
+  Future<void> write(Uint8List bytes, {bool keepPrevious = true});
 }

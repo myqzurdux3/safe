@@ -41,7 +41,8 @@ class MemoryVaultStore implements VaultStore {
   }
 
   @override
-  Future<void> write(Uint8List bytes) async => _bytes = bytes;
+  Future<void> write(Uint8List bytes, {bool keepPrevious = true}) async =>
+      _bytes = bytes;
 }
 
 /// Coffre en mémoire dont l'écriture peut être suspendue.
@@ -65,7 +66,7 @@ class GatedVaultStore implements VaultStore {
   Future<Uint8List> read() => inner.read();
 
   @override
-  Future<void> write(Uint8List bytes) async {
+  Future<void> write(Uint8List bytes, {bool keepPrevious = true}) async {
     final me = _next++;
     writeOrder.add(me);
     final waiting = gate;
