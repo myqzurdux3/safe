@@ -13,6 +13,7 @@ void main() {
     ecrits = [];
     lectureRendue = <String, Object?>{'text': ''};
     lectureLeve = false;
+    SecureClipboard.resetNativeProbe();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(SystemChannels.platform, (call) async {
           switch (call.method) {
