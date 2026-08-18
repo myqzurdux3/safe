@@ -11,16 +11,24 @@ import 'dart:io';
 /// Sous Android le répertoire privé de l'application est déjà cloisonné par le
 /// système; il n'y a rien à faire, et `chmod` n'y est pas garanti.
 ///
-/// Un dossier déjà en place n'est pas retouché: l'utilisateur a peut-être choisi
-/// ses droits, et les écraser serait plus surprenant qu'utile. Un échec est
-/// silencieux — refuser de démarrer parce qu'un `chmod` n'a pas abouti serait
-/// disproportionné — mais alors les droits restent ceux du système.
+/// Un dossier déjà en place est resserré lui aussi, s'il est ouvert au groupe ou
+/// à tout le monde: `0755` sur un dossier de coffre n'est jamais un choix
+/// délibéré, c'est l'umask par défaut. Les installations faites avant ce
+/// correctif sont donc réparées au premier démarrage, au lieu de rester ouvertes
+/// indéfiniment.
+///
+/// Un échec est silencieux — refuser de démarrer parce qu'un `chmod` n'a pas
+/// abouti serait disproportionné — mais alors les droits restent ceux du
+/// système.
 Future<void> createPrivateDirectory(Directory directory) async {
-  if (await directory.exists()) {
+  final existait = await directory.exists();
+  if (!existait) {
+    await directory.create(recursive: true);
+  }
+  if (!Platform.isLinux) {
     return;
   }
-  await directory.create(recursive: true);
-  if (!Platform.isLinux) {
+  if (existait && !_ouvertAuxAutres(directory)) {
     return;
   }
   try {
@@ -28,5 +36,20 @@ Future<void> createPrivateDirectory(Directory directory) async {
   } on ProcessException {
     // `chmod` absent d'un système réduit: rien de mieux à faire depuis Dart,
     // qui n'expose pas l'appel système.
+  }
+}
+
+/// Le dossier accorde-t-il le moindre droit au groupe ou aux autres ?
+bool _ouvertAuxAutres(Directory directory) {
+  try {
+    // `modeString` rend par exemple `rwxr-xr-x`: les six derniers caractères
+    // sont les droits du groupe puis des autres.
+    return directory
+        .statSync()
+        .modeString()
+        .substring(3)
+        .contains(RegExp(r'[rwx]'));
+  } on FileSystemException {
+    return false;
   }
 }

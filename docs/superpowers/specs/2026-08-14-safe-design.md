@@ -61,6 +61,14 @@ Ce que le design ne garantit pas, explicitement:
   n'y résiste.
 - **Force du mot de passe maître.** Argon2id rend les attaques coûteuses,
   il ne sauve pas un mot de passe de 6 caractères.
+- **Signature de release.** `android/app/build.gradle.kts` lit
+  `android/key.properties` s'il existe, et retombe sinon sur la clé de
+  debug — publique, partagée par toutes les installations Flutter:
+  n'importe qui peut alors fabriquer un APK substituable lors d'une mise à
+  jour, et hériter du répertoire privé existant, coffre compris.
+  L'infrastructure est prête (`key.properties`, `*.jks`, `*.keystore`
+  exclus du dépôt), mais le basculement n'est pas fait: il impose une
+  désinstallation, donc l'effacement du coffre.
 
 ## 3. Choix cryptographiques
 
@@ -82,6 +90,19 @@ Justification des paramètres Argon2id: le preset `moderate` de libsodium
 l'app à une mise à mort par Android sur appareil bas de gamme. 128 Mio
 conserve la résistance mémoire réelle qui manque à PBKDF2, pour une
 dérivation de l'ordre de 0,5 à 1 s sur téléphone milieu de gamme.
+
+La dérivation tourne dans un isolat séparé (`deriveKeyAsync`, dans
+`vault_crypto.dart`), pas sur celui qui dessine l'écran: à 128 Mio et
+3 passes, Argon2id prend de l'ordre d'une seconde, et l'exécuter sur
+l'isolat d'interface gèle l'écran à chaque déverrouillage, création ou
+changement de mot de passe — au pire moment si une écriture est en vol,
+avec le risque qu'Android tue le processus pour non-réponse. Contrepartie
+assumée: les 32 octets de la clé traversent un port de message, donc du
+tas ordinaire, avant d'être recopiés dans la mémoire verrouillée d'une
+`SecureKey`; le tampon de transit est remis à zéro juste après, mais sa
+copie côté isolat, elle, ne l'est pas. `useIsolate: false` existe pour les
+tests de widgets, qui tournent sous une horloge simulée où un isolat ne
+rend jamais sa réponse.
 
 Le fichier borne lui-même ce qu'il peut demander à la relecture: `opsLimit`
 entre 1 et 8, `memLimit` entre 8 et 256 Mio (le double du défaut, pour
@@ -153,6 +174,11 @@ Conséquences assumées:
   plus tard.
 - Exporter une pièce jointe l'écrit en clair sur le disque: c'est le seul
   moment où un contenu quitte le coffre, et il est explicite.
+- Le tampon d'une pièce jointe est remis à zéro dès qu'elle est chiffrée
+  (`VaultSession.attach`), sauf si le fichier est refusé d'entrée pour sa
+  taille — rien n'a alors été lu. L'interface l'efface aussi après usage
+  (lecture, export); seul le décodage interne de `Image.memory` pour
+  l'aperçu y échappe, le tampon source, lui, non.
 
 ## 4. Format de fichier
 
@@ -196,6 +222,29 @@ disparaissaient. `entries` est `List.unmodifiable`, ce qui interdit un
 constructeur `const` pour `Vault`; le coffre vide vit donc dans `Vault.empty`,
 pas dans un littéral `const Vault([])`.
 
+Cette comparaison de clefs passe par `canonicalKey` (NFC puis minuscules),
+pas une simple casse ignorée: « café » existe avec un é précomposé
+(U+00E9) ou avec un e suivi d'un accent combinant (U+0065 U+0301) —
+visuellement identiques, distincts octet pour octet, et un clavier ou un
+collage produit l'une ou l'autre écriture sans que l'utilisateur le sache.
+Sans normalisation, la liste affichait deux entrées indistinguables, et
+chercher l'une ne trouvait pas l'autre. `canonicalKey` sert à la recherche,
+à l'unicité (`upsert`, `remove`), au dédoublonnage à la relecture ci-dessus
+et à la garde de collision de l'écran d'édition — jamais à l'ordre
+d'affichage, qui reste un simple `toLowerCase()`: au plus une entrée par
+clef canonique survit avant le tri, donc l'écart ne s'y voit pas. La clef
+enregistrée reste celle que l'utilisateur a tapée: seule la comparaison est
+normalisée, pour ne pas imposer de migration aux coffres existants.
+Dépendance `unorm_dart`, en Dart pur — le SDK ne fournit aucune fonction de
+normalisation Unicode.
+
+`Vault.toBytes` sérialise avec `JsonUtf8Encoder`, qui écrit directement des
+octets, plutôt qu'avec `jsonEncode`: celui-ci produit d'abord une `String`
+contenant le coffre entier en clair, une copie que Dart ne permet pas
+d'effacer et qui survivait donc au `fillRange` que la couche crypto
+applique consciencieusement au tampon qu'on lui rend. Le résultat est
+identique octet pour octet: un coffre déjà écrit se relit sans changement.
+
 ## 5. Emplacements et écriture
 
 - Linux: `$XDG_DATA_HOME/safe/vault.safe`, défaut `~/.local/share/safe/`.
@@ -217,7 +266,13 @@ unique, il n'y a pas de mise à jour partielle):
 Une interruption à n'importe quelle étape laisse soit l'ancien coffre
 intact, soit le nouveau complet, jamais un fichier à moitié écrit.
 
-Trois garanties supplémentaires, ajoutées après un audit:
+Limite de cette atomicité: le `rename` couvre un arrêt du processus, pas
+une coupure d'alimentation brutale de la machine — `dart:io` n'expose
+aucun moyen de forcer l'écriture de l'entrée de répertoire elle-même. Le
+repli, dans ce cas comme dans les autres, est la restauration de la
+sauvegarde décrite plus bas.
+
+Quatre garanties supplémentaires, ajoutées après un audit:
 
 - **Numéro de génération.** Une écriture dure; un verrouillage pendant
   qu'elle est en vol libère déjà la clé. Sans un jeton de génération relevé
@@ -242,8 +297,17 @@ Trois garanties supplémentaires, ajoutées après un audit:
   prend un paramètre `keepPrevious`; le changement de mot de passe l'appelle
   à `false` et efface aussi `vault.safe.bak` s'il existe. Sans ça, l'ancien
   mot de passe ouvrait encore la copie de sauvegarde après le changement.
-  Limite restante: cette copie n'est de toute façon jamais relue par
-  l'application, aucun écran ne proposant de restaurer un `.bak`.
+- **Restauration de la sauvegarde.** `vault.safe.bak` existait sans jamais
+  être relue, et aucun écran ne la mentionnait. `VaultStore.readPrevious`
+  la relit; `VaultSession.previousEntryCount` et `restorePrevious`
+  l'exposent à l'écran Réglages. Le dialogue annonce le nombre d'entrées de
+  la copie face au coffre actuel — une restauration à l'aveugle sur un
+  coffre-fort n'est pas une offre honnête —, et l'opération est elle-même
+  annulable: elle passe par la file d'écriture habituelle, qui refait donc
+  une copie de l'état qu'elle abandonne. Aucun mot de passe à saisir: la
+  garantie précédente efface la copie dès un changement de mot de passe,
+  donc celle qui existe s'ouvre forcément avec la clé de la session en
+  cours. Vérifiée avant toute écriture.
 
 ## 6. Architecture
 
@@ -253,9 +317,10 @@ ignore la crypto; l'interface ne voit que la session.
 | Fichier | Rôle | Dépend de |
 |---|---|---|
 | `lib/crypto/vault_crypto.dart` | dérivation Argon2id, seal/open XChaCha20-Poly1305, en-têtes coffre et blob. Fonctions pures, aucune IO | sodium |
-| `lib/model/vault.dart` | entrées, pièces jointes, (dé)sérialisation JSON | — |
+| `lib/model/vault.dart` | entrées, pièces jointes, (dé)sérialisation JSON, `canonicalKey` | storage/blob_store.dart, unorm_dart |
 | `lib/storage/vault_store.dart` | interface d'écriture du coffre; `VaultFile` en est l'implémentation réelle, une version en mémoire sert aux tests | — |
-| `lib/storage/vault_file.dart` | chemins par plateforme, lecture, écriture atomique, `.bak` | dart:io, path_provider |
+| `lib/storage/vault_file.dart` | chemins par plateforme, lecture, écriture atomique, `.bak` | dart:io, path_provider, storage/private_directory.dart |
+| `lib/storage/private_directory.dart` | crée le dossier du coffre, fermé (`0700`) aux autres comptes sous Linux | dart:io |
 | `lib/storage/blob_store.dart` | pièces jointes sur le disque, une par identifiant; validation d'identifiant, quarantaine des orphelins | dart:io |
 | `lib/storage/vault_transfer.dart` | export et import du fichier chiffré tel quel | crypto, storage/vault_store.dart |
 | `lib/storage/app_settings.dart` | réglages en clair (`settings.json`): délai d'auto-lock, blocage des captures; seule source de vérité des choix de délai | dart:io |
@@ -298,8 +363,8 @@ ajouter.
 « générer » (longueur 12–64, jeux lettres / chiffres / symboles).
 
 **Réglages**: changer le mot de passe maître (nouveau sel, ré-chiffrement
-complet), délai d'auto-lock (30 s, 1, 2 ou 5 min; défaut 2 min), export,
-import.
+complet), délai d'auto-lock (30 s, 1, 2 ou 5 min; défaut 2 min),
+restauration de la sauvegarde précédente (§5), export, import.
 
 Les champs clef, valeur et recherche désactivent `autocorrect` et
 `enableSuggestions`: un clavier Android apprend sinon ce qui y est tapé, y
@@ -314,6 +379,17 @@ rend `null` quand l'app n'a pas le focus — le cas nominal ici, l'utilisateur
 ayant basculé vers l'app où il colle la valeur —, si bien qu'un échec de
 lecture comptait auparavant à tort comme « autre chose est là, ne pas
 effacer » et l'effacement n'avait jamais lieu.
+
+Sur Android, la copie passe par un canal natif (`dev.safe/clipboard`,
+`MainActivity.kt`) plutôt que par `Clipboard.setData` de Flutter, qui ne
+pose pas `EXTRA_IS_SENSITIVE`: sans cet indicateur, Android 13 et suivants
+affichent le secret dans l'aperçu système du presse-papier, et les
+claviers le rangent dans leur propre historique — un magasin hors de
+portée de l'application, que l'effacement à 30 s ne touche pas. Le canal
+pose l'extra à la copie, et efface via `clearPrimaryClip` (Android 9 et
+suivants) sans relire le contenu au préalable. Repli sur le chemin Flutter
+quand le canal n'existe pas (Linux); le résultat de la première tentative
+est mémorisé, pour ne pas le retenter à chaque copie.
 
 ## 8. Verrouillage
 

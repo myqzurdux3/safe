@@ -32,12 +32,25 @@ void main() {
     expect(dir.statSync().modeString(), 'rwx------');
   });
 
-  test('un dossier déjà en place n\'est pas retouché', () async {
+  test('un dossier déjà ouvert aux autres est resserré', () async {
     final dir = Directory('${parent.path}/deja');
     await dir.create(recursive: true);
+    await Process.run('chmod', ['755', dir.path]);
+    expect(dir.statSync().modeString(), 'rwxr-xr-x');
+
     await createPrivateDirectory(dir);
-    // Rien n'impose de corriger les droits d'un dossier existant: l'utilisateur
-    // a peut-être ses raisons, et écraser son choix serait pire.
-    expect(dir.existsSync(), isTrue);
+
+    // Les installations faites avant ce correctif ne doivent pas rester
+    // ouvertes indéfiniment: `0755` sur un dossier de coffre n'est jamais un
+    // choix délibéré, c'est l'umask par défaut.
+    expect(dir.statSync().modeString(), 'rwx------');
+  });
+
+  test('un dossier déjà privé n\'est pas retouché', () async {
+    final dir = Directory('${parent.path}/prive');
+    await dir.create(recursive: true);
+    await Process.run('chmod', ['700', dir.path]);
+    await createPrivateDirectory(dir);
+    expect(dir.statSync().modeString(), 'rwx------');
   });
 }
