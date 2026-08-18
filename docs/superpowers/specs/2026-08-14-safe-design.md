@@ -176,14 +176,32 @@ l'AEAD: altérer la version ou les paramètres KDF invalide le tag.
 Clair chiffré: JSON UTF-8
 
 ```json
-{"v":1,"entries":[{"k":"...","val":"...","created":0,"updated":0}]}
+{"v":1,"entries":[{"k":"...","val":"...","created":0,"updated":0,"att":[{"id":"...","name":"...","mime":"...","size":0,"created":0}]}]}
 ```
 
-`created` / `updated` sont des timestamps Unix en millisecondes.
+`created` / `updated` sont des timestamps Unix en millisecondes. `att` est
+optionnel: absent des coffres écrits avant les pièces jointes, qui restent
+donc lisibles sans migration; c'est la liste de leurs métadonnées (§3 bis).
+
+`Vault.fromBytes` valide chaque champ et lève une vraie `FormatException`
+(elle levait un `TypeError`, qui n'est pas une `Exception` et qu'aucun
+appelant ne capturait) — le contenu authentifié n'est pas forcément écrit par
+nous: l'import accepte un fichier étranger avec son propre mot de passe. Les
+horodatages sont bornés à un siècle autour de l'époque Unix, pour écarter une
+valeur fabriquée plutôt que de lever un `ArgumentError` obscur. La relecture
+trie par clef et dédoublonne par clef, la plus récemment modifiée gagnant:
+rien n'imposait l'unicité à l'écriture, et `upsert` retirait ensuite *toutes*
+les entrées d'une clef dupliquée pour n'en réinsérer qu'une — les deux
+disparaissaient. `entries` est `List.unmodifiable`, ce qui interdit un
+constructeur `const` pour `Vault`; le coffre vide vit donc dans `Vault.empty`,
+pas dans un littéral `const Vault([])`.
 
 ## 5. Emplacements et écriture
 
-- Linux: `$XDG_DATA_HOME/safe/vault.safe`, défaut `~/.local/share/safe/`
+- Linux: `$XDG_DATA_HOME/safe/vault.safe`, défaut `~/.local/share/safe/`.
+  Lève un `StateError` si ni l'une ni l'autre variable n'est définie, plutôt
+  que d'écrire dans le chemin littéral `null/.local/share/safe`, relatif au
+  répertoire courant et donc n'importe où.
 - Android: répertoire privé de l'application (`path_provider`,
   `getApplicationDocumentsDirectory`). Jamais le stockage externe.
 
@@ -199,6 +217,34 @@ unique, il n'y a pas de mise à jour partielle):
 Une interruption à n'importe quelle étape laisse soit l'ancien coffre
 intact, soit le nouveau complet, jamais un fichier à moitié écrit.
 
+Trois garanties supplémentaires, ajoutées après un audit:
+
+- **Numéro de génération.** Une écriture dure; un verrouillage pendant
+  qu'elle est en vol libère déjà la clé. Sans un jeton de génération relevé
+  avant chaque `await` et vérifié après, la suite de l'opération réaffectait
+  le coffre déchiffré en mémoire une fois l'écriture terminée: le coffre
+  paraissait rouvert alors que la clé avait disparu. L'écriture, elle, va
+  toujours jusqu'au bout — ce qui est sur le disque reste correct même si la
+  session ne l'adopte plus.
+- **File d'écriture et temporaire par écriture.** Deux sauvegardes en vol en
+  même temps se marchaient dessus: chacune partait d'une photo du coffre
+  prise avant son attente, et la dernière écrivait par-dessus les
+  modifications de l'autre; `VaultFile` partageait en plus un seul
+  `vault.safe.tmp` entre écritures concurrentes. Désormais chaque écriture a
+  son propre temporaire (effacé si elle échoue), et `attach`,
+  `removeAttachment`, `deleteEntry` calculent leur nouveau coffre à
+  l'intérieur de la file, sur l'état courant — pas sur une copie prise avant
+  d'attendre. Le chiffrement, lui, se fait immédiatement à l'appel de
+  `save`: seule l'écriture passe par la file, pour qu'une sauvegarde
+  demandée coffre ouvert atteigne le disque même si le verrouillage survient
+  avant que la file ne se libère.
+- **`.bak` supprimée au changement de mot de passe.** `VaultStore.write`
+  prend un paramètre `keepPrevious`; le changement de mot de passe l'appelle
+  à `false` et efface aussi `vault.safe.bak` s'il existe. Sans ça, l'ancien
+  mot de passe ouvrait encore la copie de sauvegarde après le changement.
+  Limite restante: cette copie n'est de toute façon jamais relue par
+  l'application, aucun écran ne proposant de restaurer un `.bak`.
+
 ## 6. Architecture
 
 Un fichier par responsabilité. La crypto ignore le disque; le stockage
@@ -206,26 +252,36 @@ ignore la crypto; l'interface ne voit que la session.
 
 | Fichier | Rôle | Dépend de |
 |---|---|---|
-| `lib/crypto/vault_crypto.dart` | dérivation Argon2id, seal/open XChaCha20-Poly1305. Fonctions pures, aucune IO | sodium_libs |
-| `lib/crypto/secure_key.dart` | enveloppe `SecureKey`, cycle de vie et effacement | sodium_libs |
+| `lib/crypto/vault_crypto.dart` | dérivation Argon2id, seal/open XChaCha20-Poly1305, en-têtes coffre et blob. Fonctions pures, aucune IO | sodium |
+| `lib/model/vault.dart` | entrées, pièces jointes, (dé)sérialisation JSON | — |
+| `lib/storage/vault_store.dart` | interface d'écriture du coffre; `VaultFile` en est l'implémentation réelle, une version en mémoire sert aux tests | — |
 | `lib/storage/vault_file.dart` | chemins par plateforme, lecture, écriture atomique, `.bak` | dart:io, path_provider |
-| `lib/model/vault.dart` | entrées, (dé)sérialisation JSON | — |
-| `lib/state/vault_session.dart` | état verrouillé/déverrouillé, minuterie d'auto-lock, cycle de vie | crypto, storage, model |
+| `lib/storage/blob_store.dart` | pièces jointes sur le disque, une par identifiant; validation d'identifiant, quarantaine des orphelins | dart:io |
+| `lib/storage/vault_transfer.dart` | export et import du fichier chiffré tel quel | crypto, storage/vault_store.dart |
+| `lib/storage/app_settings.dart` | réglages en clair (`settings.json`): délai d'auto-lock, blocage des captures; seule source de vérité des choix de délai | dart:io |
+| `lib/state/vault_session.dart` | état verrouillé/déverrouillé, `SecureKey` de session, minuterie d'auto-lock, file d'écriture, cycle de vie | crypto, storage/vault_store.dart, storage/blob_store.dart, model, sodium |
 | `lib/ui/unlock_screen.dart` | création du coffre et déverrouillage | state |
 | `lib/ui/entries_screen.dart` | liste, recherche, copie | state |
-| `lib/ui/entry_edit_screen.dart` | ajout et modification, générateur | state, util |
-| `lib/ui/settings_screen.dart` | changement de mot de passe, délai d'auto-lock, export, import | state, storage |
+| `lib/ui/entry_edit_screen.dart` | ajout et modification, générateur | state, util, ui/attachments_section.dart |
+| `lib/ui/attachments_section.dart` | section « Pièces jointes » de l'écran d'édition: ajout, lecture, export, suppression | state |
+| `lib/ui/settings_screen.dart` | changement de mot de passe, délai d'auto-lock, blocage des captures, export, import | state, storage |
+| `lib/ui/safe_logo.dart` | logo dessiné au trait (pas une image figée), utilisé sur l'écran de verrou | — |
 | `lib/util/clipboard.dart` | copie avec effacement différé | — |
 | `lib/util/password_generator.dart` | génération aléatoire | — |
-| `lib/main.dart` | initialisation de sodium, thème, routage | tout |
+| `lib/util/screen_security.dart` | canal vers `FLAG_SECURE` côté Android | flutter/services |
+| `lib/main.dart` | initialisation de sodium, lecture des réglages, détecteur d'activité, thème, routage | tout |
+
+`SecureKey` n'a pas de fichier propre: c'est un type de `package:sodium`,
+détenu et libéré par `vault_session.dart`, pas une enveloppe maison.
 
 ## 7. Interface
 
 Quatre écrans, plus un panneau de réglages.
 
 **Création** (aucun fichier présent): mot de passe + confirmation, minimum
-12 caractères, indicateur de longueur, aucune règle de composition
-arbitraire. Avertissement explicite sur l'absence de récupération.
+12 caractères — vérifié à la validation, pas de jauge de force affichée
+pendant la saisie —, aucune règle de composition arbitraire. Avertissement
+explicite sur l'absence de récupération.
 
 **Verrou**: champ mot de passe, indicateur d'activité pendant la
 dérivation. Message d'erreur unique « mot de passe incorrect » — l'échec
@@ -234,8 +290,9 @@ corrompu, et distinguer les deux dans l'interface fuiterait de
 l'information. Le détail technique va dans les logs de debug uniquement.
 
 **Liste**: barre de recherche, entrées triées par clef, valeurs masquées
-par défaut. Par entrée: révéler (appui maintenu), copier, modifier,
-supprimer (avec confirmation). Bouton flottant pour ajouter.
+par défaut. Par entrée: révéler (bouton bascule, pas un appui maintenu),
+copier, modifier, supprimer (avec confirmation). Bouton flottant pour
+ajouter.
 
 **Édition**: clef, valeur masquée avec bouton de révélation, bouton
 « générer » (longueur 12–64, jeux lettres / chiffres / symboles).
@@ -244,8 +301,19 @@ supprimer (avec confirmation). Bouton flottant pour ajouter.
 complet), délai d'auto-lock (30 s, 1, 2 ou 5 min; défaut 2 min), export,
 import.
 
+Les champs clef, valeur et recherche désactivent `autocorrect` et
+`enableSuggestions`: un clavier Android apprend sinon ce qui y est tapé, y
+compris dans un dictionnaire personnel partagé entre applications. Les
+champs de mot de passe maître n'ont pas eu besoin de ce traitement:
+`obscureText` le leur assurait déjà.
+
 La copie d'une valeur efface le presse-papier 30 s plus tard, ou plus tôt
-si le coffre se verrouille entre-temps.
+si le coffre se verrouille entre-temps. L'effacement a lieu même si la
+relecture du presse-papier échoue: depuis Android 10, `Clipboard.getData`
+rend `null` quand l'app n'a pas le focus — le cas nominal ici, l'utilisateur
+ayant basculé vers l'app où il colle la valeur —, si bien qu'un échec de
+lecture comptait auparavant à tort comme « autre chose est là, ne pas
+effacer » et l'effacement n'avait jamais lieu.
 
 ## 8. Verrouillage
 
@@ -257,6 +325,14 @@ Deux déclencheurs:
   seule activité, et l'ignorer verrouille le coffre sous les doigts de
   l'utilisateur.
 - `AppLifecycleState.detached` uniquement: le processus s'arrête.
+
+Le détecteur de ces interactions vit dans `builder:` de `MaterialApp`, pas
+dans `VaultGate`: `home:` est à l'intérieur de la première route du
+`Navigator`, alors que les écrans empilés — édition, réglages, générateur,
+visionneuse de pièce jointe — en sont des frères dans l'`Overlay`. Un
+détecteur posé plus bas ne voyait donc rien de ce qui s'y passait, et le
+coffre se verrouillait sous les doigts de l'utilisateur en train de remplir
+un formulaire.
 
 **Le passage en arrière-plan ne verrouille plus** (changé le 2026-08-16).
 Consulter une autre app puis revenir ne doit pas coûter une saisie du mot de
@@ -276,8 +352,8 @@ et interdit les captures d'écran.
 
 `FLAG_SECURE` est réglable par l'utilisateur (ajouté le 2026-08-16), parce
 qu'il empêche aussi les usages légitimes: capture d'écran pour un support
-technique, partage d'écran, enregistrement d'une démonstration. Trois garde-fous
-autour de ce choix:
+technique, partage d'écran, enregistrement d'une démonstration. Quatre
+garde-fous autour de ce choix:
 
 - actif par défaut, et un fichier de réglages absent ou abîmé retombe sur
   « actif »;
@@ -285,17 +361,31 @@ autour de ce choix:
   réglages: le démarrage n'a pas de fenêtre non protégée, et Flutter ne fait
   que le relâcher ensuite si l'utilisateur l'a demandé;
 - l'interface dit ce que la désactivation coûte, vignette des applications
-  récentes comprise.
+  récentes comprise;
+- `ScreenSecurity.setBlocked` rend un booléen plutôt que de supposer que
+  l'appel a réussi, et `isSupported` distingue « rien à bloquer sous Linux »
+  d'un refus réel du système sous Android: sans ça, l'interrupteur affichait
+  « bloqué » après un refus du natif, sans que rien ne le vérifie.
 
 Le réglage vit dans `settings.json`, en clair à côté du coffre: il ne dit rien
 du contenu, et le chiffrer imposerait de déverrouiller le coffre avant de
-pouvoir protéger l'écran.
+pouvoir protéger l'écran. L'écriture passe par un temporaire puis un
+`rename`, comme le coffre: `writeAsString` tronque avant d'écrire, et une
+coupure en cours laissait un JSON partiel — donc un retour silencieux aux
+valeurs par défaut à la lecture suivante.
 
-Le délai de verrouillage y est conservé aussi (ajouté le 2026-08-16). Comme le
-fichier est en clair et modifiable, la valeur relue est bornée entre 30 s et
-5 min: éditer `settings.json` à la main ne permet pas de garder le coffre
-ouvert des heures. Une valeur absente, d'un type inattendu ou hors bornes
-retombe sur 2 min.
+Le délai de verrouillage y est conservé aussi (ajouté le 2026-08-16), en
+secondes et lu comme `num` plutôt que `int`: un fichier édité à la main peut
+contenir `120.0`, que certains décodeurs JSON rendent en `double`. Comme le
+fichier est en clair et modifiable, la valeur relue est ensuite ramenée au
+plus proche des choix proposés par l'interface — 30 s, 1, 2 ou 5 min, vers
+le bas entre deux choix pour rester le plus protecteur: éditer
+`settings.json` à la main ne permet pas de garder le coffre ouvert des
+heures. Une valeur absente, d'un type inattendu ou hors bornes retombe sur
+2 min. Cette liste de choix vit dans `lib/storage/app_settings.dart` et fait
+seule foi — dropdown des réglages et bornes de validation confondus: deux
+sources donnaient auparavant deux vérités pour un même réglage, le sous-titre
+affichant par exemple « 45 s » avec « 2 min » sélectionné dans la liste.
 
 Sous Linux, il n'existe pas d'équivalent: l'appel natif est absent et le canal
 retombe silencieusement. Quelqu'un capable de capturer l'écran y est déjà
@@ -306,6 +396,14 @@ Au verrouillage, les écrans empilés (édition, réglages) sont dépilés. Sans
 cela, un formulaire ouvert resterait affiché par-dessus l'écran de verrou,
 adossé à un coffre fermé: la saisie continuerait, et l'enregistrement
 échouerait en silence.
+
+L'écran d'édition demande confirmation avant d'abandonner une saisie non
+enregistrée (retour arrière compris) — mais pas au verrouillage: il efface
+alors ses champs et lève sa propre garde de sortie, sinon cette confirmation
+retiendrait le dépilement et le clair resterait affiché par-dessus l'écran de
+verrou. Pour la même raison, le dépilement déclenché par `VaultGate` est
+différé après la frame: les écrans concernés doivent d'abord avoir pu réagir
+au verrouillage.
 
 Verrouiller signifie: libérer la `SecureKey`, vider les entrées en
 mémoire, revenir à l'écran de verrou, et effacer le presse-papier s'il
@@ -349,7 +447,9 @@ Modèle:
 
 Session:
 - expiration de la minuterie efface la clé
-- passage en arrière-plan verrouille
+- le passage en arrière-plan seul ne verrouille pas; le retour au premier
+  plan après le délai d'inactivité verrouille (§8)
+- `detached` verrouille immédiatement
 
 Widgets:
 - mauvais mot de passe affiche l'erreur
@@ -360,7 +460,8 @@ Widgets:
 ## 11. À vérifier au début du plan
 
 - `flutter doctor`: présence et état du SDK Android
-- dépendances de build Linux: GTK, et `libsodium` fournie par
-  `sodium_libs` ou par le système
+- dépendances de build Linux: GTK, et le compilateur C nécessaire au *build
+  hook* de `sodium`, qui compile lui-même libsodium (voir §3) — pas
+  `sodium_libs`, qui n'intervient nulle part ici
 - comportement réel de la dérivation Argon2id à 128 Mio sur l'appareil
   Android cible (ajuster `memlimit` si mise à mort par le système)
