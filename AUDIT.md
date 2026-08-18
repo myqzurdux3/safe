@@ -368,9 +368,25 @@ l'être a été effacé; le reste est une limite du langage, annoncée dans le R
 
 | Mesure | Première passe | Après |
 |---|---|---|
-| Tests | 218 | **253** |
+| Tests | 218 | **285** |
 | Dépendances directes | 5 | 6 (`unorm_dart`, en Dart pur) |
 | APK release | 52,5 Mio | 55,5 Mio (tables Unicode) |
+
+### Couverture
+
+| Fichier | Avant l'audit | Après |
+|---|---|---|
+| `lib/ui/settings_screen.dart` | 37 % | **94 %** |
+| `lib/ui/attachments_section.dart` | 51 % | **96 %** |
+| Ensemble du projet | 79,0 % | **92,3 %** |
+
+Le blocage était le sélecteur de fichiers, dont les boîtes natives ne répondent
+pas sous l'horloge simulée des tests de widgets. `test/support/fake_file_selector.dart`
+remplace l'interface de plateforme; l'ajout d'une pièce jointe, son aperçu, son
+export, l'export et l'import du coffre deviennent alors observables.
+
+Ce que ces tests ont fait apparaître: un `XFile` sans nom donnait une pièce
+jointe au nom vide, indistinguable des autres dans la liste.
 
 ### Risques restants
 
@@ -384,7 +400,7 @@ modèle de menace, à connaître avant de confier ses mots de passe à ce logici
 | 3 | L'APK est signé avec la clé de debug tant que `key.properties` n'existe pas | choix laissé à l'utilisateur, migration documentée |
 | 4 | Coupure d'alimentation pendant une écriture: retour possible à la version précédente | `dart:io` sans `fsync` de répertoire |
 | 5 | Jamais audité par un tiers | dit dans le README |
-| 6 | Couverture faible sur `settings_screen` et `attachments_section` | tests d'interface à compléter |
+| 6 | La branche de partage Android (`SharePlus`) reste non couverte | inatteignable depuis un test qui tourne sous Linux |
 
 ### À toi de décider
 
