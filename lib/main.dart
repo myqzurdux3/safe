@@ -160,11 +160,11 @@ class _VaultGateState extends State<VaultGate> with WidgetsBindingObserver {
     if (!mounted) {
       return;
     }
-    final ouvert = widget.session.isUnlocked;
-    final vientDeFermer = _etaitOuvert && !ouvert;
-    _etaitOuvert = ouvert;
+    final unlocked = widget.session.isUnlocked;
+    final justLocked = _etaitOuvert && !unlocked;
+    _etaitOuvert = unlocked;
 
-    if (!ouvert) {
+    if (!unlocked) {
       // Un écran empilé (édition, réglages) survivrait au verrouillage et
       // resterait affiché par-dessus l'écran de verrou: on le dépile. Après la
       // frame, pour que les écrans concernés aient d'abord pu réagir au
@@ -181,7 +181,7 @@ class _VaultGateState extends State<VaultGate> with WidgetsBindingObserver {
       });
     }
 
-    if (vientDeFermer) {
+    if (justLocked) {
       // Relu seulement ici: cette valeur ne sert qu'à l'écran de verrou, et la
       // relire à chaque notification faisait un accès disque par sauvegarde,
       // plus une reconstruction complète de la liste par-dessus la sienne.

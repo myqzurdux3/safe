@@ -76,13 +76,13 @@ class AppSettings {
   /// Vers le bas: entre deux choix, on retient le plus court, celui qui
   /// protège le plus.
   static Duration _clampDelay(Duration value) {
-    var retenu = autoLockChoices.first;
+    var chosen = autoLockChoices.first;
     for (final choice in autoLockChoices) {
       if (value >= choice) {
-        retenu = choice;
+        chosen = choice;
       }
     }
-    return retenu;
+    return chosen;
   }
 }
 

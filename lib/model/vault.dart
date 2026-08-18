@@ -237,15 +237,15 @@ class Vault {
     // `upsert` retirait ensuite *toutes* les entrées portant la clef pour n'en
     // réinsérer qu'une — les deux disparaissaient. La plus récemment modifiée
     // gagne.
-    final parClef = <String, VaultEntry>{};
+    final byKey = <String, VaultEntry>{};
     for (final raw in rawEntries) {
       final entry = VaultEntry._fromJson(_object(raw));
-      final existing = parClef[canonicalKey(entry.key)];
+      final existing = byKey[canonicalKey(entry.key)];
       if (existing == null || entry.updated.isAfter(existing.updated)) {
-        parClef[canonicalKey(entry.key)] = entry;
+        byKey[canonicalKey(entry.key)] = entry;
       }
     }
-    return Vault(parClef.values);
+    return Vault(byKey.values);
   }
 
   /// Version du clair sérialisé, indépendante de la version du fichier.
@@ -272,9 +272,9 @@ class Vault {
 
   /// Ajoute ou remplace une entrée, en conservant sa date de création.
   Vault upsert(VaultEntry entry) {
-    final canonique = canonicalKey(entry.key);
+    final canonical = canonicalKey(entry.key);
     final existing = entries
-        .where((e) => canonicalKey(e.key) == canonique)
+        .where((e) => canonicalKey(e.key) == canonical)
         .firstOrNull;
     final merged = existing == null
         ? entry
@@ -286,15 +286,15 @@ class Vault {
             attachments: entry.attachments,
           );
     return Vault([
-      ...entries.where((e) => canonicalKey(e.key) != canonique),
+      ...entries.where((e) => canonicalKey(e.key) != canonical),
       merged,
     ]);
   }
 
   /// Retire l'entrée portant [key]; sans effet si elle n'existe pas.
   Vault remove(String key) {
-    final canonique = canonicalKey(key);
-    return Vault([...entries.where((e) => canonicalKey(e.key) != canonique)]);
+    final canonical = canonicalKey(key);
+    return Vault([...entries.where((e) => canonicalKey(e.key) != canonical)]);
   }
 
   /// Filtre les entrées dont la clef contient [query], casse ignorée.

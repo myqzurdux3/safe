@@ -89,7 +89,7 @@ class _AttachmentsSectionState extends State<AttachmentsSection> {
       return;
     }
     setState(() => _busy = true);
-    var attachee = false;
+    var attached = false;
     try {
       final bytes = Uint8List.fromList(await file.readAsBytes());
       await widget.session.attach(
@@ -101,7 +101,7 @@ class _AttachmentsSectionState extends State<AttachmentsSection> {
       // Hors du `try` par un `attachee`: si le parent s'est démonté, son
       // `setState` lèverait, et le `catch` annoncerait un échec alors que la
       // pièce jointe est bien enregistrée.
-      attachee = true;
+      attached = true;
     } on AttachmentTooLargeException catch (error) {
       _tell(
         'Fichier trop gros (${formatBytes(error.size)}); maximum '
@@ -114,7 +114,7 @@ class _AttachmentsSectionState extends State<AttachmentsSection> {
         setState(() => _busy = false);
       }
     }
-    if (attachee && mounted) {
+    if (attached && mounted) {
       widget.onChanged();
     }
   }

@@ -315,8 +315,8 @@ class VaultSession extends ChangeNotifier {
     if (bytes == null) {
       throw StateError('Aucune sauvegarde à restaurer');
     }
-    final restaure = _crypto.openWithKey(bytes, key);
-    await _mutate((_) => restaure);
+    final restored = _crypto.openWithKey(bytes, key);
+    await _mutate((_) => restored);
   }
 
   /// Attache un fichier à l'entrée [entryKey].
@@ -355,16 +355,16 @@ class VaultSession extends ChangeNotifier {
     );
     // Le blob d'abord, la référence ensuite: l'ordre inverse laisserait le
     // coffre pointer vers un fichier absent si l'écriture échouait.
-    final Uint8List chiffre;
+    final Uint8List sealedBytes;
     try {
-      chiffre = _crypto.sealBytes(bytes, key);
+      sealedBytes = _crypto.sealBytes(bytes, key);
     } finally {
       // Le contenu en clair vient d'un fichier choisi par l'utilisateur: une
       // fois chiffré, il n'a plus de raison de traîner sur le tas. Le tampon
       // appartient à l'appelant, mais `attach` en est le dernier usage.
       bytes.fillRange(0, bytes.length, 0);
     }
-    await _blobs.put(attachment.id, chiffre);
+    await _blobs.put(attachment.id, sealedBytes);
     await _mutate((current) {
       // Relu ici et pas plus haut: écrire une pièce jointe prend du temps, et
       // l'utilisateur a pu enregistrer autre chose entre-temps.
@@ -436,9 +436,9 @@ class VaultSession extends ChangeNotifier {
 
   /// Supprime une entrée et toutes ses pièces jointes.
   Future<void> deleteEntry(String entryKey) async {
-    var detachees = const <VaultAttachment>[];
+    var detached = const <VaultAttachment>[];
     await _mutate((current) {
-      detachees =
+      detached =
           current.entries
               .where((e) => _sameKey(e.key, entryKey))
               .firstOrNull
@@ -446,7 +446,7 @@ class VaultSession extends ChangeNotifier {
           const <VaultAttachment>[];
       return current.remove(entryKey);
     });
-    for (final attachment in detachees) {
+    for (final attachment in detached) {
       await _blobs.delete(attachment.id);
     }
   }

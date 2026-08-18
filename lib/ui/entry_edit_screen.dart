@@ -77,7 +77,7 @@ class _EntryEditScreenState extends State<EntryEditScreen> {
     });
   }
 
-  void _marquerModifie() {
+  void _markDirty() {
     widget.session.touch();
     if (!_dirty) {
       setState(() => _dirty = true);
@@ -85,8 +85,8 @@ class _EntryEditScreenState extends State<EntryEditScreen> {
   }
 
   /// Demande confirmation avant de jeter une saisie en cours.
-  Future<bool> _confirmerAbandon() async {
-    final abandonner = await showDialog<bool>(
+  Future<bool> _confirmDiscard() async {
+    final discard = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Abandonner les modifications ?'),
@@ -105,7 +105,7 @@ class _EntryEditScreenState extends State<EntryEditScreen> {
         ],
       ),
     );
-    return abandonner ?? false;
+    return discard ?? false;
   }
 
   Future<void> _save() async {
@@ -148,7 +148,7 @@ class _EntryEditScreenState extends State<EntryEditScreen> {
     // Les pièces jointes sont lues dans le coffre courant, pas dans l'entrée
     // reçue à l'ouverture: celles ajoutées pendant l'édition n'y figurent pas,
     // et reconstruire l'entrée sans elles les perdrait.
-    final courant = vault.entries
+    final current = vault.entries
         .where((entry) => entry.key == widget.existing?.key)
         .firstOrNull;
     // Une clef renommée est une nouvelle entrée: l'ancienne doit disparaître.
@@ -159,7 +159,7 @@ class _EntryEditScreenState extends State<EntryEditScreen> {
       VaultEntry.now(
         key: key,
         value: _valueController.text,
-        attachments: courant?.attachments ?? const [],
+        attachments: current?.attachments ?? const [],
       ),
     );
     try {
@@ -204,15 +204,15 @@ class _EntryEditScreenState extends State<EntryEditScreen> {
           return;
         }
         final navigator = Navigator.of(context);
-        if (await _confirmerAbandon() && mounted) {
+        if (await _confirmDiscard() && mounted) {
           navigator.pop();
         }
       },
-      child: _corps(theme),
+      child: _body(theme),
     );
   }
 
-  Widget _corps(ThemeData theme) {
+  Widget _body(ThemeData theme) {
     return Scaffold(
       appBar: AppBar(
         title: Text(_isCreation ? 'Nouvelle entrée' : 'Modifier l\'entrée'),
@@ -228,7 +228,7 @@ class _EntryEditScreenState extends State<EntryEditScreen> {
               autofocus: _isCreation,
               // La frappe est souvent la seule activité pendant une saisie
               // longue: sans cela, le coffre se verrouille sous les doigts.
-              onChanged: (_) => _marquerModifie(),
+              onChanged: (_) => _markDirty(),
               // Le clavier ne doit rien apprendre de ce qu'on tape ici: un nom
               // de clef est chiffré dans le coffre, il n'a pas à ressortir dans
               // les suggestions d'une autre application.
@@ -271,7 +271,7 @@ class _EntryEditScreenState extends State<EntryEditScreen> {
               TextField(
                 key: const Key('value'),
                 controller: _valueController,
-                onChanged: (_) => _marquerModifie(),
+                onChanged: (_) => _markDirty(),
                 maxLines: null,
                 minLines: 3,
                 keyboardType: TextInputType.multiline,

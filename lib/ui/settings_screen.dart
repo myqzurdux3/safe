@@ -57,37 +57,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _setAutoLockDelay(Duration value) async {
-    final precedent = _settings;
+    final previous = _settings;
     final updated = _settings.copyWith(autoLockDelay: value);
     // Hors du `setState`: ce setter prévient ses écouteurs, et un effet de bord
     // n'a pas sa place dans un rappel censé n'être que local.
     widget.session.autoLockDelay = value;
     setState(() => _settings = updated);
-    if (!await _enregistre(updated)) {
-      widget.session.autoLockDelay = precedent.autoLockDelay;
-      setState(() => _settings = precedent);
+    if (!await _persist(updated)) {
+      widget.session.autoLockDelay = previous.autoLockDelay;
+      setState(() => _settings = previous);
     }
   }
 
   Future<void> _setBlockScreenshots(bool blocked) async {
-    final precedent = _settings;
+    final previous = _settings;
     final updated = _settings.copyWith(blockScreenshots: blocked);
     setState(() => _settings = updated);
 
-    final applique = await widget.screen.setBlocked(blocked);
-    if (blocked && widget.screen.isSupported && !applique) {
+    final applied = await widget.screen.setBlocked(blocked);
+    if (blocked && widget.screen.isSupported && !applied) {
       // Afficher « bloqué » alors que rien ne l'est serait pire que l'aveu:
       // l'utilisateur ferait confiance à une protection absente.
       if (mounted) {
-        setState(() => _settings = precedent);
+        setState(() => _settings = previous);
         _tell('Blocage refusé par le système: les captures restent possibles');
       }
       return;
     }
-    if (!await _enregistre(updated)) {
-      await widget.screen.setBlocked(precedent.blockScreenshots);
+    if (!await _persist(updated)) {
+      await widget.screen.setBlocked(previous.blockScreenshots);
       if (mounted) {
-        setState(() => _settings = precedent);
+        setState(() => _settings = previous);
       }
     }
   }
@@ -95,7 +95,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   /// Écrit les réglages; rend `false` et prévient l'utilisateur si l'écriture
   /// échoue, pour que l'interface n'affiche pas un choix qui sera perdu au
   /// prochain lancement.
-  Future<bool> _enregistre(AppSettings settings) async {
+  Future<bool> _persist(AppSettings settings) async {
     try {
       await widget.settings?.write(settings);
       return true;
@@ -106,16 +106,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _changePassword() async {
-    final nouveau = await showDialog<String>(
+    final newPassword = await showDialog<String>(
       context: context,
       builder: (context) => const _ChangePasswordDialog(),
     );
-    if (nouveau == null || !mounted) {
+    if (newPassword == null || !mounted) {
       return;
     }
     setState(() => _busy = true);
     try {
-      await widget.session.changePassword(nouveau);
+      await widget.session.changePassword(newPassword);
       _tell('Mot de passe maître changé');
     } catch (_) {
       _tell('Changement impossible: le coffre n\'a pas pu être ré-chiffré');
@@ -132,9 +132,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   /// coffre-fort n'est pas une offre honnête.
   Future<void> _restore() async {
     setState(() => _busy = true);
-    final int? entrees;
+    final int? entryCount;
     try {
-      entrees = await widget.session.previousEntryCount();
+      entryCount = await widget.session.previousEntryCount();
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -143,18 +143,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!mounted) {
       return;
     }
-    if (entrees == null) {
+    if (entryCount == null) {
       _tell('Aucune sauvegarde exploitable à côté du coffre');
       return;
     }
-    final actuelles = widget.session.vault?.entries.length ?? 0;
-    final confirme = await showDialog<bool>(
+    final currentCount = widget.session.vault?.entries.length ?? 0;
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Restaurer la sauvegarde ?'),
         content: Text(
-          'La sauvegarde contient $entrees entrée(s); le coffre actuel en a '
-          '$actuelles.\n\nLe coffre actuel devient à son tour la sauvegarde: '
+          'La sauvegarde contient $entryCount entrée(s); le coffre actuel en a '
+          '$currentCount.\n\nLe coffre actuel devient à son tour la sauvegarde: '
           'cette opération est donc annulable en la refaisant.\n\nLes pièces '
           'jointes ne sont pas concernées; celles qui ne seraient plus '
           'référencées partent dans le dossier des orphelins.',
@@ -173,7 +173,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ],
       ),
     );
-    if (!(confirme ?? false) || !mounted) {
+    if (!(confirmed ?? false) || !mounted) {
       return;
     }
     setState(() => _busy = true);
@@ -284,7 +284,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final transferDisponible = widget.transfer != null;
+    final transferAvailable = widget.transfer != null;
     return Scaffold(
       appBar: AppBar(title: const Text('Réglages')),
       body: ListView(
@@ -355,7 +355,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               'Fichier chiffré: inutilisable sans le mot de passe. '
               'Les pièces jointes ne sont pas incluses',
             ),
-            enabled: transferDisponible && !_busy,
+            enabled: transferAvailable && !_busy,
             onTap: _export,
           ),
           ListTile(
@@ -365,7 +365,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             subtitle: const Text(
               'Remplace le coffre actuel après vérification',
             ),
-            enabled: transferDisponible && !_busy,
+            enabled: transferAvailable && !_busy,
             onTap: _import,
           ),
           const Divider(height: 1),

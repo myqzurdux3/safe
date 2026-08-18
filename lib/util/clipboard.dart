@@ -33,19 +33,19 @@ class SecureClipboard {
   ///
   /// Mémorisé pour ne pas relancer un appel voué à l'échec à chaque copie sous
   /// Linux, où il n'existe pas.
-  static bool? _natifDisponible;
+  static bool? _nativeAvailable;
 
   /// Copie [value] et programme son effacement.
   Future<void> copy(String value) async {
-    if (await _viaNatif('copySensitive', {'text': value})) {
-      _armer(value);
+    if (await _viaNative('copySensitive', {'text': value})) {
+      _arm(value);
       return;
     }
     await Clipboard.setData(ClipboardData(text: value));
-    _armer(value);
+    _arm(value);
   }
 
-  void _armer(String value) {
+  void _arm(String value) {
     _pending = value;
     _timer?.cancel();
     // `clearNow` rend un `Future`: passé tel quel à `Timer`, une erreur de
@@ -69,7 +69,7 @@ class SecureClipboard {
     if (pending == null) {
       return;
     }
-    if (await _viaNatif('clear', const {})) {
+    if (await _viaNative('clear', const {})) {
       return;
     }
     ClipboardData? current;
@@ -85,16 +85,16 @@ class SecureClipboard {
 
   /// Tente [method] sur le canal natif; rend `false` s'il n'existe pas ou
   /// refuse, à charge pour l'appelant de se rabattre sur Flutter.
-  Future<bool> _viaNatif(String method, Map<String, Object?> arguments) async {
-    if (_natifDisponible == false) {
+  Future<bool> _viaNative(String method, Map<String, Object?> arguments) async {
+    if (_nativeAvailable == false) {
       return false;
     }
     try {
       await sensitiveClipboardChannel.invokeMethod<void>(method, arguments);
-      _natifDisponible = true;
+      _nativeAvailable = true;
       return true;
     } on MissingPluginException {
-      _natifDisponible = false;
+      _nativeAvailable = false;
       return false;
     } on PlatformException {
       // Le natif existe mais a refusé: on ne le déclare pas absent pour
@@ -112,5 +112,5 @@ class SecureClipboard {
   /// Oublie ce qu'on sait du canal natif. Réservé aux tests, qui le simulent
   /// tantôt présent, tantôt absent.
   @visibleForTesting
-  static void resetNativeProbe() => _natifDisponible = null;
+  static void resetNativeProbe() => _nativeAvailable = null;
 }

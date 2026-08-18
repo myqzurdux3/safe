@@ -111,18 +111,18 @@ class BlobFileStore implements BlobStore {
     if (!await directory.exists()) {
       return {};
     }
-    const suffixe = '.blob';
-    final trouves = <String>{};
+    const suffix = '.blob';
+    final found = <String>{};
     // `list` et non `listSync`: appelé au déverrouillage, juste après une
     // dérivation déjà coûteuse, et sur l'isolat qui dessine l'interface.
     await for (final entity in directory.list()) {
       final name = entity.uri.pathSegments.last;
-      if (entity is File && name.endsWith(suffixe)) {
+      if (entity is File && name.endsWith(suffix)) {
         // `substring` et non `replaceAll`, qui retirerait *toutes* les
         // occurrences du suffixe.
-        trouves.add(name.substring(0, name.length - suffixe.length));
+        found.add(name.substring(0, name.length - suffix.length));
       }
     }
-    return trouves;
+    return found;
   }
 }
