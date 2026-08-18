@@ -228,12 +228,14 @@ pas une simple casse ignorée: « café » existe avec un é précomposé
 visuellement identiques, distincts octet pour octet, et un clavier ou un
 collage produit l'une ou l'autre écriture sans que l'utilisateur le sache.
 Sans normalisation, la liste affichait deux entrées indistinguables, et
-chercher l'une ne trouvait pas l'autre. `canonicalKey` sert à la recherche,
-à l'unicité (`upsert`, `remove`), au dédoublonnage à la relecture ci-dessus
-et à la garde de collision de l'écran d'édition — jamais à l'ordre
-d'affichage, qui reste un simple `toLowerCase()`: au plus une entrée par
-clef canonique survit avant le tri, donc l'écart ne s'y voit pas. La clef
-enregistrée reste celle que l'utilisateur a tapée: seule la comparaison est
+chercher l'une ne trouvait pas l'autre. `canonicalKey` sert partout où deux
+clefs sont comparées: recherche, unicité (`upsert`, `remove`), dédoublonnage
+à la relecture ci-dessus, garde de collision de l'écran d'édition, et ordre
+d'affichage. Le tri l'avait d'abord manqué, et l'écart s'y voyait bien: le é
+précomposé (U+00E9) pèse plus lourd qu'un « z » alors que le é décomposé
+commence par un « e », si bien que deux mots accentués écrits différemment se
+retrouvaient de part et d'autre de « zebre ». La clef enregistrée reste celle
+que l'utilisateur a tapée: seule la comparaison est
 normalisée, pour ne pas imposer de migration aux coffres existants.
 Dépendance `unorm_dart`, en Dart pur — le SDK ne fournit aucune fonction de
 normalisation Unicode.
