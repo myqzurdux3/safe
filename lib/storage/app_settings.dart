@@ -48,8 +48,10 @@ class AppSettings {
     final seconds = json['autoLockSeconds'];
     return AppSettings(
       blockScreenshots: blocked is bool ? blocked : true,
-      autoLockDelay: seconds is int
-          ? _clampDelay(Duration(seconds: seconds))
+      // `num` et non `int`: un fichier édité à la main peut contenir `120.0`,
+      // et certains décodeurs rendent un `double` pour un entier.
+      autoLockDelay: seconds is num
+          ? _clampDelay(Duration(seconds: seconds.round()))
           : defaultAutoLockDelay,
     );
   }
@@ -73,7 +75,9 @@ abstract class SettingsStore {
 
 /// Les réglages sur le disque, dans le même dossier que le coffre.
 class SettingsFile implements SettingsStore {
-  const SettingsFile(this.directory);
+  SettingsFile(this.directory);
+
+  static int _writes = 0;
 
   final Directory directory;
 
@@ -89,14 +93,31 @@ class SettingsFile implements SettingsStore {
         return const AppSettings();
       }
       return AppSettings.fromJson(decoded);
-    } catch (_) {
+    } on FormatException {
+      return const AppSettings();
+    } on FileSystemException {
       return const AppSettings();
     }
   }
 
+  /// Écrit par un temporaire puis un `rename`.
+  ///
+  /// `writeAsString` tronque avant d'écrire: une coupure laissait un JSON
+  /// partiel, donc un retour silencieux aux valeurs par défaut. Le temporaire
+  /// est nommé par un compteur, pour que deux écritures rapprochées — deux
+  /// bascules d'affilée dans les réglages — ne le partagent pas.
   @override
   Future<void> write(AppSettings settings) async {
     await directory.create(recursive: true);
-    await file.writeAsString(jsonEncode(settings.toJson()));
+    final temp = File('${file.path}.${_writes++}.tmp');
+    try {
+      await temp.writeAsString(jsonEncode(settings.toJson()), flush: true);
+      await temp.rename(file.path);
+    } catch (_) {
+      if (await temp.exists()) {
+        await temp.delete();
+      }
+      rethrow;
+    }
   }
 }

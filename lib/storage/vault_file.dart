@@ -20,14 +20,31 @@ class VaultFile implements VaultStore {
   /// serait lisible par d'autres apps.
   static Future<Directory> defaultDirectory() async {
     if (Platform.isLinux) {
-      final xdg = Platform.environment['XDG_DATA_HOME'];
-      final base = (xdg != null && xdg.isNotEmpty)
-          ? xdg
-          : '${Platform.environment['HOME']}/.local/share';
-      return Directory('$base/safe');
+      return linuxDirectory(Platform.environment);
     }
     final documents = await getApplicationDocumentsDirectory();
     return Directory('${documents.path}/safe');
+  }
+
+  /// Le dossier Linux, déduit de [environment].
+  ///
+  /// Lève un [StateError] si ni `XDG_DATA_HOME` ni `HOME` ne sont définis:
+  /// l'interpolation d'un `null` donnait le chemin littéral
+  /// `null/.local/share/safe`, relatif au répertoire courant — le coffre
+  /// atterrissait n'importe où sans que rien ne le signale.
+  static Directory linuxDirectory(Map<String, String> environment) {
+    final xdg = environment['XDG_DATA_HOME'];
+    if (xdg != null && xdg.isNotEmpty) {
+      return Directory('$xdg/safe');
+    }
+    final home = environment['HOME'];
+    if (home == null || home.isEmpty) {
+      throw StateError(
+        'Impossible de situer le coffre: ni XDG_DATA_HOME ni HOME ne sont '
+        'définis',
+      );
+    }
+    return Directory('$home/.local/share/safe');
   }
 
   final Directory directory;
