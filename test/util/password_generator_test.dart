@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:safe/util/password_generator.dart';
 
@@ -68,5 +69,53 @@ void main() {
   test('longueur hors bornes rejetée', () {
     expect(() => generatePassword(length: 3), throwsArgumentError);
     expect(() => generatePassword(length: 500), throwsArgumentError);
+  });
+
+  group('tirage reproductible, via le générateur injecté', () {
+    // Le paramètre `random` existe pour ça; aucun test ne l'utilisait, ce qui
+    // rendait faux le commentaire qui l'annonçait comme réservé aux tests.
+    test('même graine, même mot de passe', () {
+      final a = generatePassword(length: 24, random: Random(1234));
+      final b = generatePassword(length: 24, random: Random(1234));
+      expect(a, b);
+    });
+
+    test('graines différentes, mots de passe différents', () {
+      final a = generatePassword(length: 24, random: Random(1));
+      final b = generatePassword(length: 24, random: Random(2));
+      expect(a, isNot(b));
+    });
+
+    test('toutes les classes demandées sont présentes, sur 200 graines', () {
+      // Le tirage garantit une occurrence par classe; une seule graine
+      // malchanceuse ne prouverait rien.
+      for (var graine = 0; graine < 200; graine++) {
+        final mot = generatePassword(
+          length: minPasswordLength,
+          random: Random(graine),
+        );
+        expect(mot, matches(r'[a-z]'), reason: 'graine $graine');
+        expect(mot, matches(r'[A-Z]'), reason: 'graine $graine');
+        expect(mot, matches(r'[0-9]'), reason: 'graine $graine');
+        expect(
+          mot.split('').any((c) => !RegExp(r'[a-zA-Z0-9]').hasMatch(c)),
+          isTrue,
+          reason: 'aucun symbole, graine $graine',
+        );
+      }
+    });
+
+    test('le mélange ne laisse pas les classes à leur position d\'origine', () {
+      // Sans le mélange de Fisher-Yates, les premiers caractères trahiraient
+      // toujours l'ordre des classes: minuscule, majuscule, chiffre, symbole.
+      var trouve = false;
+      for (var graine = 0; graine < 50 && !trouve; graine++) {
+        final mot = generatePassword(length: 20, random: Random(graine));
+        if (!RegExp(r'^[a-z]').hasMatch(mot)) {
+          trouve = true;
+        }
+      }
+      expect(trouve, isTrue);
+    });
   });
 }

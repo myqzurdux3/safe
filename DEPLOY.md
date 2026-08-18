@@ -32,10 +32,44 @@ adb devices                                          # téléphone visible ?
 adb shell dumpsys package dev.safe.safe | grep lastUpdateTime
 ```
 
-L'APK est signé avec la clé de debug. Conséquence: une future signature avec
-une vraie clé de release sera refusée en mise à jour et **imposera une
-désinstallation, donc la perte du coffre**. Exporter le coffre avant ce
-changement (Réglages → Exporter).
+### Signature
+
+Sans `android/key.properties`, l'APK est signé avec la **clé de debug**: clé
+publique, partagée par toutes les installations Flutter. N'importe qui peut donc
+fabriquer un APK substituable à celui-ci lors d'une mise à jour, et hériter du
+répertoire privé existant — coffre compris. Acceptable pour un usage personnel
+où l'APK ne circule pas; à corriger dès qu'il circule.
+
+Passer à une vraie clé **impose une désinstallation**: une signature différente
+fait échouer `adb install -r`, et la réinstallation efface le coffre. Dans
+l'ordre, sans sauter d'étape:
+
+1. **Exporter le coffre** (Réglages → Exporter le coffre) et le mettre en lieu
+   sûr. Il reste chiffré.
+2. **Exporter les pièces jointes une par une** depuis chaque entrée: l'export du
+   coffre ne les contient pas.
+3. Créer le keystore, hors du dépôt:
+
+   ```bash
+   keytool -genkey -v -keystore ~/safe-release.jks      -keyalg RSA -keysize 4096 -validity 10000 -alias safe
+   ```
+
+4. Écrire `android/key.properties` — jamais versionné, `.gitignore` le couvre:
+
+   ```properties
+   storeFile=/home/<toi>/safe-release.jks
+   storePassword=<mot de passe du keystore>
+   keyAlias=safe
+   keyPassword=<mot de passe de la clé>
+   ```
+
+5. `flutter build apk --release`, puis `adb uninstall dev.safe.safe` — **c'est
+   ici que le coffre est effacé** — puis `adb install`.
+6. Rouvrir l'app, créer un coffre, et **importer** l'export de l'étape 1. Les
+   pièces jointes se rattachent à la main.
+
+Sauvegarder le keystore et ses mots de passe: les perdre interdit toute future
+mise à jour de l'application, et impose de recommencer cette procédure.
 
 ## Linux
 
@@ -143,3 +177,19 @@ flutter clean && flutter pub get
 
 Puis relancer la compilation. `flutter clean` supprime `build/`, jamais les
 coffres.
+
+## Ce que l'écriture atomique garantit, et ce qu'elle ne garantit pas
+
+Le coffre est écrit dans un fichier temporaire, puis `rename`. Cette opération
+est atomique sur un même système de fichiers: à tout instant `vault.safe` est
+soit l'ancien contenu complet, soit le nouveau.
+
+Cela couvre un arrêt du processus — l'application tuée, la batterie de l'appareil
+à plat pendant qu'elle tourne. Cela ne couvre **pas** une coupure d'alimentation
+brutale de la machine: le contenu du temporaire est bien vidé sur le disque, mais
+l'entrée de répertoire créée par le `rename` ne l'est pas, et `dart:io` n'expose
+aucun moyen de le forcer. Selon le système de fichiers et ses options de montage,
+le coffre peut alors réapparaître dans sa version précédente.
+
+`vault.safe.bak` reste dans ce cas, et Réglages → « Restaurer la sauvegarde
+précédente » permet d'y revenir.

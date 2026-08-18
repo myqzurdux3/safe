@@ -8,6 +8,11 @@ coverage/
 *.safe
 *.safe.bak
 
+# Signature Android: le keystore et son mot de passe restent hors du dépôt
+key.properties
+*.jks
+*.keystore
+
 # Fichiers d'éditeur
 .idea/
 .vscode/
