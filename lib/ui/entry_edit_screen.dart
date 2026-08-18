@@ -96,11 +96,15 @@ class _EntryEditScreenState extends State<EntryEditScreen> {
     );
     try {
       await widget.session.save(updated);
-    } catch (error) {
-      setState(() {
-        _busy = false;
-        _error = 'Enregistrement impossible: $error';
-      });
+    } catch (_) {
+      // Garde `mounted` comme le chemin de succès juste en dessous: l'écran
+      // peut avoir été dépilé par un verrouillage pendant l'écriture.
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _error = 'Enregistrement impossible: réessayez';
+        });
+      }
       return;
     }
     if (!mounted) {

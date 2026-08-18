@@ -71,6 +71,14 @@ class _EntriesScreenState extends State<EntriesScreen> {
     }
   }
 
+  void _tell(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
   Future<void> _copy(VaultEntry entry) async {
     widget.session.touch();
     await _clipboard.copy(entry.value);
@@ -121,11 +129,18 @@ class _EntriesScreenState extends State<EntriesScreen> {
         ],
       ),
     );
-    if (confirmed ?? false) {
-      _revealed.remove(entry.key);
+    if (!(confirmed ?? false)) {
+      return;
+    }
+    _revealed.remove(entry.key);
+    try {
       // deleteEntry, pas save(vault.remove(...)): il efface aussi les blobs des
       // pièces jointes, qui resteraient sinon orphelins sur le disque.
       await widget.session.deleteEntry(entry.key);
+    } catch (_) {
+      // Sans cela, la boîte se refermait, l'entrée restait en place et rien ne
+      // l'expliquait — l'erreur partant en erreur asynchrone non gérée.
+      _tell('Suppression impossible: le coffre s\'est peut-être verrouillé');
     }
   }
 

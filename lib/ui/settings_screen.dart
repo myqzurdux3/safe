@@ -5,6 +5,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../crypto/vault_crypto.dart';
 import '../state/vault_session.dart';
 import '../storage/app_settings.dart';
 import '../storage/vault_transfer.dart';
@@ -117,15 +118,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (context) => const _ChangePasswordDialog(),
     );
-    if (nouveau == null) {
+    if (nouveau == null || !mounted) {
       return;
     }
     setState(() => _busy = true);
     try {
       await widget.session.changePassword(nouveau);
       _tell('Mot de passe maître changé');
-    } catch (error) {
-      _tell('Changement impossible: $error');
+    } catch (_) {
+      _tell('Changement impossible: le coffre n\'a pas pu être ré-chiffré');
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -155,8 +156,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _tell('Coffre exporté vers ${location.path}');
         }
       }
-    } catch (error) {
-      _tell('Export impossible: $error');
+    } catch (_) {
+      _tell('Export impossible: le fichier n\'a pas pu être écrit');
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -181,7 +182,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (context) => const _ImportPasswordDialog(),
     );
-    if (password == null) {
+    if (password == null || !mounted) {
       return;
     }
     setState(() => _busy = true);
@@ -197,8 +198,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
     } on FormatException {
       _tell('Ce fichier n\'est pas un coffre safe');
-    } catch (error) {
+    } on WrongPasswordException {
+      // Message volontairement vague: un tag AEAD invalide ne dit pas si c'est
+      // le mot de passe ou le fichier qui cloche.
       _tell('Import refusé: mot de passe incorrect ou fichier abîmé');
+    } catch (_) {
+      // Tout le reste — disque plein, permission refusée — mérite un autre
+      // message: sinon l'utilisateur ressaisit indéfiniment un mot de passe
+      // pourtant juste.
+      _tell('Import impossible: le coffre n\'a pas pu être remplacé');
     } finally {
       if (mounted) {
         setState(() => _busy = false);

@@ -83,7 +83,13 @@ class _AttachmentsSectionState extends State<AttachmentsSection> {
     if (file == null) {
       return;
     }
+    // Le sélecteur natif peut rester ouvert plusieurs minutes: le verrouillage
+    // automatique a pu dépiler cet écran entre-temps.
+    if (!mounted) {
+      return;
+    }
     setState(() => _busy = true);
+    var attachee = false;
     try {
       final bytes = Uint8List.fromList(await file.readAsBytes());
       await widget.session.attach(
@@ -92,18 +98,24 @@ class _AttachmentsSectionState extends State<AttachmentsSection> {
         mimeType: file.mimeType ?? guessMimeType(file.name),
         bytes: bytes,
       );
-      widget.onChanged();
+      // Hors du `try` par un `attachee`: si le parent s'est démonté, son
+      // `setState` lèverait, et le `catch` annoncerait un échec alors que la
+      // pièce jointe est bien enregistrée.
+      attachee = true;
     } on AttachmentTooLargeException catch (error) {
       _tell(
         'Fichier trop gros (${formatBytes(error.size)}); maximum '
         '${formatBytes(maxAttachmentBytes)}',
       );
-    } catch (error) {
-      _tell('Impossible de joindre ce fichier: $error');
+    } catch (_) {
+      _tell('Impossible de joindre ce fichier');
     } finally {
       if (mounted) {
         setState(() => _busy = false);
       }
+    }
+    if (attachee && mounted) {
+      widget.onChanged();
     }
   }
 
@@ -133,8 +145,8 @@ class _AttachmentsSectionState extends State<AttachmentsSection> {
       } else {
         await _exportBytes(attachment, bytes);
       }
-    } catch (error) {
-      _tell('Lecture impossible: $error');
+    } catch (_) {
+      _tell('Lecture impossible: pièce jointe absente ou coffre verrouillé');
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -164,6 +176,27 @@ class _AttachmentsSectionState extends State<AttachmentsSection> {
     }
   }
 
+  /// Déchiffre puis sort une pièce jointe.
+  ///
+  /// Passe par `_busy` comme les autres: sans lui, deux appuis rapides
+  /// ouvraient deux boîtes d'enregistrement, et un déchiffrement raté ne disait
+  /// rien du tout.
+  Future<void> _export(VaultAttachment attachment) async {
+    setState(() => _busy = true);
+    try {
+      await _exportBytes(
+        attachment,
+        await widget.session.readAttachment(attachment),
+      );
+    } catch (_) {
+      _tell('Export impossible: pièce jointe absente ou coffre verrouillé');
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+  }
+
   Future<void> _detach(VaultAttachment attachment) async {
     final key = widget.entryKey;
     if (key == null) {
@@ -188,15 +221,21 @@ class _AttachmentsSectionState extends State<AttachmentsSection> {
         ],
       ),
     );
-    if (confirmed ?? false) {
+    if (!(confirmed ?? false)) {
+      return;
+    }
+    try {
       await widget.session.removeAttachment(
         entryKey: key,
         attachment: attachment,
       );
+    } catch (_) {
+      _tell('Suppression impossible: le coffre s\'est peut-être verrouillé');
+      return;
+    }
+    if (mounted) {
       widget.onChanged();
-      if (mounted) {
-        setState(() {});
-      }
+      setState(() {});
     }
   }
 
@@ -260,12 +299,7 @@ class _AttachmentsSectionState extends State<AttachmentsSection> {
                     key: Key('export-${attachment.id}'),
                     icon: const Icon(Icons.save_alt),
                     tooltip: 'Exporter en clair',
-                    onPressed: _busy
-                        ? null
-                        : () async => _exportBytes(
-                            attachment,
-                            await widget.session.readAttachment(attachment),
-                          ),
+                    onPressed: _busy ? null : () => _export(attachment),
                   ),
                   IconButton(
                     key: Key('detach-${attachment.id}'),
