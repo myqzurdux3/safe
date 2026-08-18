@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import '../storage/blob_store.dart';
+
 /// Une pièce jointe: photo, document, n'importe quel fichier.
 ///
 /// Seules ses métadonnées vivent dans le coffre; le contenu est chiffré à part,
@@ -17,7 +19,9 @@ class VaultAttachment {
 
   factory VaultAttachment._fromJson(Map<String, dynamic> json) =>
       VaultAttachment(
-        id: json['id'] as String,
+        // Relu d'un fichier qui peut venir d'un tiers: un identifiant est un
+        // nom de fichier, il ne doit désigner qu'un blob.
+        id: _checkedId(json['id']),
         name: json['name'] as String,
         mimeType: json['mime'] as String,
         size: json['size'] as int,
@@ -36,6 +40,14 @@ class VaultAttachment {
   /// Taille du contenu en clair, en octets.
   final int size;
   final DateTime created;
+
+  static String _checkedId(Object? raw) {
+    try {
+      return checkBlobId(raw as String);
+    } catch (error) {
+      throw FormatException('Identifiant de pièce jointe invalide: $error');
+    }
+  }
 
   bool get isImage => mimeType.startsWith('image/');
 

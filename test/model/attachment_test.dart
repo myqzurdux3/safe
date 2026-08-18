@@ -5,7 +5,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:safe/model/vault.dart';
 
 void main() {
-  VaultAttachment attachment({String id = 'a1'}) => VaultAttachment(
+  // Forme imposée aux identifiants: 32 caractères hexadécimaux.
+  const idA = '0123456789abcdef0123456789abcdef';
+  const idB = 'fedcba9876543210fedcba9876543210';
+  VaultAttachment attachment({String id = idA}) => VaultAttachment(
     id: id,
     name: 'photo.jpg',
     mimeType: 'image/jpeg',
@@ -23,7 +26,7 @@ void main() {
     );
     final restored = Vault.fromBytes(vault.toBytes());
     final restauree = restored.entries.single.attachments.single;
-    expect(restauree.id, 'a1');
+    expect(restauree.id, idA);
     expect(restauree.name, 'photo.jpg');
     expect(restauree.mimeType, 'image/jpeg');
     expect(restauree.size, 1234);
@@ -53,7 +56,7 @@ void main() {
       VaultEntry.now(
         key: 'a',
         value: 'v2',
-        attachments: [attachment(), attachment(id: 'a2')],
+        attachments: [attachment(), attachment(id: idB)],
       ),
     );
     expect(vault.entries.single.attachments, hasLength(2));
