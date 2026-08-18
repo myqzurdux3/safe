@@ -377,10 +377,18 @@ class VaultSession extends ChangeNotifier {
     }
   }
 
-  /// Efface les blobs qu'aucune entrée ne référence.
+  /// Met de côté les blobs qu'aucune entrée ne référence, et rend leur nombre.
   ///
-  /// Une écriture interrompue entre le blob et le coffre laisse un fichier
-  /// orphelin: il occupe de la place et survit à la suppression de l'entrée.
+  /// Une écriture interrompue entre le blob et le coffre laisse un orphelin.
+  /// Mais un blob peut être orphelin sans être du déchet: après un import — le
+  /// seul chemin de synchronisation entre Linux et Android, et l'export ne
+  /// contient pas les pièces jointes — tous ceux de l'ancien coffre le
+  /// deviennent d'un coup. Les effacer détruirait définitivement des pièces
+  /// jointes que personne n'a demandé à supprimer, alors elles sont déplacées
+  /// dans `blobs/orphelins/`.
+  ///
+  /// Les temporaires d'un `put` interrompu, eux, sont effacés: ils sont
+  /// incomplets et ne valent rien.
   Future<int> purgeOrphanBlobs() async {
     final vault = _vault;
     if (vault == null) {
@@ -390,10 +398,11 @@ class VaultSession extends ChangeNotifier {
       for (final entry in vault.entries)
         for (final attachment in entry.attachments) attachment.id,
     };
+    await _blobs.sweepTemporaries();
     var removed = 0;
     for (final id in await _blobs.ids()) {
       if (!referenced.contains(id)) {
-        await _blobs.delete(id);
+        await _blobs.quarantine(id);
         removed++;
       }
     }

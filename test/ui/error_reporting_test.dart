@@ -2,7 +2,6 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:safe/model/vault.dart';
 import 'package:safe/ui/attachments_section.dart';
 import 'package:safe/ui/entries_screen.dart';
 

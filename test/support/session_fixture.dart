@@ -96,6 +96,20 @@ class MemoryBlobStore implements BlobStore {
   @override
   Future<void> delete(String id) async => contents.remove(id);
 
+  /// Orphelins mis de côté, comme le fait le vrai magasin sur le disque.
+  final Map<String, Uint8List> quarantined = {};
+
+  @override
+  Future<void> quarantine(String id) async {
+    final bytes = contents.remove(id);
+    if (bytes != null) {
+      quarantined[id] = bytes;
+    }
+  }
+
+  @override
+  Future<int> sweepTemporaries() async => 0;
+
   @override
   Future<Set<String>> ids() async => contents.keys.toSet();
 }

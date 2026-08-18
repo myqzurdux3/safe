@@ -33,6 +33,17 @@ abstract interface class BlobStore {
   /// Sans effet si le blob a déjà disparu.
   Future<void> delete(String id);
 
+  /// Met un blob de côté au lieu de l'effacer.
+  ///
+  /// Pour les orphelins trouvés automatiquement: le contenu ne se rattrape pas,
+  /// et un blob peut être orphelin sans être du déchet — après un import, tous
+  /// ceux de l'ancien coffre le deviennent d'un coup.
+  Future<void> quarantine(String id);
+
+  /// Efface les temporaires laissés par un [put] interrompu, et rend leur
+  /// nombre. Eux sont du déchet certain: incomplets et référencés par personne.
+  Future<int> sweepTemporaries();
+
   /// Identifiants présents; sert au nettoyage des orphelins.
   Future<Set<String>> ids();
 }
@@ -65,15 +76,51 @@ class BlobFileStore implements BlobStore {
     }
   }
 
+  /// Où vont les orphelins: à côté, pas à la poubelle.
+  Directory get quarantineDirectory => Directory('${directory.path}/orphelins');
+
+  @override
+  Future<void> quarantine(String id) async {
+    final source = _file(id);
+    if (!await source.exists()) {
+      return;
+    }
+    await quarantineDirectory.create(recursive: true);
+    await source.rename('${quarantineDirectory.path}/$id.blob');
+  }
+
+  @override
+  Future<int> sweepTemporaries() async {
+    if (!await directory.exists()) {
+      return 0;
+    }
+    var efface = 0;
+    await for (final entity in directory.list()) {
+      if (entity is File && entity.path.endsWith('.blob.tmp')) {
+        await entity.delete();
+        efface++;
+      }
+    }
+    return efface;
+  }
+
   @override
   Future<Set<String>> ids() async {
     if (!await directory.exists()) {
       return {};
     }
-    return {
-      for (final entity in directory.listSync())
-        if (entity is File && entity.path.endsWith('.blob'))
-          entity.uri.pathSegments.last.replaceAll('.blob', ''),
-    };
+    const suffixe = '.blob';
+    final trouves = <String>{};
+    // `list` et non `listSync`: appelé au déverrouillage, juste après une
+    // dérivation déjà coûteuse, et sur l'isolat qui dessine l'interface.
+    await for (final entity in directory.list()) {
+      final name = entity.uri.pathSegments.last;
+      if (entity is File && name.endsWith(suffixe)) {
+        // `substring` et non `replaceAll`, qui retirerait *toutes* les
+        // occurrences du suffixe.
+        trouves.add(name.substring(0, name.length - suffixe.length));
+      }
+    }
+    return trouves;
   }
 }
