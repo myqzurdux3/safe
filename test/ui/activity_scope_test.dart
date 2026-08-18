@@ -64,7 +64,8 @@ void main() {
     expect(
       session.touches,
       greaterThan(avant),
-      reason: 'les événements des routes empilées n\'atteignent pas le détecteur',
+      reason:
+          'les événements des routes empilées n\'atteignent pas le détecteur',
     );
 
     session.lock();

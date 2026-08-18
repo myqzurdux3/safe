@@ -33,24 +33,26 @@ void main() {
 
   tearDown(() async => dir.delete(recursive: true));
 
-  test('un blob qu\'aucune entrée ne référence est mis de côté, pas effacé',
-      () async {
-    await session.create(testPassword);
-    session.lock();
-    // Simule ce que laisse un import: un blob de l'ancien coffre, que le
-    // nouveau ne référence pas. C'est le seul chemin de synchronisation entre
-    // Linux et Android, et l'export ne contient pas les pièces jointes.
-    await BlobFileStore(blobsDir).put(id(1), Uint8List.fromList([1, 2, 3]));
+  test(
+    'un blob qu\'aucune entrée ne référence est mis de côté, pas effacé',
+    () async {
+      await session.create(testPassword);
+      session.lock();
+      // Simule ce que laisse un import: un blob de l'ancien coffre, que le
+      // nouveau ne référence pas. C'est le seul chemin de synchronisation entre
+      // Linux et Android, et l'export ne contient pas les pièces jointes.
+      await BlobFileStore(blobsDir).put(id(1), Uint8List.fromList([1, 2, 3]));
 
-    await session.unlock(testPassword);
+      await session.unlock(testPassword);
 
-    expect(File('${blobsDir.path}/${id(1)}.blob').existsSync(), isFalse);
-    expect(
-      File('${blobsDir.path}/orphelins/${id(1)}.blob').existsSync(),
-      isTrue,
-      reason: 'le contenu a été détruit au lieu d\'être mis de côté',
-    );
-  });
+      expect(File('${blobsDir.path}/${id(1)}.blob').existsSync(), isFalse);
+      expect(
+        File('${blobsDir.path}/orphelins/${id(1)}.blob').existsSync(),
+        isTrue,
+        reason: 'le contenu a été détruit au lieu d\'être mis de côté',
+      );
+    },
+  );
 
   test('un temporaire abandonné est bien effacé, lui', () async {
     await session.create(testPassword);
@@ -79,9 +81,6 @@ void main() {
     session.lock();
     await session.unlock(testPassword);
 
-    expect(
-      File('${blobsDir.path}/${attachment.id}.blob').existsSync(),
-      isTrue,
-    );
+    expect(File('${blobsDir.path}/${attachment.id}.blob').existsSync(), isTrue);
   });
 }

@@ -31,40 +31,44 @@ void main() {
 
   tearDown(() async => dir.delete(recursive: true));
 
-  test('changer de mot de passe ne laisse pas l\'ancien ouvrir la sauvegarde',
-      () async {
-    await session.create(testPassword);
-    await session.save(
-      session.vault!.upsert(VaultEntry.now(key: 'gmail', value: 'p4ss')),
-    );
-    expect(storage.backupFile.existsSync(), isTrue);
-
-    await session.changePassword('nouveaumotdepasse');
-
-    // Changer de mot de passe se fait souvent parce que l'ancien a fuité.
-    // Une copie que l'ancien mot de passe ouvre encore annule l'opération.
-    if (storage.backupFile.existsSync()) {
-      final crypto = await testCrypto();
-      final bak = await storage.backupFile.readAsBytes();
-      expect(
-        () => crypto.open(bak, testPassword),
-        throwsA(isA<WrongPasswordException>()),
-        reason: 'l\'ancien mot de passe ouvre encore vault.safe.bak',
+  test(
+    'changer de mot de passe ne laisse pas l\'ancien ouvrir la sauvegarde',
+    () async {
+      await session.create(testPassword);
+      await session.save(
+        session.vault!.upsert(VaultEntry.now(key: 'gmail', value: 'p4ss')),
       );
-    }
-  });
+      expect(storage.backupFile.existsSync(), isTrue);
 
-  test('une sauvegarde ordinaire garde bien la génération précédente',
-      () async {
-    await session.create(testPassword);
-    await session.save(
-      session.vault!.upsert(VaultEntry.now(key: 'gmail', value: 'p4ss')),
-    );
-    final crypto = await testCrypto();
-    final precedent = crypto.open(
-      await storage.backupFile.readAsBytes(),
-      testPassword,
-    );
-    expect(precedent.entries, isEmpty);
-  });
+      await session.changePassword('nouveaumotdepasse');
+
+      // Changer de mot de passe se fait souvent parce que l'ancien a fuité.
+      // Une copie que l'ancien mot de passe ouvre encore annule l'opération.
+      if (storage.backupFile.existsSync()) {
+        final crypto = await testCrypto();
+        final bak = await storage.backupFile.readAsBytes();
+        expect(
+          () => crypto.open(bak, testPassword),
+          throwsA(isA<WrongPasswordException>()),
+          reason: 'l\'ancien mot de passe ouvre encore vault.safe.bak',
+        );
+      }
+    },
+  );
+
+  test(
+    'une sauvegarde ordinaire garde bien la génération précédente',
+    () async {
+      await session.create(testPassword);
+      await session.save(
+        session.vault!.upsert(VaultEntry.now(key: 'gmail', value: 'p4ss')),
+      );
+      final crypto = await testCrypto();
+      final precedent = crypto.open(
+        await storage.backupFile.readAsBytes(),
+        testPassword,
+      );
+      expect(precedent.entries, isEmpty);
+    },
+  );
 }

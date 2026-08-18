@@ -175,7 +175,12 @@ void main() {
     final header = VaultHeader.parse(bytes);
     final key = crypto.deriveKey('hunter2', header.salt, header.params);
     try {
-      final resealed = crypto.seal(vaultAvec('a', 'v2'), key, header.salt, header.params);
+      final resealed = crypto.seal(
+        vaultAvec('a', 'v2'),
+        key,
+        header.salt,
+        header.params,
+      );
       expect(resealed.sublist(22, 38), header.salt);
       expect(crypto.open(resealed, 'hunter2').entries.single.value, 'v2');
     } finally {

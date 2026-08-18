@@ -35,20 +35,22 @@ void main() {
     session.lock();
   });
 
-  testWidgets('enregistrer sur un coffre verrouillé le dit au lieu de se taire',
-      (tester) async {
-    final session = await makeUnlockedSession();
-    await tester.pumpWidget(wrapScreen(EntryEditScreen(session: session)));
-    await tester.enterText(find.byKey(const Key('key')), 'banque (pro)');
-    await tester.enterText(find.byKey(const Key('value')), 'secret');
+  testWidgets(
+    'enregistrer sur un coffre verrouillé le dit au lieu de se taire',
+    (tester) async {
+      final session = await makeUnlockedSession();
+      await tester.pumpWidget(wrapScreen(EntryEditScreen(session: session)));
+      await tester.enterText(find.byKey(const Key('key')), 'banque (pro)');
+      await tester.enterText(find.byKey(const Key('value')), 'secret');
 
-    session.lock();
-    await tester.pump();
-    await tester.tap(find.byKey(const Key('save')));
-    await tester.pumpAndSettle();
+      session.lock();
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('save')));
+      await tester.pumpAndSettle();
 
-    expect(find.textContaining('verrouillé'), findsOneWidget);
-  });
+      expect(find.textContaining('verrouillé'), findsOneWidget);
+    },
+  );
 
   testWidgets('le verrouillage ferme l\'écran d\'édition resté ouvert', (
     tester,
@@ -99,10 +101,7 @@ void main() {
     );
     final avant = await store.read();
     session.lock();
-    expect(
-      () => session.save(Vault.empty),
-      throwsStateError,
-    );
+    expect(() => session.save(Vault.empty), throwsStateError);
     expect(await store.read(), avant);
   });
 }

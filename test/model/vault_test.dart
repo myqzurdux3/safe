@@ -43,9 +43,9 @@ void main() {
       created: DateTime.utc(2020),
       updated: DateTime.utc(2020),
     );
-    final vault = Vault.empty.upsert(origine).upsert(
-      VaultEntry.now(key: 'a', value: '2'),
-    );
+    final vault = Vault.empty
+        .upsert(origine)
+        .upsert(VaultEntry.now(key: 'a', value: '2'));
     expect(vault.entries.single.created, DateTime.utc(2020));
     expect(vault.entries.single.updated.isAfter(DateTime.utc(2020)), isTrue);
   });

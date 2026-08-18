@@ -59,37 +59,41 @@ void main() {
     }
   });
 
-  test('coffre sur disque: écriture puis relecture de toutes ces clefs',
-      () async {
-    final dir = await Directory.systemTemp.createTemp('safe_chars');
-    addTearDown(() => dir.delete(recursive: true));
-    final session = VaultSession(
-      crypto: await testCrypto(),
-      storage: VaultFile(dir),
-      blobs: BlobFileStore(Directory('${dir.path}/blobs')),
-      clipboard: SecureClipboard(),
-      kdfParams: testKdfParams,
-    );
-    addTearDown(session.dispose);
+  test(
+    'coffre sur disque: écriture puis relecture de toutes ces clefs',
+    () async {
+      final dir = await Directory.systemTemp.createTemp('safe_chars');
+      addTearDown(() => dir.delete(recursive: true));
+      final session = VaultSession(
+        crypto: await testCrypto(),
+        storage: VaultFile(dir),
+        blobs: BlobFileStore(Directory('${dir.path}/blobs')),
+        clipboard: SecureClipboard(),
+        kdfParams: testKdfParams,
+      );
+      addTearDown(session.dispose);
 
-    await session.create(testPassword);
-    var vault = session.vault!;
-    for (final clef in clefs) {
-      vault = vault.upsert(VaultEntry.now(key: clef, value: 'v-$clef'));
-    }
-    await session.save(vault);
-    session.lock();
-    await session.unlock(testPassword);
+      await session.create(testPassword);
+      var vault = session.vault!;
+      for (final clef in clefs) {
+        vault = vault.upsert(VaultEntry.now(key: clef, value: 'v-$clef'));
+      }
+      await session.save(vault);
+      session.lock();
+      await session.unlock(testPassword);
 
-    for (final clef in clefs) {
-      final trouvee = session.vault!.entries.where((e) => e.key == clef);
-      expect(trouvee.length, 1, reason: 'clef perdue sur disque: $clef');
-      expect(trouvee.single.value, 'v-$clef');
-    }
-    session.lock();
-  });
+      for (final clef in clefs) {
+        final trouvee = session.vault!.entries.where((e) => e.key == clef);
+        expect(trouvee.length, 1, reason: 'clef perdue sur disque: $clef');
+        expect(trouvee.single.value, 'v-$clef');
+      }
+      session.lock();
+    },
+  );
 
-  testWidgets('interface: saisie puis relecture de chaque clef', (tester) async {
+  testWidgets('interface: saisie puis relecture de chaque clef', (
+    tester,
+  ) async {
     for (final clef in clefs) {
       final session = await makeUnlockedSession();
       await tester.pumpWidget(wrapScreen(EntryEditScreen(session: session)));
@@ -111,19 +115,20 @@ void main() {
     }
   });
 
-  testWidgets('interface: les espaces de bordure sont rognés, le reste intact', (
-    tester,
-  ) async {
-    for (final entree in clefsRognees.entries) {
-      final session = await makeUnlockedSession();
-      await tester.pumpWidget(wrapScreen(EntryEditScreen(session: session)));
-      await tester.enterText(find.byKey(const Key('key')), entree.key);
-      await tester.tap(find.byKey(const Key('save')));
-      await tester.pumpAndSettle();
-      expect(session.vault!.entries.single.key, entree.value);
-      session.lock();
-    }
-  });
+  testWidgets(
+    'interface: les espaces de bordure sont rognés, le reste intact',
+    (tester) async {
+      for (final entree in clefsRognees.entries) {
+        final session = await makeUnlockedSession();
+        await tester.pumpWidget(wrapScreen(EntryEditScreen(session: session)));
+        await tester.enterText(find.byKey(const Key('key')), entree.key);
+        await tester.tap(find.byKey(const Key('save')));
+        await tester.pumpAndSettle();
+        expect(session.vault!.entries.single.key, entree.value);
+        session.lock();
+      }
+    },
+  );
 
   testWidgets('interface: recherche par fragment contenant des parenthèses', (
     tester,

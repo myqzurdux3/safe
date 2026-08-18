@@ -32,48 +32,54 @@ class _ReglagesEnPanne implements SettingsStore {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('un blocage refusé par le système est dit, pas affiché comme acquis',
-      (tester) async {
-    final session = await makeUnlockedSession();
-    await tester.pumpWidget(
-      wrapScreen(
-        SettingsScreen(
-          session: session,
-          settings: MemorySettingsStore(const AppSettings(blockScreenshots: false)),
-          screen: _EcranRefusant(),
+  testWidgets(
+    'un blocage refusé par le système est dit, pas affiché comme acquis',
+    (tester) async {
+      final session = await makeUnlockedSession();
+      await tester.pumpWidget(
+        wrapScreen(
+          SettingsScreen(
+            session: session,
+            settings: MemorySettingsStore(
+              const AppSettings(blockScreenshots: false),
+            ),
+            screen: _EcranRefusant(),
+          ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('block-screenshots')));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('block-screenshots')));
+      await tester.pumpAndSettle();
 
-    // L'interrupteur ne doit pas rester sur « bloqué » alors que rien ne l'est.
-    final bascule = tester.widget<SwitchListTile>(
-      find.byKey(const Key('block-screenshots')),
-    );
-    expect(bascule.value, isFalse);
-    expect(find.textContaining('refusé'), findsOneWidget);
-    session.lock();
-  });
+      // L'interrupteur ne doit pas rester sur « bloqué » alors que rien ne l'est.
+      final bascule = tester.widget<SwitchListTile>(
+        find.byKey(const Key('block-screenshots')),
+      );
+      expect(bascule.value, isFalse);
+      expect(find.textContaining('refusé'), findsOneWidget);
+      session.lock();
+    },
+  );
 
-  testWidgets('un réglage qui ne s\'écrit pas ne s\'affiche pas comme enregistré',
-      (tester) async {
-    final session = await makeUnlockedSession();
-    await tester.pumpWidget(
-      wrapScreen(
-        SettingsScreen(session: session, settings: _ReglagesEnPanne()),
-      ),
-    );
-    await tester.pumpAndSettle();
+  testWidgets(
+    'un réglage qui ne s\'écrit pas ne s\'affiche pas comme enregistré',
+    (tester) async {
+      final session = await makeUnlockedSession();
+      await tester.pumpWidget(
+        wrapScreen(
+          SettingsScreen(session: session, settings: _ReglagesEnPanne()),
+        ),
+      );
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('auto-lock')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('30 s').last);
-    await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('auto-lock')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('30 s').last);
+      await tester.pumpAndSettle();
 
-    expect(find.textContaining('non enregistré'), findsOneWidget);
-    session.lock();
-  });
+      expect(find.textContaining('non enregistré'), findsOneWidget);
+      session.lock();
+    },
+  );
 }

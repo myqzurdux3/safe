@@ -11,9 +11,9 @@ void main() {
     appels.clear();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(screenSecurityChannel, (call) async {
-      appels.add(call);
-      return null;
-    });
+          appels.add(call);
+          return null;
+        });
   });
 
   tearDown(() {
@@ -28,8 +28,8 @@ void main() {
   test('une plateforme sans implémentation rapporte un échec', () async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(screenSecurityChannel, (call) async {
-      throw MissingPluginException('non implémenté');
-    });
+          throw MissingPluginException('non implémenté');
+        });
     // Sans retour, l'interface affiche « captures bloquées » alors qu'elles ne
     // le sont pas: pour un coffre-fort, une protection silencieusement absente
     // est pire qu'une erreur visible.
@@ -39,8 +39,8 @@ void main() {
   test('un échec côté natif rapporte un échec', () async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(screenSecurityChannel, (call) async {
-      throw PlatformException(code: 'erreur');
-    });
+          throw PlatformException(code: 'erreur');
+        });
     expect(await const ScreenSecurity().setBlocked(true), isFalse);
   });
 
@@ -55,14 +55,16 @@ void main() {
     expect(appels.single.arguments, {'blocked': false});
   });
 
-  test('une plateforme sans implémentation ne fait pas planter l\'app',
-      () async {
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(screenSecurityChannel, (call) async {
-      throw MissingPluginException('non implémenté');
-    });
-    // Linux n'a pas d'équivalent de FLAG_SECURE: l'appel doit être sans effet,
-    // pas une exception qui remonte dans l'interface.
-    await expectLater(const ScreenSecurity().setBlocked(true), completes);
-  });
+  test(
+    'une plateforme sans implémentation ne fait pas planter l\'app',
+    () async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(screenSecurityChannel, (call) async {
+            throw MissingPluginException('non implémenté');
+          });
+      // Linux n'a pas d'équivalent de FLAG_SECURE: l'appel doit être sans effet,
+      // pas une exception qui remonte dans l'interface.
+      await expectLater(const ScreenSecurity().setBlocked(true), completes);
+    },
+  );
 }

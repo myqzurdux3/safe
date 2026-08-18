@@ -15,9 +15,9 @@ void main() {
     appels.clear();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(screenSecurityChannel, (call) async {
-      appels.add((call.arguments as Map)['blocked'] as bool);
-      return null;
-    });
+          appels.add((call.arguments as Map)['blocked'] as bool);
+          return null;
+        });
   });
 
   tearDown(() {

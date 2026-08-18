@@ -370,9 +370,9 @@ class _GeneratorSheetState extends State<_GeneratorSheet> {
         const SizedBox(height: 16),
         FilledButton(
           key: const Key('generate-confirm'),
-          onPressed: () => Navigator.of(context).pop(
-            generatePassword(length: _length.round(), set: _set),
-          ),
+          onPressed: () => Navigator.of(
+            context,
+          ).pop(generatePassword(length: _length.round(), set: _set)),
           child: const Text('Utiliser'),
         ),
       ],

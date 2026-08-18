@@ -190,9 +190,8 @@ class Vault {
   static final Vault empty = Vault(const []);
 
   static List<VaultEntry> _sorted(Iterable<VaultEntry> entries) =>
-      [...entries]..sort(
-        (a, b) => a.key.toLowerCase().compareTo(b.key.toLowerCase()),
-      );
+      [...entries]
+        ..sort((a, b) => a.key.toLowerCase().compareTo(b.key.toLowerCase()));
 
   /// Relit le clair produit par [toBytes].
   ///
@@ -264,8 +263,7 @@ class Vault {
   }
 
   /// Retire l'entrée portant [key]; sans effet si elle n'existe pas.
-  Vault remove(String key) =>
-      Vault([...entries.where((e) => e.key != key)]);
+  Vault remove(String key) => Vault([...entries.where((e) => e.key != key)]);
 
   /// Filtre les entrées dont la clef contient [query], casse ignorée.
   List<VaultEntry> search(String query) {

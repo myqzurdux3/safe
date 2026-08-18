@@ -73,5 +73,6 @@ class _SafeLogoPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_SafeLogoPainter oldDelegate) => oldDelegate.color != color;
+  bool shouldRepaint(_SafeLogoPainter oldDelegate) =>
+      oldDelegate.color != color;
 }

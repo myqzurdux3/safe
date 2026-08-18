@@ -75,7 +75,8 @@ void main() {
     );
     expect(await storage.backupFile.exists(), isTrue);
     expect(
-      crypto.open(await storage.backupFile.readAsBytes(), 'hunter2')
+      crypto
+          .open(await storage.backupFile.readAsBytes(), 'hunter2')
           .entries
           .single
           .value,

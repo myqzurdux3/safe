@@ -22,7 +22,8 @@ void main() {
     autreKey.dispose();
   });
 
-  Uint8List contenu() => Uint8List.fromList([for (var i = 0; i < 5000; i++) i % 251]);
+  Uint8List contenu() =>
+      Uint8List.fromList([for (var i = 0; i < 5000; i++) i % 251]);
 
   test('aller-retour d\'un fichier joint', () {
     final scelle = crypto.sealBytes(contenu(), key);

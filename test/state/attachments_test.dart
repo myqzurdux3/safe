@@ -26,26 +26,31 @@ void main() {
     bytes: bytes ?? contenu(),
   );
 
-  test('joindre un fichier: métadonnées dans le coffre, contenu dehors',
-      () async {
-    final blobs = MemoryBlobStore();
-    final session = await makeUnlockedSession(
-      keys: ['passeport'],
-      blobs: blobs,
-    );
-    final attachment = await joindre(session);
+  test(
+    'joindre un fichier: métadonnées dans le coffre, contenu dehors',
+    () async {
+      final blobs = MemoryBlobStore();
+      final session = await makeUnlockedSession(
+        keys: ['passeport'],
+        blobs: blobs,
+      );
+      final attachment = await joindre(session);
 
-    expect(attachment.name, 'photo.jpg');
-    expect(attachment.size, 2048);
-    expect(session.vault!.entries.single.attachments.single.id, attachment.id);
-    expect(blobs.contents.keys, [attachment.id]);
-    // Le blob est chiffré: son en-tête est celui d'une pièce jointe, et le
-    // contenu en clair ne s'y trouve pas.
-    final blob = blobs.contents[attachment.id]!;
-    expect(String.fromCharCodes(blob.sublist(0, 8)), 'SAFEBLB1');
-    expect(blob.length, greaterThan(2048));
-    session.lock();
-  });
+      expect(attachment.name, 'photo.jpg');
+      expect(attachment.size, 2048);
+      expect(
+        session.vault!.entries.single.attachments.single.id,
+        attachment.id,
+      );
+      expect(blobs.contents.keys, [attachment.id]);
+      // Le blob est chiffré: son en-tête est celui d'une pièce jointe, et le
+      // contenu en clair ne s'y trouve pas.
+      final blob = blobs.contents[attachment.id]!;
+      expect(String.fromCharCodes(blob.sublist(0, 8)), 'SAFEBLB1');
+      expect(blob.length, greaterThan(2048));
+      session.lock();
+    },
+  );
 
   test('relire une pièce jointe rend le contenu d\'origine', () async {
     final session = await makeUnlockedSession(keys: ['passeport']);

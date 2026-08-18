@@ -35,16 +35,17 @@ void main() {
 
   test('une entrée sans pièce jointe reste lisible', () {
     final vault = Vault.empty.upsert(VaultEntry.now(key: 'a', value: 'v'));
-    expect(Vault.fromBytes(vault.toBytes()).entries.single.attachments, isEmpty);
+    expect(
+      Vault.fromBytes(vault.toBytes()).entries.single.attachments,
+      isEmpty,
+    );
   });
 
   test('un coffre écrit avant les pièces jointes reste lisible', () {
     // Le champ est optionnel: pas de migration pour les coffres existants.
     const ancien =
         '{"v":1,"entries":[{"k":"a","val":"v","created":0,"updated":0}]}';
-    final vault = Vault.fromBytes(
-      Uint8List.fromList(utf8.encode(ancien)),
-    );
+    final vault = Vault.fromBytes(Uint8List.fromList(utf8.encode(ancien)));
     expect(vault.entries.single.attachments, isEmpty);
   });
 
@@ -56,7 +57,10 @@ void main() {
       VaultEntry.now(
         key: 'a',
         value: 'v2',
-        attachments: [attachment(), attachment(id: idB)],
+        attachments: [
+          attachment(),
+          attachment(id: idB),
+        ],
       ),
     );
     expect(vault.entries.single.attachments, hasLength(2));

@@ -137,7 +137,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (Platform.isAndroid || Platform.isIOS) {
         await SharePlus.instance.share(
           ShareParams(
-            files: [XFile.fromData(bytes, mimeType: 'application/octet-stream')],
+            files: [
+              XFile.fromData(bytes, mimeType: 'application/octet-stream'),
+            ],
             fileNameOverrides: const ['vault.safe'],
           ),
         );
@@ -214,9 +216,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  String _label(Duration delay) => delay.inSeconds < 60
-      ? '${delay.inSeconds} s'
-      : '${delay.inMinutes} min';
+  String _label(Duration delay) =>
+      delay.inSeconds < 60 ? '${delay.inSeconds} s' : '${delay.inMinutes} min';
 
   @override
   Widget build(BuildContext context) {
@@ -287,7 +288,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             key: const Key('import'),
             leading: const Icon(Icons.download_outlined),
             title: const Text('Importer un coffre'),
-            subtitle: const Text('Remplace le coffre actuel après vérification'),
+            subtitle: const Text(
+              'Remplace le coffre actuel après vérification',
+            ),
             enabled: transferDisponible && !_busy,
             onTap: _import,
           ),
@@ -329,10 +332,7 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
 
   void _submit() {
     if (_password.text.length < minMasterPasswordLength) {
-      setState(
-        () => _error =
-            'Au moins $minMasterPasswordLength caractères',
-      );
+      setState(() => _error = 'Au moins $minMasterPasswordLength caractères');
       return;
     }
     if (_password.text != _confirm.text) {

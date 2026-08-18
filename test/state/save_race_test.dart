@@ -27,53 +27,62 @@ void main() {
     await session.create(testPassword);
   });
 
-  test('un verrouillage pendant une sauvegarde ne rouvre pas le coffre', () async {
-    final gate = Completer<void>();
-    store.gate = gate;
-    final pending = session.save(
-      session.vault!.upsert(VaultEntry.now(key: 'gmail', value: 'p4ss')),
-    );
+  test(
+    'un verrouillage pendant une sauvegarde ne rouvre pas le coffre',
+    () async {
+      final gate = Completer<void>();
+      store.gate = gate;
+      final pending = session.save(
+        session.vault!.upsert(VaultEntry.now(key: 'gmail', value: 'p4ss')),
+      );
 
-    session.lock();
-    expect(session.isUnlocked, isFalse);
+      session.lock();
+      expect(session.isUnlocked, isFalse);
 
-    store.gate = null;
-    gate.complete();
-    await pending;
+      store.gate = null;
+      gate.complete();
+      await pending;
 
-    // Le coffre doit rester fermé: sinon l'interface réaffiche tout le clair,
-    // alors que la clé, elle, a bien été libérée.
-    expect(session.isUnlocked, isFalse);
-    expect(session.vault, isNull);
-  });
+      // Le coffre doit rester fermé: sinon l'interface réaffiche tout le clair,
+      // alors que la clé, elle, a bien été libérée.
+      expect(session.isUnlocked, isFalse);
+      expect(session.vault, isNull);
+    },
+  );
 
-  test('un verrouillage pendant un changement de mot de passe ne rouvre pas', () async {
-    final gate = Completer<void>();
-    store.gate = gate;
-    final pending = session.changePassword('nouveaumotdepasse');
+  test(
+    'un verrouillage pendant un changement de mot de passe ne rouvre pas',
+    () async {
+      final gate = Completer<void>();
+      store.gate = gate;
+      final pending = session.changePassword('nouveaumotdepasse');
 
-    session.lock();
-    store.gate = null;
-    gate.complete();
-    await pending;
+      session.lock();
+      store.gate = null;
+      gate.complete();
+      await pending;
 
-    expect(session.isUnlocked, isFalse);
-  });
+      expect(session.isUnlocked, isFalse);
+    },
+  );
 
-  test('la sauvegarde interrompue par un verrouillage a bien atteint le disque', () async {
-    final gate = Completer<void>();
-    store.gate = gate;
-    final pending = session.save(
-      session.vault!.upsert(VaultEntry.now(key: 'gmail', value: 'p4ss')),
-    );
-    session.lock();
-    store.gate = null;
-    gate.complete();
-    await pending;
+  test(
+    'la sauvegarde interrompue par un verrouillage a bien atteint le disque',
+    () async {
+      final gate = Completer<void>();
+      store.gate = gate;
+      final pending = session.save(
+        session.vault!.upsert(VaultEntry.now(key: 'gmail', value: 'p4ss')),
+      );
+      session.lock();
+      store.gate = null;
+      gate.complete();
+      await pending;
 
-    // Ce qui a été écrit reste écrit: on ne perd pas la sauvegarde, on refuse
-    // seulement de rouvrir la session.
-    await session.unlock(testPassword);
-    expect(session.vault!.entries.single.key, 'gmail');
-  });
+      // Ce qui a été écrit reste écrit: on ne perd pas la sauvegarde, on refuse
+      // seulement de rouvrir la session.
+      await session.unlock(testPassword);
+      expect(session.vault!.entries.single.key, 'gmail');
+    },
+  );
 }

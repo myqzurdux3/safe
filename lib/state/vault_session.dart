@@ -149,12 +149,7 @@ class VaultSession extends ChangeNotifier {
       key.dispose();
       rethrow;
     }
-    _adopt(
-      key: key,
-      salt: header.salt,
-      params: header.params,
-      vault: opened,
-    );
+    _adopt(key: key, salt: header.salt, params: header.params, vault: opened);
     await purgeOrphanBlobs();
   }
 
@@ -200,15 +195,14 @@ class VaultSession extends ChangeNotifier {
   /// [change] n'est appelée qu'au moment d'écrire: elle voit donc l'état réel,
   /// pas une photo prise avant l'attente. Lève si le coffre a été verrouillé
   /// entre-temps — on ne modifie pas un coffre fermé.
-  Future<void> _mutate(Vault Function(Vault current) change) =>
-      _serialized(() {
-        final current = _vault;
-        if (current == null) {
-          throw StateError('Le coffre est verrouillé');
-        }
-        final next = change(current);
-        return _commit(next, _seal(next), _generation);
-      });
+  Future<void> _mutate(Vault Function(Vault current) change) => _serialized(() {
+    final current = _vault;
+    if (current == null) {
+      throw StateError('Le coffre est verrouillé');
+    }
+    final next = change(current);
+    return _commit(next, _seal(next), _generation);
+  });
 
   /// Chiffre [vault] avec la clé de session. Lève si le coffre est verrouillé.
   Uint8List _seal(Vault vault) {
@@ -375,7 +369,9 @@ class VaultSession extends ChangeNotifier {
     var detachees = const <VaultAttachment>[];
     await _mutate((current) {
       detachees =
-          current.entries.where((e) => e.key == entryKey).firstOrNull
+          current.entries
+              .where((e) => e.key == entryKey)
+              .firstOrNull
               ?.attachments ??
           const <VaultAttachment>[];
       return current.remove(entryKey);

@@ -144,7 +144,9 @@ class BlobHeader {
     }
     if (utf8.decode(bytes.sublist(0, magic.length), allowMalformed: true) !=
         magic) {
-      throw const FormatException('Ce fichier n\'est pas une pièce jointe safe');
+      throw const FormatException(
+        'Ce fichier n\'est pas une pièce jointe safe',
+      );
     }
     final version = bytes[8];
     if (version != formatVersion) {
@@ -215,12 +217,7 @@ class VaultCrypto {
 
   /// Chiffre [vault] avec une clé déjà dérivée, en réutilisant [salt] et
   /// [params] pour l'en-tête. Un nonce neuf est tiré à chaque appel.
-  Uint8List seal(
-    Vault vault,
-    SecureKey key,
-    Uint8List salt,
-    KdfParams params,
-  ) {
+  Uint8List seal(Vault vault, SecureKey key, Uint8List salt, KdfParams params) {
     final header = VaultHeader(
       version: VaultHeader.formatVersion,
       params: params,
@@ -238,8 +235,11 @@ class VaultCrypto {
       );
       return Uint8List(headerBytes.length + cipherText.length)
         ..setRange(0, headerBytes.length, headerBytes)
-        ..setRange(headerBytes.length, headerBytes.length + cipherText.length,
-            cipherText);
+        ..setRange(
+          headerBytes.length,
+          headerBytes.length + cipherText.length,
+          cipherText,
+        );
     } finally {
       plaintext.fillRange(0, plaintext.length, 0);
     }

@@ -49,34 +49,36 @@ void main() {
     });
   });
 
-  test('un coffre dont un identifiant de pièce jointe est trafiqué est refusé',
-      () {
-    final bytes = Uint8List.fromList(
-      utf8.encode(
-        jsonEncode({
-          'v': 1,
-          'entries': [
-            {
-              'k': 'gmail',
-              'val': 'p4ss',
-              'created': 0,
-              'updated': 0,
-              'att': [
-                {
-                  'id': '../../../../etc/passwd',
-                  'name': 'x',
-                  'mime': 'text/plain',
-                  'size': 1,
-                  'created': 0,
-                },
-              ],
-            },
-          ],
-        }),
-      ),
-    );
-    // Le contenu du coffre est authentifié, mais il peut venir d'un tiers:
-    // l'import accepte un fichier étranger avec son mot de passe.
-    expect(() => Vault.fromBytes(bytes), throwsFormatException);
-  });
+  test(
+    'un coffre dont un identifiant de pièce jointe est trafiqué est refusé',
+    () {
+      final bytes = Uint8List.fromList(
+        utf8.encode(
+          jsonEncode({
+            'v': 1,
+            'entries': [
+              {
+                'k': 'gmail',
+                'val': 'p4ss',
+                'created': 0,
+                'updated': 0,
+                'att': [
+                  {
+                    'id': '../../../../etc/passwd',
+                    'name': 'x',
+                    'mime': 'text/plain',
+                    'size': 1,
+                    'created': 0,
+                  },
+                ],
+              },
+            ],
+          }),
+        ),
+      );
+      // Le contenu du coffre est authentifié, mais il peut venir d'un tiers:
+      // l'import accepte un fichier étranger avec son mot de passe.
+      expect(() => Vault.fromBytes(bytes), throwsFormatException);
+    },
+  );
 }

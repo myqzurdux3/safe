@@ -32,13 +32,15 @@ void main() {
     expect((await store.read()).blockScreenshots, isFalse);
   });
 
-  test('fichier illisible: valeurs par défaut plutôt qu\'un plantage',
-      () async {
-    final store = SettingsFile(dir);
-    await File('${dir.path}/settings.json').writeAsString('{ pas du json');
-    // Sûr par défaut: un fichier abîmé ne doit pas désactiver la protection.
-    expect((await store.read()).blockScreenshots, isTrue);
-  });
+  test(
+    'fichier illisible: valeurs par défaut plutôt qu\'un plantage',
+    () async {
+      final store = SettingsFile(dir);
+      await File('${dir.path}/settings.json').writeAsString('{ pas du json');
+      // Sûr par défaut: un fichier abîmé ne doit pas désactiver la protection.
+      expect((await store.read()).blockScreenshots, isTrue);
+    },
+  );
 
   test('clef inconnue ignorée, clef manquante = défaut', () async {
     final store = SettingsFile(dir);

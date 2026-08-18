@@ -36,16 +36,18 @@ void main() {
     session.lock();
   });
 
-  test('le temps en arrière-plan compte: retour après le délai = verrouillé',
-      () async {
-    final session = await makeUnlockedSession(
-      autoLock: const Duration(milliseconds: 150),
-    );
-    session.handleLifecycle(AppLifecycleState.paused);
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-    session.handleLifecycle(AppLifecycleState.resumed);
-    expect(session.isUnlocked, isFalse);
-  });
+  test(
+    'le temps en arrière-plan compte: retour après le délai = verrouillé',
+    () async {
+      final session = await makeUnlockedSession(
+        autoLock: const Duration(milliseconds: 150),
+      );
+      session.handleLifecycle(AppLifecycleState.paused);
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      session.handleLifecycle(AppLifecycleState.resumed);
+      expect(session.isUnlocked, isFalse);
+    },
+  );
 
   test('le retour au premier plan ne compte pas comme une activité', () async {
     // Sinon revenir sur l'app remettrait le compteur à zéro indéfiniment.
@@ -59,31 +61,35 @@ void main() {
     expect(session.isUnlocked, isFalse);
   });
 
-  test('après un aller-retour, une vraie activité repousse le verrou',
-      () async {
-    final session = await makeUnlockedSession(
-      autoLock: const Duration(milliseconds: 300),
-    );
-    session.handleLifecycle(AppLifecycleState.paused);
-    await Future<void>.delayed(const Duration(milliseconds: 150));
-    session.handleLifecycle(AppLifecycleState.resumed);
-    session.touch();
-    await Future<void>.delayed(const Duration(milliseconds: 200));
-    expect(session.isUnlocked, isTrue);
-    session.lock();
-  });
+  test(
+    'après un aller-retour, une vraie activité repousse le verrou',
+    () async {
+      final session = await makeUnlockedSession(
+        autoLock: const Duration(milliseconds: 300),
+      );
+      session.handleLifecycle(AppLifecycleState.paused);
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+      session.handleLifecycle(AppLifecycleState.resumed);
+      session.touch();
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      expect(session.isUnlocked, isTrue);
+      session.lock();
+    },
+  );
 
-  test('verrouillage pendant l\'arrière-plan, sans retour au premier plan',
-      () async {
-    // La minuterie doit continuer de tourner: l'app ne doit pas rester
-    // déverrouillée indéfiniment tant que l'utilisateur ne revient pas.
-    final session = await makeUnlockedSession(
-      autoLock: const Duration(milliseconds: 150),
-    );
-    session.handleLifecycle(AppLifecycleState.paused);
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-    expect(session.isUnlocked, isFalse);
-  });
+  test(
+    'verrouillage pendant l\'arrière-plan, sans retour au premier plan',
+    () async {
+      // La minuterie doit continuer de tourner: l'app ne doit pas rester
+      // déverrouillée indéfiniment tant que l'utilisateur ne revient pas.
+      final session = await makeUnlockedSession(
+        autoLock: const Duration(milliseconds: 150),
+      );
+      session.handleLifecycle(AppLifecycleState.paused);
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      expect(session.isUnlocked, isFalse);
+    },
+  );
 
   test('detached verrouille: le processus s\'arrête', () async {
     final session = await makeUnlockedSession(

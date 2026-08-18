@@ -30,7 +30,10 @@ enum CharacterSet {
   /// Classes qui composent ce jeu; chacune est garantie présente dans un mot de
   /// passe assez long pour les contenir toutes.
   List<_CharacterClass> get _classes => switch (this) {
-    CharacterSet.letters => const [_CharacterClass.lower, _CharacterClass.upper],
+    CharacterSet.letters => const [
+      _CharacterClass.lower,
+      _CharacterClass.upper,
+    ],
     CharacterSet.lettersDigits => const [
       _CharacterClass.lower,
       _CharacterClass.upper,

@@ -22,82 +22,86 @@ class GatedBlobStore extends MemoryBlobStore {
 }
 
 void main() {
-  test('une sauvegarde pendant l\'écriture d\'une pièce jointe n\'est pas perdue',
-      () async {
-    final blobs = GatedBlobStore();
-    final session = VaultSession(
-      crypto: await testCrypto(),
-      storage: MemoryVaultStore(),
-      blobs: blobs,
-      clipboard: SecureClipboard(),
-      autoLockDelay: const Duration(minutes: 10),
-      kdfParams: testKdfParams,
-    );
-    addTearDown(session.dispose);
-    await session.create(testPassword);
-    await session.save(
-      session.vault!.upsert(VaultEntry.now(key: 'gmail', value: 'p4ss')),
-    );
+  test(
+    'une sauvegarde pendant l\'écriture d\'une pièce jointe n\'est pas perdue',
+    () async {
+      final blobs = GatedBlobStore();
+      final session = VaultSession(
+        crypto: await testCrypto(),
+        storage: MemoryVaultStore(),
+        blobs: blobs,
+        clipboard: SecureClipboard(),
+        autoLockDelay: const Duration(minutes: 10),
+        kdfParams: testKdfParams,
+      );
+      addTearDown(session.dispose);
+      await session.create(testPassword);
+      await session.save(
+        session.vault!.upsert(VaultEntry.now(key: 'gmail', value: 'p4ss')),
+      );
 
-    // La pièce jointe part, et se bloque en cours d'écriture.
-    final pending = session.attach(
-      entryKey: 'gmail',
-      name: 'photo.png',
-      mimeType: 'image/png',
-      bytes: Uint8List.fromList([1, 2, 3]),
-    );
+      // La pièce jointe part, et se bloque en cours d'écriture.
+      final pending = session.attach(
+        entryKey: 'gmail',
+        name: 'photo.png',
+        mimeType: 'image/png',
+        bytes: Uint8List.fromList([1, 2, 3]),
+      );
 
-    // Pendant ce temps, l'utilisateur crée une autre entrée.
-    await session.save(
-      session.vault!.upsert(VaultEntry.now(key: 'banque', value: 's3cret')),
-    );
+      // Pendant ce temps, l'utilisateur crée une autre entrée.
+      await session.save(
+        session.vault!.upsert(VaultEntry.now(key: 'banque', value: 's3cret')),
+      );
 
-    blobs.gate.complete();
-    await pending;
+      blobs.gate.complete();
+      await pending;
 
-    final clefs = session.vault!.entries.map((e) => e.key).toList();
-    expect(clefs, containsAll(['banque', 'gmail']));
-    expect(
-      session.vault!.entries.firstWhere((e) => e.key == 'gmail').attachments,
-      hasLength(1),
-    );
-  });
+      final clefs = session.vault!.entries.map((e) => e.key).toList();
+      expect(clefs, containsAll(['banque', 'gmail']));
+      expect(
+        session.vault!.entries.firstWhere((e) => e.key == 'gmail').attachments,
+        hasLength(1),
+      );
+    },
+  );
 
-  test('deux sauvegardes concurrentes s\'exécutent l\'une après l\'autre',
-      () async {
-    final store = GatedVaultStore();
-    final session = VaultSession(
-      crypto: await testCrypto(),
-      storage: store,
-      blobs: MemoryBlobStore(),
-      clipboard: SecureClipboard(),
-      autoLockDelay: const Duration(minutes: 10),
-      kdfParams: testKdfParams,
-    );
-    addTearDown(session.dispose);
-    await session.create(testPassword);
+  test(
+    'deux sauvegardes concurrentes s\'exécutent l\'une après l\'autre',
+    () async {
+      final store = GatedVaultStore();
+      final session = VaultSession(
+        crypto: await testCrypto(),
+        storage: store,
+        blobs: MemoryBlobStore(),
+        clipboard: SecureClipboard(),
+        autoLockDelay: const Duration(minutes: 10),
+        kdfParams: testKdfParams,
+      );
+      addTearDown(session.dispose);
+      await session.create(testPassword);
 
-    final avant = store.writeOrder.length;
-    final gate = Completer<void>();
-    store.gate = gate;
-    final premiere = session.save(
-      session.vault!.upsert(VaultEntry.now(key: 'a', value: '1')),
-    );
-    final seconde = session.save(
-      session.vault!.upsert(VaultEntry.now(key: 'b', value: '2')),
-    );
+      final avant = store.writeOrder.length;
+      final gate = Completer<void>();
+      store.gate = gate;
+      final premiere = session.save(
+        session.vault!.upsert(VaultEntry.now(key: 'a', value: '1')),
+      );
+      final seconde = session.save(
+        session.vault!.upsert(VaultEntry.now(key: 'b', value: '2')),
+      );
 
-    // La seconde ne doit pas être entrée dans le magasin tant que la première
-    // n'en est pas sortie: deux écritures en vol se marchent dessus.
-    await Future<void>.delayed(Duration.zero);
-    expect(
-      store.writeOrder.length - avant,
-      1,
-      reason: 'les deux écritures sont en vol en même temps',
-    );
+      // La seconde ne doit pas être entrée dans le magasin tant que la première
+      // n'en est pas sortie: deux écritures en vol se marchent dessus.
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        store.writeOrder.length - avant,
+        1,
+        reason: 'les deux écritures sont en vol en même temps',
+      );
 
-    store.gate = null;
-    gate.complete();
-    await Future.wait([premiere, seconde]);
-  });
+      store.gate = null;
+      gate.complete();
+      await Future.wait([premiere, seconde]);
+    },
+  );
 }

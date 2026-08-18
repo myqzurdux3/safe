@@ -154,10 +154,7 @@ class _AttachmentsSectionState extends State<AttachmentsSection> {
     }
   }
 
-  Future<void> _exportBytes(
-    VaultAttachment attachment,
-    Uint8List bytes,
-  ) async {
+  Future<void> _exportBytes(VaultAttachment attachment, Uint8List bytes) async {
     // Sortir une pièce jointe la rend lisible en clair sur le disque: c'est le
     // seul moment où le contenu quitte le coffre, et c'est un choix explicite.
     if (Platform.isAndroid || Platform.isIOS) {
