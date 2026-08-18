@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'private_directory.dart';
+
 /// Où vivent les pièces jointes chiffrées, une par identifiant.
 ///
 /// Séparé de [VaultStore] parce que les contraintes diffèrent: le coffre est
@@ -59,7 +61,7 @@ class BlobFileStore implements BlobStore {
   @override
   Future<void> put(String id, Uint8List bytes) async {
     final destination = _file(id);
-    await directory.create(recursive: true);
+    await createPrivateDirectory(directory);
     final temp = File('${destination.path}.tmp');
     await temp.writeAsBytes(bytes, flush: true);
     await temp.rename(destination.path);
@@ -85,7 +87,7 @@ class BlobFileStore implements BlobStore {
     if (!await source.exists()) {
       return;
     }
-    await quarantineDirectory.create(recursive: true);
+    await createPrivateDirectory(quarantineDirectory);
     await source.rename('${quarantineDirectory.path}/$id.blob');
   }
 

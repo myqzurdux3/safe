@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'private_directory.dart';
+
 /// Délais d'inactivité proposés avant verrouillage automatique.
 ///
 /// Seule liste qui fasse foi: c'est elle que l'écran de réglages affiche, et
@@ -127,7 +129,7 @@ class SettingsFile implements SettingsStore {
   /// bascules d'affilée dans les réglages — ne le partagent pas.
   @override
   Future<void> write(AppSettings settings) async {
-    await directory.create(recursive: true);
+    await createPrivateDirectory(directory);
     final temp = File('${file.path}.${_writes++}.tmp');
     try {
       await temp.writeAsString(jsonEncode(settings.toJson()), flush: true);

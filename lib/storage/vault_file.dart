@@ -5,6 +5,8 @@ import 'package:path_provider/path_provider.dart';
 
 import 'vault_store.dart';
 
+import 'private_directory.dart';
+
 /// Le fichier coffre sur le disque.
 ///
 /// Ne sait rien du chiffrement: elle transporte des octets opaques. Sa seule
@@ -78,7 +80,7 @@ class VaultFile implements VaultStore {
   /// [keepPrevious] est `false`.
   @override
   Future<void> write(Uint8List bytes, {bool keepPrevious = true}) async {
-    await directory.create(recursive: true);
+    await createPrivateDirectory(directory);
     final temp = _newTempFile();
     try {
       final handle = await temp.open(mode: FileMode.writeOnly);
