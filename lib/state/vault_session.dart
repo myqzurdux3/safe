@@ -281,6 +281,10 @@ class VaultSession extends ChangeNotifier {
   /// Le contenu part chiffré dans son propre blob; seules ses métadonnées
   /// entrent dans le coffre. Lève [AttachmentTooLargeException] au-delà de
   /// [maxAttachmentBytes], et [StateError] si la clef n'existe pas.
+  ///
+  /// [bytes] est remis à zéro dès que le contenu est chiffré — sauf si le
+  /// fichier est refusé d'entrée pour sa taille, auquel cas rien n'a été lu et
+  /// le tampon reste celui de l'appelant.
   Future<VaultAttachment> attach({
     required String entryKey,
     required String name,
@@ -308,7 +312,16 @@ class VaultSession extends ChangeNotifier {
     );
     // Le blob d'abord, la référence ensuite: l'ordre inverse laisserait le
     // coffre pointer vers un fichier absent si l'écriture échouait.
-    await _blobs.put(attachment.id, _crypto.sealBytes(bytes, key));
+    final Uint8List chiffre;
+    try {
+      chiffre = _crypto.sealBytes(bytes, key);
+    } finally {
+      // Le contenu en clair vient d'un fichier choisi par l'utilisateur: une
+      // fois chiffré, il n'a plus de raison de traîner sur le tas. Le tampon
+      // appartient à l'appelant, mais `attach` en est le dernier usage.
+      bytes.fillRange(0, bytes.length, 0);
+    }
+    await _blobs.put(attachment.id, chiffre);
     await _mutate((current) {
       // Relu ici et pas plus haut: écrire une pièce jointe prend du temps, et
       // l'utilisateur a pu enregistrer autre chose entre-temps.

@@ -238,14 +238,20 @@ class Vault {
   final List<VaultEntry> entries;
 
   /// Sérialise en JSON UTF-8. C'est ce que la couche crypto chiffre.
-  Uint8List toBytes() => Uint8List.fromList(
-    utf8.encode(
-      jsonEncode({
-        'v': formatVersion,
-        'entries': [for (final entry in entries) entry._toJson()],
-      }),
-    ),
-  );
+  ///
+  /// `JsonUtf8Encoder` écrit directement des octets. `jsonEncode` produisait
+  /// d'abord une `String` contenant le coffre entier en clair — une copie que
+  /// Dart ne permet pas d'effacer, et qui survivait donc au `fillRange` que la
+  /// couche crypto applique consciencieusement au tampon qu'on lui rend.
+  ///
+  /// Le résultat est identique octet pour octet: un coffre déjà écrit se relit.
+  Uint8List toBytes() {
+    final encoded = JsonUtf8Encoder().convert({
+      'v': formatVersion,
+      'entries': [for (final entry in entries) entry._toJson()],
+    });
+    return encoded is Uint8List ? encoded : Uint8List.fromList(encoded);
+  }
 
   /// Ajoute ou remplace une entrée, en conservant sa date de création.
   Vault upsert(VaultEntry entry) {

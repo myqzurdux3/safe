@@ -126,28 +126,38 @@ class _AttachmentsSectionState extends State<AttachmentsSection> {
       if (!mounted) {
         return;
       }
-      if (attachment.isImage) {
-        await showDialog<void>(
-          context: context,
-          builder: (context) => Dialog(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Flexible(
-                  child: InteractiveViewer(
-                    child: Image.memory(bytes, semanticLabel: attachment.name),
+      try {
+        if (attachment.isImage) {
+          await showDialog<void>(
+            context: context,
+            builder: (context) => Dialog(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: InteractiveViewer(
+                      child: Image.memory(
+                        bytes,
+                        semanticLabel: attachment.name,
+                      ),
+                    ),
                   ),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Fermer'),
-                ),
-              ],
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Fermer'),
+                  ),
+                ],
+              ),
             ),
-          ),
-        );
-      } else {
-        await _exportBytes(attachment, bytes);
+          );
+        } else {
+          await _exportBytes(attachment, bytes);
+        }
+      } finally {
+        // Le clair ne survit pas à son usage: la visionneuse est fermée, ou le
+        // fichier est écrit. `Image.memory` a déjà décodé de son côté, et ce
+        // décodage-là n'est pas effaçable — mais le tampon source, lui, l'est.
+        bytes.fillRange(0, bytes.length, 0);
       }
     } catch (_) {
       _tell('Lecture impossible: pièce jointe absente ou coffre verrouillé');
@@ -185,10 +195,12 @@ class _AttachmentsSectionState extends State<AttachmentsSection> {
   Future<void> _export(VaultAttachment attachment) async {
     setState(() => _busy = true);
     try {
-      await _exportBytes(
-        attachment,
-        await widget.session.readAttachment(attachment),
-      );
+      final bytes = await widget.session.readAttachment(attachment);
+      try {
+        await _exportBytes(attachment, bytes);
+      } finally {
+        bytes.fillRange(0, bytes.length, 0);
+      }
     } catch (_) {
       _tell('Export impossible: pièce jointe absente ou coffre verrouillé');
     } finally {
