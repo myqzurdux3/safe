@@ -28,3 +28,6 @@ migrate_working_dir/
 # hook de sauvegarde fait « git add -A »: sans cette ligne, ces exemples
 # partiraient sur GitHub tout seuls.
 Safe App Design Refonte/
+
+# Espace de travail des sous-agents (ledger, briefs, rapports): jetable.
+.superpowers/
