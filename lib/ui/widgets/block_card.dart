@@ -7,7 +7,8 @@ import '../theme/safe_theme.dart';
 ///
 /// **L'ouverture est le geste de révélation.** Il n'y a donc pas de second
 /// bouton « voir » par ligne: une ligne visible est une ligne dont le bloc a
-/// été ouvert exprès.
+/// été ouvert exprès. Une ligne masquée n'est pas construite du tout — ni dans
+/// l'arbre, ni dans l'arbre d'accessibilité, ni sur une capture d'écran.
 class BlockCard extends StatelessWidget {
   const BlockCard({
     required this.group,
@@ -28,6 +29,8 @@ class BlockCard extends StatelessWidget {
 
   final bool open;
   final VoidCallback onToggle;
+
+  /// Reçoit la ligne **brute**, celle du coffre: c'est elle qu'on colle.
   final ValueChanged<String> onCopyLine;
   final VoidCallback onCopyBlock;
 
@@ -41,7 +44,10 @@ class BlockCard extends StatelessWidget {
       onTap: open ? null : onToggle,
       child: AnimatedContainer(
         duration: SafeMetrics.transition,
-        padding: const EdgeInsets.fromLTRB(14, 11, 10, 11),
+        // Sans marge haute: elle appartient aux commandes de l'en-tête, qui
+        // s'en servent pour atteindre la taille d'une cible tactile sans
+        // décaler d'un pixel ce qui s'affiche.
+        padding: const EdgeInsets.fromLTRB(14, 0, 10, 11),
         decoration: BoxDecoration(
           color: tokens.cardSurface,
           borderRadius: BorderRadius.circular(SafeMetrics.cardRadius),
@@ -65,73 +71,90 @@ class BlockCard extends StatelessWidget {
 
   Widget _header(SafeTokens tokens) {
     final lines = group.lines.length;
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onToggle,
-      child: Row(
-        children: [
-          AnimatedRotation(
-            duration: SafeMetrics.transition,
-            turns: open ? 0 : -0.25,
-            child: Icon(
-              Icons.keyboard_arrow_down,
-              size: 18,
-              color: open ? tokens.accentDark : tokens.tertiaryText,
+    return Row(
+      children: [
+        Expanded(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onToggle,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 11),
+              child: Row(
+                children: [
+                  AnimatedRotation(
+                    duration: SafeMetrics.transition,
+                    turns: open ? 0 : -0.25,
+                    child: Icon(
+                      Icons.keyboard_arrow_down,
+                      size: 18,
+                      color: open ? tokens.accentDark : tokens.tertiaryText,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      // Le titre s'affiche en majuscules; le texte enregistré,
+                      // lui, garde la casse tapée.
+                      (group.title ?? '').toUpperCase(),
+                      style: SafeText.blockTitle.copyWith(
+                        color: open ? tokens.accentDark : tokens.ink,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-          const SizedBox(width: 6),
-          Expanded(
+        ),
+        if (open)
+          SafeCopyAction(
+            label: 'copier le bloc',
+            onTap: onCopyBlock,
+            padding: const EdgeInsets.fromLTRB(8, 20, 8, 9),
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.only(top: 11, right: 8),
             child: Text(
-              // Le titre s'affiche en majuscules; le texte enregistré, lui,
-              // garde la casse tapée.
-              (group.title ?? '').toUpperCase(),
-              style: SafeText.blockTitle.copyWith(
-                color: open ? tokens.accentDark : tokens.ink,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+              '$lines ligne${lines > 1 ? 's' : ''}',
+              style: SafeText.counter.copyWith(color: tokens.tertiaryText),
             ),
           ),
-          if (open)
-            SafeCopyAction(label: 'copier le bloc', onTap: onCopyBlock)
-          else
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: Text(
-                '$lines ligne${lines > 1 ? 's' : ''}',
-                style: SafeText.counter.copyWith(color: tokens.tertiaryText),
-              ),
-            ),
-        ],
-      ),
+      ],
     );
   }
 
   Widget _line(SafeTokens tokens, int offset) {
-    final value = group.lines[offset];
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 11),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            // Sans `maxLines`: une valeur longue se replie sur plusieurs lignes
-            // plutôt que de se faire tronquer par des points de suspension, qui
-            // en cacheraient la fin sans le dire.
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          // Sans `maxLines`: une valeur longue se replie sur plusieurs lignes
+          // plutôt que de se faire tronquer par des points de suspension, qui
+          // en cacheraient la fin sans le dire. Le padding de 11 px du handoff
+          // est ici, dans la ligne, et non autour d'elle: la commande de copie
+          // s'en sert pour être touchable.
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 11),
             child: Text(
-              value,
+              group.lines[offset],
               style: SafeText.entryValue.copyWith(color: tokens.ink),
               softWrap: true,
               overflow: TextOverflow.visible,
             ),
           ),
-          SafeCopyAction(
-            key: Key('copy-line-${firstLineIndex + offset}'),
-            label: 'copier',
-            onTap: () => onCopyLine(value),
-          ),
-        ],
-      ),
+        ),
+        SafeCopyAction(
+          key: Key('copy-line-${firstLineIndex + offset}'),
+          label: 'copier',
+          // La ligne brute, pas celle qui s'affiche: une valeur qui se termine
+          // par une espace se collerait sinon amputée, en silence.
+          onTap: () => onCopyLine(group.rawLines[offset]),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 20),
+        ),
+      ],
     );
   }
 }
@@ -156,19 +179,26 @@ class CommentBlock extends StatelessWidget {
       decoration: BoxDecoration(
         border: Border(left: BorderSide(color: tokens.commentRule, width: 2)),
       ),
-      padding: const EdgeInsets.fromLTRB(12, 4, 0, 4),
+      padding: const EdgeInsets.only(left: 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
-            child: Text(
-              group.lines.join('\n'),
-              style: SafeText.comment.copyWith(color: tokens.commentText),
-              softWrap: true,
-              overflow: TextOverflow.visible,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Text(
+                group.lines.join('\n'),
+                style: SafeText.comment.copyWith(color: tokens.commentText),
+                softWrap: true,
+                overflow: TextOverflow.visible,
+              ),
             ),
           ),
-          SafeCopyAction(label: 'copier', onTap: onCopy),
+          SafeCopyAction(
+            label: 'copier',
+            onTap: onCopy,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 13),
+          ),
         ],
       ),
     );
@@ -176,11 +206,21 @@ class CommentBlock extends StatelessWidget {
 }
 
 /// L'action textuelle « copier », partagée par les lignes et les commentaires.
+///
+/// Sa marge n'est pas une décoration: c'est sa cible tactile. Elle absorbe
+/// l'espace vide que le handoff laisse autour de la ligne, ce qui l'agrandit
+/// sans déplacer un seul pixel de ce qui s'affiche.
 class SafeCopyAction extends StatelessWidget {
-  const SafeCopyAction({required this.label, required this.onTap, super.key});
+  const SafeCopyAction({
+    required this.label,
+    required this.onTap,
+    this.padding = const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
+    super.key,
+  });
 
   final String label;
   final VoidCallback onTap;
+  final EdgeInsets padding;
 
   @override
   Widget build(BuildContext context) {
@@ -189,9 +229,7 @@ class SafeCopyAction extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Padding(
-        // La marge est la cible du doigt: le libellé fait onze pixels de haut,
-        // la zone touchable en fait une trentaine.
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
+        padding: padding,
         child: Text(
           label,
           style: SafeText.action.copyWith(color: tokens.accent),

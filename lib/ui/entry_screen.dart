@@ -10,7 +10,8 @@ import '../storage/app_settings.dart';
 import '../util/clipboard.dart';
 import 'attachments_section.dart';
 import 'theme/safe_theme.dart';
-import 'widgets/block_card.dart';
+import 'widgets/confirm_discard.dart';
+import 'widgets/entry_reading_list.dart';
 import 'widgets/pill_tabs.dart';
 import 'widgets/primary_button.dart';
 import 'widgets/safe_toast.dart';
@@ -50,20 +51,33 @@ class _EntryScreenState extends State<EntryScreen> {
   );
   late final SecureClipboard _clipboard = widget.clipboard ?? SecureClipboard();
 
-  /// Index des blocs ouverts. Vidé au verrouillage, et dès que le découpage
-  /// change sous les doigts: un index ne désignerait plus le même bloc.
+  /// Index des blocs ouverts. Vidé au verrouillage et à toute modification du
+  /// texte: un index désigne un rang, et un rang ne désigne plus le même bloc
+  /// dès qu'on remanie le texte. Rouvrir après une frappe est un geste; révéler
+  /// un bloc que personne n'a ouvert est un défaut.
   final Set<int> _open = {};
-
-  /// Nombre de groupes du dernier découpage, seule mémoire gardée d'une frappe
-  /// à l'autre — elle ne sert qu'à savoir quand [_open] devient caduc.
-  late int _groupCount = countBlocks(parseEntryText(widget.entry.value));
 
   /// Le texte tel qu'il est au coffre; ce qui s'en écarte est une saisie en
   /// cours, qu'un retour arrière ne doit pas jeter sans demander.
   late String _saved = widget.entry.value;
 
+  /// Le nom affiché. Copié de l'entrée pour pouvoir être effacé au
+  /// verrouillage: le nom d'une fiche en dit déjà long.
+  late String _title = widget.entry.key;
+
   AppSettings? _preferences;
-  bool _showTutorial = false;
+
+  /// Visible d'emblée, masqué si la préférence le dit. L'inverse ferait
+  /// apparaître le tuto à la deuxième image, décalant la mise en page sous les
+  /// yeux le temps d'un aller-retour au disque.
+  bool _showTutorial = true;
+
+  /// L'utilisateur a-t-il déjà tranché sur le tuto pendant ce montage ?
+  ///
+  /// La lecture des réglages atterrit après la première image: sans cette
+  /// mémoire, un « Compris » donné entre-temps serait défait par elle.
+  bool _tutorialDecided = false;
+
   int _mode = 0;
   bool _busy = false;
 
@@ -92,7 +106,9 @@ class _EntryScreenState extends State<EntryScreen> {
     if (mounted) {
       setState(() {
         _preferences = loaded;
-        _showTutorial = !loaded.syntaxTutorialDismissed;
+        if (!_tutorialDecided) {
+          _showTutorial = !loaded.syntaxTutorialDismissed;
+        }
       });
     }
   }
@@ -111,6 +127,7 @@ class _EntryScreenState extends State<EntryScreen> {
     _controller.clear();
     setState(() {
       _saved = '';
+      _title = '';
       _open.clear();
       _busy = false;
     });
@@ -118,11 +135,11 @@ class _EntryScreenState extends State<EntryScreen> {
 
   void _onText() {
     widget.session.touch();
-    final count = countBlocks(parseEntryText(_controller.text));
-    if (count != _groupCount) {
-      _groupCount = count;
-      _open.clear();
-    }
+    // Sans condition: compter les groupes ne suffit pas. À nombre constant, un
+    // texte réordonné ou renommé laisse les index en place, et ils désignent
+    // alors d'autres blocs — l'écran révélait le contenu d'un bloc que
+    // l'utilisateur n'avait jamais ouvert, et y restait.
+    _open.clear();
     setState(() {});
   }
 
@@ -145,21 +162,34 @@ class _EntryScreenState extends State<EntryScreen> {
     } on MissingPluginException {
       // Aucun presse-papier sous la main — un hôte de développement, pas un
       // téléphone. Rien à signaler: il n'y a rien à corriger côté utilisateur.
+    } catch (_) {
+      // Le toast est déjà parti: le démentir vaut mieux que le laisser mentir
+      // pendant que l'erreur file en exception de zone.
+      if (mounted) {
+        showSafeToast(context, 'Copie impossible');
+      }
     }
   }
 
   Future<void> _dismissTutorial() async {
-    setState(() => _showTutorial = false);
-    final preferences = _preferences;
-    if (preferences == null) {
+    setState(() {
+      _showTutorial = false;
+      _tutorialDecided = true;
+    });
+    final store = widget.settings;
+    if (store == null) {
       return;
     }
-    final updated = preferences.copyWith(syntaxTutorialDismissed: true);
-    _preferences = updated;
     // Une préférence d'affichage: si l'écriture échoue, le tuto reviendra au
     // prochain lancement, ce qui ne mérite pas d'interrompre la lecture.
     try {
-      await widget.settings?.write(updated);
+      // Les réglages ne sont peut-être pas encore lus. Partir des valeurs par
+      // défaut effacerait les autres préférences — le blocage des captures
+      // d'écran, le délai de verrouillage — au profit d'une ligne de tuto.
+      final current = _preferences ?? await store.read();
+      final updated = current.copyWith(syntaxTutorialDismissed: true);
+      _preferences = updated;
+      await store.write(updated);
     } catch (_) {
       // Sans effet visible ici, et déjà appliqué à l'écran.
     }
@@ -240,30 +270,6 @@ class _EntryScreenState extends State<EntryScreen> {
     );
   }
 
-  /// Demande confirmation avant de jeter une saisie en cours.
-  Future<bool> _confirmDiscard() async {
-    final discard = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Abandonner les modifications ?'),
-        content: const Text('La saisie en cours ne sera pas enregistrée.'),
-        actions: [
-          TextButton(
-            key: const Key('cancel-discard'),
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Continuer la saisie'),
-          ),
-          FilledButton(
-            key: const Key('confirm-discard'),
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Abandonner'),
-          ),
-        ],
-      ),
-    );
-    return discard ?? false;
-  }
-
   @override
   Widget build(BuildContext context) {
     final tokens = SafeTokens.of(context);
@@ -275,7 +281,7 @@ class _EntryScreenState extends State<EntryScreen> {
           return;
         }
         final navigator = Navigator.of(context);
-        if (await _confirmDiscard() && mounted) {
+        if (await confirmDiscard(context) && mounted) {
           navigator.pop();
         }
       },
@@ -288,15 +294,28 @@ class _EntryScreenState extends State<EntryScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _header(tokens, groups),
-                const SizedBox(height: 14),
+                // Six pixels de moins de part et d'autre de la barre de mode:
+                // c'est exactement la marge touchable qu'elle porte au-delà de
+                // sa hauteur visible. Rien ne bouge à l'écran.
+                const SizedBox(height: 8),
                 _modeBar(tokens),
                 if (_showTutorial) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 6),
                   SyntaxTutorial(onDismiss: _dismissTutorial),
-                ],
-                const SizedBox(height: 14),
+                  const SizedBox(height: 14),
+                ] else
+                  // Seul l'écart qui touche la barre de mode se réduit: c'est
+                  // là, et là seulement, qu'elle rend six pixels de marge.
+                  const SizedBox(height: 8),
                 Expanded(
-                  child: _mode == 0 ? _reading(tokens, groups) : _raw(tokens),
+                  child: _mode == 0
+                      ? EntryReadingList(
+                          groups: groups,
+                          open: _open,
+                          onToggle: _toggle,
+                          onCopy: _copy,
+                        )
+                      : _raw(tokens),
                 ),
                 const SizedBox(height: 12),
                 _footer(),
@@ -315,7 +334,9 @@ class _EntryScreenState extends State<EntryScreen> {
         behavior: HitTestBehavior.opaque,
         onTap: () => Navigator.of(context).maybePop(),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10),
+          // L'écart de 8 px qui suivait le retour est passé dans sa marge
+          // basse: la cible grandit, la flèche ne bouge pas d'un pixel.
+          padding: const EdgeInsets.only(top: 10, bottom: 18),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -329,11 +350,7 @@ class _EntryScreenState extends State<EntryScreen> {
           ),
         ),
       ),
-      const SizedBox(height: 8),
-      Text(
-        widget.entry.key,
-        style: SafeText.screenTitle.copyWith(color: tokens.ink),
-      ),
+      Text(_title, style: SafeText.screenTitle.copyWith(color: tokens.ink)),
       const SizedBox(height: 6),
       Text(
         describeGroups(groups),
@@ -357,63 +374,30 @@ class _EntryScreenState extends State<EntryScreen> {
       ),
       // Le rappel n'a de sens que quand le tuto est rangé: sinon il pointerait
       // sur ce qui est déjà sous les yeux.
-      if (_preferences != null && !_showTutorial)
+      if (!_showTutorial)
         GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: () => setState(() => _showTutorial = true),
-          child: Padding(
-            padding: const EdgeInsets.only(left: 14, top: 10, bottom: 10),
-            child: Text(
-              'Syntaxe',
-              style: SafeText.action.copyWith(color: tokens.accent),
+          onTap: () => setState(() {
+            _showTutorial = true;
+            _tutorialDecided = true;
+          }),
+          child: SizedBox(
+            // Aussi haute que la barre de mode d'à côté: le libellé reste à sa
+            // place, centré, et la cible fait la taille d'un doigt.
+            height: SafeMetrics.touchTarget,
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.only(left: 14),
+                child: Text(
+                  'Syntaxe',
+                  style: SafeText.action.copyWith(color: tokens.accent),
+                ),
+              ),
             ),
           ),
         ),
     ],
   );
-
-  Widget _reading(SafeTokens tokens, List<EntryGroup> groups) {
-    if (groups.isEmpty) {
-      return Center(
-        child: Text(
-          'Cette fiche est vide.\nPassez en « Texte brut » pour la remplir.',
-          textAlign: TextAlign.center,
-          style: SafeText.meta.copyWith(color: tokens.hintText),
-        ),
-      );
-    }
-    final children = <Widget>[];
-    var line = 0;
-    for (var index = 0; index < groups.length; index++) {
-      final group = groups[index];
-      final first = line;
-      line += group.lines.length;
-      if (children.isNotEmpty) {
-        children.add(const SizedBox(height: 9));
-      }
-      children.add(
-        group.isComment
-            ? CommentBlock(
-                group: group,
-                onCopy: () => _copy(group.lines.join('\n')),
-              )
-            : BlockCard(
-                group: group,
-                firstLineIndex: first,
-                open: _open.contains(index),
-                onToggle: () => _toggle(index),
-                onCopyLine: _copy,
-                onCopyBlock: () => _copy(group.lines.join('\n')),
-              ),
-      );
-    }
-    // Une liste défilante, pas une colonne figée: un bloc long doit pouvoir
-    // sortir de l'écran par le bas plutôt que d'être coupé sans le dire.
-    return ListView(
-      padding: const EdgeInsets.only(bottom: 8),
-      children: children,
-    );
-  }
 
   Widget _raw(SafeTokens tokens) => DecoratedBox(
     decoration: BoxDecoration(

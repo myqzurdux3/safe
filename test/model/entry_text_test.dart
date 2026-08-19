@@ -118,4 +118,30 @@ void main() {
     final groups = parseEntryText('bloc:\nvaleur');
     expect(() => groups.single.lines.add('injection'), throwsUnsupportedError);
   });
+
+  test('les lignes brutes gardent les espaces de bord', () {
+    // L'affichage rogne; le coffre garde. Copier la version rognée collerait
+    // un mot de passe faux, sans que rien ne le signale.
+    final groups = parseEntryText('courrier:\n  secret bordé  \n');
+    expect(groups.single.lines, ['secret bordé']);
+    expect(groups.single.rawLines, ['  secret bordé  ']);
+  });
+
+  test('le retour chariot de Windows ne rejoint pas les lignes brutes', () {
+    // Il termine la ligne, il n'en fait pas partie: collé avec le reste, il
+    // se retrouverait dans un champ de mot de passe.
+    final groups = parseEntryText('courrier:\r\n  secret  \r\n');
+    expect(groups.single.rawLines, ['  secret  ']);
+  });
+
+  test('lignes brutes et lignes affichées vont deux par deux', () {
+    for (final group in parseEntryText(reference)) {
+      expect(group.rawLines.length, group.lines.length);
+    }
+  });
+
+  test('un groupe construit sans lignes brutes retombe sur ses lignes', () {
+    const group = EntryGroup(title: 'courrier', lines: ['a']);
+    expect(group.rawLines, ['a']);
+  });
 }

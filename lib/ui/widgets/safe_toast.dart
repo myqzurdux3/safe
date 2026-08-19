@@ -8,6 +8,30 @@ const Duration _toastDuration = Duration(milliseconds: 1500);
 /// Distance au bord bas, au-dessus du pied de page.
 const double _toastBottom = 84;
 
+/// Le toast affiché en ce moment, par `Overlay`.
+///
+/// Il n'y en a jamais deux à la fois: deux copies rapprochées empilaient deux
+/// pilules l'une sur l'autre, illisibles toutes les deux. Rattaché à son
+/// `Overlay` et non gardé dans une variable de bibliothèque: une pilule d'un
+/// écran mort suivrait sinon l'application entière, et son retrait viserait un
+/// `Overlay` qui n'existe plus.
+final Expando<OverlayEntry> _visible = Expando<OverlayEntry>('toast affiché');
+
+/// Retire [entry] si c'est bien elle qui est sur [overlay].
+///
+/// La garde d'identité compte: une pilule remplacée peut avoir laissé une
+/// demande de retrait en vol, qui retirerait sinon la pilule suivante.
+void _hide(OverlayState overlay, OverlayEntry entry) {
+  if (!identical(_visible[overlay], entry)) {
+    return;
+  }
+  _visible[overlay] = null;
+  if (entry.mounted) {
+    entry.remove();
+  }
+  entry.dispose();
+}
+
 /// Le toast de copie: pilule encre, 84 px au-dessus du bas, 1,5 s.
 ///
 /// Passe par l'`Overlay` plutôt que par un `SnackBar`: la maquette veut une
@@ -20,18 +44,20 @@ void showSafeToast(BuildContext context, String message) {
   // Les tokens se lisent ici, sous l'écran appelant: l'`Overlay` est au-dessus
   // du `Theme` de la route et ne les verrait pas.
   final tokens = SafeTokens.of(context);
+  final previous = _visible[overlay];
+  if (previous != null) {
+    _hide(overlay, previous);
+  }
   late final OverlayEntry entry;
   entry = OverlayEntry(
     builder: (context) => _SafeToast(
       message: message,
       tokens: tokens,
-      onFinished: () {
-        entry.remove();
-        entry.dispose();
-      },
+      onFinished: () => _hide(overlay, entry),
     ),
   );
   overlay.insert(entry);
+  _visible[overlay] = entry;
 }
 
 /// La pilule elle-même, qui compte son propre temps.

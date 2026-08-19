@@ -16,13 +16,28 @@ const int maxBlockTitleLength = 44;
 
 /// Un groupe de lignes: soit un bloc titré, soit un commentaire.
 class EntryGroup {
-  const EntryGroup({this.title, required this.lines});
+  const EntryGroup({this.title, required this.lines, List<String>? rawLines})
+    : _rawLines = rawLines;
 
   /// Titre du bloc, sans son deux-points. `null` pour un commentaire.
   final String? title;
 
-  /// Lignes de contenu, titre exclu.
+  /// Lignes de contenu, titre exclu, espaces de bord rognés. C'est la version
+  /// qui s'affiche: un mot de passe suivi d'espaces se lit mieux sans elles.
   final List<String> lines;
+
+  final List<String>? _rawLines;
+
+  /// Les mêmes lignes, telles qu'elles sont dans le coffre.
+  ///
+  /// C'est la version qui se **copie**: rogner un mot de passe qui se termine
+  /// par une espace le collerait faux, en silence, et l'utilisateur en
+  /// accuserait le site. Seul le retour chariot d'un texte venu de Windows est
+  /// écarté: il termine la ligne, il n'en fait pas partie.
+  ///
+  /// Absent d'un groupe construit à la main, il retombe sur [lines]: ce champ
+  /// s'ajoute au module sans rien changer à ce qui existait.
+  List<String> get rawLines => _rawLines ?? lines;
 
   /// Un groupe sans titre est une note, pas un secret.
   bool get isComment => title == null;
@@ -60,6 +75,9 @@ List<EntryGroup> parseEntryText(String raw) {
       groups.add(current);
     }
     current.lines.add(trimmed);
+    current.rawLines.add(
+      line.endsWith('\r') ? line.substring(0, line.length - 1) : line,
+    );
   }
 
   return [
@@ -67,7 +85,11 @@ List<EntryGroup> parseEntryText(String raw) {
       // Un « : » seul ouvre un titre vide: sans ligne derrière, il ne porte
       // rien et n'a rien à afficher.
       if ((group.title?.isNotEmpty ?? false) || group.lines.isNotEmpty)
-        EntryGroup(title: group.title, lines: List.unmodifiable(group.lines)),
+        EntryGroup(
+          title: group.title,
+          lines: List.unmodifiable(group.lines),
+          rawLines: List.unmodifiable(group.rawLines),
+        ),
   ];
 }
 
@@ -92,4 +114,7 @@ class _Group {
 
   final String? title;
   final List<String> lines = [];
+
+  /// Toujours remplie en même temps que [lines]: les deux se lisent par rang.
+  final List<String> rawLines = [];
 }

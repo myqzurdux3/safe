@@ -4,6 +4,7 @@ import '../model/vault.dart';
 import '../state/vault_session.dart';
 import '../util/password_generator.dart';
 import 'attachments_section.dart';
+import 'widgets/confirm_discard.dart';
 
 /// Ajout ou modification d'une entrée.
 ///
@@ -82,30 +83,6 @@ class _EntryEditScreenState extends State<EntryEditScreen> {
     if (!_dirty) {
       setState(() => _dirty = true);
     }
-  }
-
-  /// Demande confirmation avant de jeter une saisie en cours.
-  Future<bool> _confirmDiscard() async {
-    final discard = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Abandonner les modifications ?'),
-        content: const Text('La saisie en cours ne sera pas enregistrée.'),
-        actions: [
-          TextButton(
-            key: const Key('cancel-discard'),
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Continuer la saisie'),
-          ),
-          FilledButton(
-            key: const Key('confirm-discard'),
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Abandonner'),
-          ),
-        ],
-      ),
-    );
-    return discard ?? false;
   }
 
   Future<void> _save() async {
@@ -204,7 +181,7 @@ class _EntryEditScreenState extends State<EntryEditScreen> {
           return;
         }
         final navigator = Navigator.of(context);
-        if (await _confirmDiscard() && mounted) {
+        if (await confirmDiscard(context) && mounted) {
           navigator.pop();
         }
       },
