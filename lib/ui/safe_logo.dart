@@ -1,78 +1,96 @@
 import 'package:flutter/material.dart';
 
-/// Le logo de safe, dessiné plutôt qu'importé.
+import 'theme/safe_theme.dart';
+
+/// Le logo de safe: un S géométrique d'un seul trait.
 ///
-/// Même géométrie que l'icône de lancement (`tool/generate_icons.py`): un
-/// bouclier percé d'une serrure. Dessiné au trait, il reste net à toutes les
-/// tailles et prend la couleur du thème, ce qu'une image figée ne ferait pas.
+/// Deux demi-cercles enchaînés, dessinés plutôt qu'importés: le trait reste
+/// net à toutes les tailles et prend la couleur qu'on lui donne, ce qu'une
+/// image figée ne ferait pas.
+///
+/// Le tracé du handoff, dans un carré de 48:
+///
+///     M34 14 A10 10 0 1 0 24 24 A10 10 0 1 1 14 34
 class SafeLogo extends StatelessWidget {
-  const SafeLogo({this.size = 72, super.key});
+  const SafeLogo({this.size = 34, this.color, super.key});
 
   final double size;
 
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    width: size,
-    height: size,
-    child: CustomPaint(
-      painter: _SafeLogoPainter(Theme.of(context).colorScheme.primary),
-      isComplex: false,
-    ),
-  );
-}
-
-class _SafeLogoPainter extends CustomPainter {
-  const _SafeLogoPainter(this.color);
-
-  final Color color;
+  /// Par défaut l'accent du thème; `ink` pour la version foncée.
+  final Color? color;
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width * 0.86;
-    final h = w * 1.22;
-    final cx = size.width / 2;
-    final cy = size.height / 2;
-    final left = cx - w / 2;
-    final right = cx + w / 2;
-    final top = cy - h / 2;
-    final bottom = cy + h / 2;
-    final shoulder = top + h * 0.40;
-    final corner = w * 0.30;
-
-    final shield = Path()
-      ..moveTo(left + corner, top)
-      ..quadraticBezierTo(left, top, left, top + corner)
-      ..lineTo(left, shoulder)
-      ..quadraticBezierTo(left + w * 0.02, bottom - h * 0.22, cx, bottom)
-      ..quadraticBezierTo(right - w * 0.02, bottom - h * 0.22, right, shoulder)
-      ..lineTo(right, top + corner)
-      ..quadraticBezierTo(right, top, right - corner, top)
-      ..close();
-
-    // La serrure est un trou, pas un dessin par-dessus: le fond de l'écran la
-    // traverse, comme sur l'icône.
-    final radius = w * 0.165;
-    final holeCy = cy - h * 0.07;
-    final stemTop = holeCy + radius * 0.30;
-    final stemHeight = h * 0.24;
-    final keyhole = Path()
-      ..addOval(Rect.fromCircle(center: Offset(cx, holeCy), radius: radius))
-      ..addPolygon([
-        Offset(cx - radius * 0.39, stemTop),
-        Offset(cx + radius * 0.39, stemTop),
-        Offset(cx + radius * 0.81, stemTop + stemHeight),
-        Offset(cx - radius * 0.81, stemTop + stemHeight),
-      ], true);
-
-    canvas.drawPath(
-      Path.combine(PathOperation.difference, shield, keyhole),
-      Paint()
-        ..color = color
-        ..isAntiAlias = true,
+  Widget build(BuildContext context) {
+    final effectiveColor = color ?? _getDefaultColor(context);
+    return SizedBox(
+      width: size,
+      height: size,
+      child: CustomPaint(
+        painter: SafeLogoPainter(effectiveColor),
+        isComplex: false,
+      ),
     );
   }
 
+  /// Détermine la couleur du logo: explicite, ou accent du thème, ou fallback.
+  Color _getDefaultColor(BuildContext context) {
+    // Essayer d'abord d'accéder à SafeTokens pour la couleur accent.
+    final tokens = Theme.of(context).extension<SafeTokens>();
+    if (tokens != null) {
+      return tokens.accent;
+    }
+    // Fallback: utiliser la couleur primaire du thème si SafeTokens n'existe pas.
+    return Theme.of(context).colorScheme.primary;
+  }
+}
+
+/// Public pour que les tests puissent lire la couleur effectivement peinte.
+class SafeLogoPainter extends CustomPainter {
+  const SafeLogoPainter(this.color);
+
+  final Color color;
+
+  /// Côté du carré de référence du tracé.
+  static const double _box = 48;
+
+  /// Épaisseur du trait, exprimée dans ce même carré.
+  static const double _stroke = 7;
+
   @override
-  bool shouldRepaint(_SafeLogoPainter oldDelegate) =>
-      oldDelegate.color != color;
+  void paint(Canvas canvas, Size size) {
+    final scale = size.shortestSide / _box;
+    canvas.save();
+    canvas.scale(scale);
+
+    final path = Path()
+      ..moveTo(34, 14)
+      // A10 10 0 1 0 24 24: grand arc, sens antihoraire.
+      ..arcToPoint(
+        const Offset(24, 24),
+        radius: const Radius.circular(10),
+        largeArc: true,
+        clockwise: false,
+      )
+      // A10 10 0 1 1 14 34: grand arc, sens horaire.
+      ..arcToPoint(
+        const Offset(14, 34),
+        radius: const Radius.circular(10),
+        largeArc: true,
+        clockwise: true,
+      );
+
+    canvas.drawPath(
+      path,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = _stroke
+        ..strokeCap = StrokeCap.round
+        ..color = color
+        ..isAntiAlias = true,
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(SafeLogoPainter oldDelegate) => oldDelegate.color != color;
 }
