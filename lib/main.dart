@@ -11,6 +11,7 @@ import 'storage/private_directory.dart';
 import 'storage/vault_file.dart';
 import 'storage/vault_transfer.dart';
 import 'ui/entries_screen.dart';
+import 'ui/theme/safe_theme.dart';
 import 'ui/unlock_screen.dart';
 import 'util/clipboard.dart';
 import 'util/screen_security.dart';
@@ -94,17 +95,10 @@ class SafeApp extends StatelessWidget {
         child: child ?? const SizedBox.shrink(),
       ),
     ),
-    theme: ThemeData(
-      colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2F6F4E)),
-      useMaterial3: true,
-    ),
-    darkTheme: ThemeData(
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: const Color(0xFF2F6F4E),
-        brightness: Brightness.dark,
-      ),
-      useMaterial3: true,
-    ),
+    theme: safeLightTheme(),
+    // Clair uniquement: voir la note de safe_theme.dart et la section « ce qui
+    // n'est pas fait » de la spec.
+    themeMode: ThemeMode.light,
     home: VaultGate(
       session: session,
       transfer: transfer,
