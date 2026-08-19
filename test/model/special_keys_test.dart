@@ -7,7 +7,7 @@ import 'package:safe/state/vault_session.dart';
 import 'package:safe/storage/blob_store.dart';
 import 'package:safe/storage/vault_file.dart';
 import 'package:safe/ui/entries_screen.dart';
-import 'package:safe/ui/entry_edit_screen.dart';
+import 'package:safe/ui/new_entry_screen.dart';
 import 'package:safe/util/clipboard.dart';
 
 import '../support/session_fixture.dart';
@@ -96,10 +96,15 @@ void main() {
   ) async {
     for (final clef in clefs) {
       final session = await makeUnlockedSession();
-      await tester.pumpWidget(wrapScreen(EntryEditScreen(session: session)));
-      await tester.enterText(find.byKey(const Key('key')), clef);
-      await tester.enterText(find.byKey(const Key('value')), 'secret');
-      await tester.tap(find.byKey(const Key('save')));
+      await tester.pumpWidget(
+        wrapScreen(
+          NewEntryScreen(session: session, settings: MemorySettingsStore()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('name')), clef);
+      await tester.enterText(find.byKey(const Key('raw')), 'secret');
+      await tester.tap(find.text('Enregistrer'));
       await tester.pumpAndSettle();
       expect(
         session.vault!.entries.length,
@@ -120,9 +125,14 @@ void main() {
     (tester) async {
       for (final entree in clefsRognees.entries) {
         final session = await makeUnlockedSession();
-        await tester.pumpWidget(wrapScreen(EntryEditScreen(session: session)));
-        await tester.enterText(find.byKey(const Key('key')), entree.key);
-        await tester.tap(find.byKey(const Key('save')));
+        await tester.pumpWidget(
+          wrapScreen(
+            NewEntryScreen(session: session, settings: MemorySettingsStore()),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byKey(const Key('name')), entree.key);
+        await tester.tap(find.text('Enregistrer'));
         await tester.pumpAndSettle();
         expect(session.vault!.entries.single.key, entree.value);
         session.lock();

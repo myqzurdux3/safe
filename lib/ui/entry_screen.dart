@@ -8,12 +8,13 @@ import '../model/vault.dart';
 import '../state/vault_session.dart';
 import '../storage/app_settings.dart';
 import '../util/clipboard.dart';
-import 'attachments_section.dart';
 import 'theme/safe_theme.dart';
+import 'widgets/attachments_sheet.dart';
 import 'widgets/confirm_discard.dart';
 import 'widgets/entry_reading_list.dart';
 import 'widgets/pill_tabs.dart';
 import 'widgets/primary_button.dart';
+import 'widgets/raw_editor.dart';
 import 'widgets/safe_toast.dart';
 import 'widgets/syntax_tutorial.dart';
 
@@ -234,35 +235,16 @@ class _EntryScreenState extends State<EntryScreen> {
     showSafeToast(context, 'Enregistré');
   }
 
-  Future<void> _openAttachments() async {
-    widget.session.touch();
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (sheet) => StatefulBuilder(
-        builder: (context, setSheetState) => Padding(
-          padding: EdgeInsets.only(
-            left: SafeMetrics.gutter,
-            right: SafeMetrics.gutter,
-            top: 20,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-          ),
-          child: SingleChildScrollView(
-            child: AttachmentsSection(
-              session: widget.session,
-              entryKey: widget.entry.key,
-              onChanged: () {
-                setSheetState(() {});
-                if (mounted) {
-                  setState(() {});
-                }
-              },
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  Future<void> _openAttachments() => showAttachmentsSheet(
+    context: context,
+    session: widget.session,
+    entryKey: widget.entry.key,
+    onChanged: () {
+      if (mounted) {
+        setState(() {});
+      }
+    },
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -405,28 +387,9 @@ class _EntryScreenState extends State<EntryScreen> {
     ),
     child: Padding(
       padding: const EdgeInsets.all(14),
-      child: TextField(
-        key: const Key('raw'),
+      child: SafeRawEditor(
         controller: _controller,
-        // `expands`: le champ occupe la carte et défile en son sein, au lieu de
-        // la faire grandir jusqu'à pousser le pied de page hors de l'écran.
-        expands: true,
-        maxLines: null,
-        minLines: null,
-        textAlignVertical: TextAlignVertical.top,
-        keyboardType: TextInputType.multiline,
-        // Le clavier n'a pas à apprendre ce qui est chiffré dans le coffre.
-        autocorrect: false,
-        enableSuggestions: false,
-        style: SafeText.rawEditor.copyWith(color: tokens.ink),
-        cursorColor: tokens.accent,
-        decoration: InputDecoration(
-          border: InputBorder.none,
-          isDense: true,
-          contentPadding: EdgeInsets.zero,
-          hintText: 'Colle ou tape ici. Tout est accepté.',
-          hintStyle: SafeText.rawEditor.copyWith(color: tokens.hintText),
-        ),
+        hintText: 'Colle ou tape ici. Tout est accepté.',
       ),
     ),
   );

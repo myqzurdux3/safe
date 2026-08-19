@@ -102,4 +102,38 @@ void main() {
     expect(() => gen.history.add('injection'), throwsUnsupportedError);
     vault.lock();
   });
+
+  // Les deux tests qui suivent viennent de l'ancien écran d'édition, dont la
+  // feuille de génération disparaît avec lui. Le générateur devient un outil de
+  // l'accueil et c'est [GeneratorSession] qui porte désormais ces garanties:
+  // elles sont transposées ici plutôt que perdues.
+  test('le générateur produit une valeur utilisable', () async {
+    final vault = await makeUnlockedSession();
+    final gen = GeneratorSession(vault);
+    addTearDown(gen.dispose);
+
+    expect(gen.value.length, greaterThanOrEqualTo(12));
+    vault.lock();
+  });
+
+  test(
+    'la longueur demandée ne dépasse jamais ce que le générateur accepte',
+    () async {
+      final vault = await makeUnlockedSession();
+      final gen = GeneratorSession(vault);
+      addTearDown(gen.dispose);
+
+      // Poussée à fond, comme le curseur de l'ancienne feuille: au-delà de la
+      // borne, `generatePassword` levait un ArgumentError qui faisait tomber
+      // l'écran. La borne est maintenant tenue par la session elle-même.
+      gen.setLength(maxPasswordLength * 10);
+      expect(gen.length, maxPasswordLength);
+      expect(gen.value.length, maxPasswordLength);
+
+      gen.setLength(0);
+      expect(gen.length, minPasswordLength);
+      expect(gen.value.length, minPasswordLength);
+      vault.lock();
+    },
+  );
 }

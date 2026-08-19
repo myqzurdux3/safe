@@ -5,8 +5,8 @@ import '../state/vault_session.dart';
 import '../storage/app_settings.dart';
 import '../storage/vault_transfer.dart';
 import '../util/clipboard.dart';
-import 'entry_edit_screen.dart';
 import 'entry_screen.dart';
+import 'new_entry_screen.dart';
 import 'settings_screen.dart';
 
 /// Liste des entrées du coffre déverrouillé.
@@ -97,10 +97,6 @@ class _EntriesScreenState extends State<EntriesScreen> {
   }
 
   /// Ouvre la fiche d'une entrée existante.
-  ///
-  /// Câblage temporaire: la création passe encore par [EntryEditScreen], le
-  /// temps que l'écran de nouvelle fiche arrive. L'application doit rester
-  /// utilisable entre les deux.
   Future<void> _openEntry(VaultEntry entry) async {
     widget.session.touch();
     await Navigator.of(context).push(
@@ -119,7 +115,8 @@ class _EntriesScreenState extends State<EntriesScreen> {
     widget.session.touch();
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (context) => EntryEditScreen(session: widget.session),
+        builder: (context) =>
+            NewEntryScreen(session: widget.session, settings: widget.settings),
       ),
     );
   }

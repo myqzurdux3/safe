@@ -4,7 +4,7 @@ import 'package:safe/main.dart';
 import 'package:safe/model/vault.dart';
 import 'package:safe/storage/vault_transfer.dart';
 import 'package:safe/ui/entries_screen.dart';
-import 'package:safe/ui/entry_edit_screen.dart';
+import 'package:safe/ui/new_entry_screen.dart';
 import 'package:safe/ui/unlock_screen.dart';
 import 'package:safe/util/clipboard.dart';
 
@@ -19,12 +19,16 @@ void main() {
     final session = await makeUnlockedSession(
       autoLock: const Duration(milliseconds: 200),
     );
-    await tester.pumpWidget(wrapScreen(EntryEditScreen(session: session)));
+    await tester.pumpWidget(
+      wrapScreen(
+        NewEntryScreen(session: session, settings: MemorySettingsStore()),
+      ),
+    );
 
     await tester.pump(const Duration(milliseconds: 150));
-    await tester.enterText(find.byKey(const Key('key')), 'banque (');
+    await tester.enterText(find.byKey(const Key('name')), 'banque (');
     await tester.pump(const Duration(milliseconds: 150));
-    await tester.enterText(find.byKey(const Key('key')), 'banque (pro)');
+    await tester.enterText(find.byKey(const Key('name')), 'banque (pro)');
     await tester.pump(const Duration(milliseconds: 150));
 
     expect(
@@ -39,20 +43,25 @@ void main() {
     'enregistrer sur un coffre verrouillé le dit au lieu de se taire',
     (tester) async {
       final session = await makeUnlockedSession();
-      await tester.pumpWidget(wrapScreen(EntryEditScreen(session: session)));
-      await tester.enterText(find.byKey(const Key('key')), 'banque (pro)');
-      await tester.enterText(find.byKey(const Key('value')), 'secret');
+      await tester.pumpWidget(
+        wrapScreen(
+          NewEntryScreen(session: session, settings: MemorySettingsStore()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('name')), 'banque (pro)');
+      await tester.enterText(find.byKey(const Key('raw')), 'secret');
 
       session.lock();
       await tester.pump();
-      await tester.tap(find.byKey(const Key('save')));
+      await tester.tap(find.text('Enregistrer'));
       await tester.pumpAndSettle();
 
       expect(find.textContaining('verrouillé'), findsOneWidget);
     },
   );
 
-  testWidgets('le verrouillage ferme l\'écran d\'édition resté ouvert', (
+  testWidgets('le verrouillage ferme l\'écran de création resté ouvert', (
     tester,
   ) async {
     final session = await makeUnlockedSession(keys: ['gmail']);
@@ -69,14 +78,14 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('add')));
     await tester.pumpAndSettle();
-    expect(find.byType(EntryEditScreen), findsOneWidget);
+    expect(find.byType(NewEntryScreen), findsOneWidget);
 
     session.lock();
     await tester.pumpAndSettle();
 
-    // Sans dépilage, l'éditeur resterait au-dessus de l'écran de verrou et
+    // Sans dépilage, l'écran resterait au-dessus de l'écran de verrou et
     // l'utilisateur taperait dans un formulaire mort.
-    expect(find.byType(EntryEditScreen), findsNothing);
+    expect(find.byType(NewEntryScreen), findsNothing);
     expect(find.byType(UnlockScreen), findsOneWidget);
   });
 
