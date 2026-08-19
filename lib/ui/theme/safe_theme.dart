@@ -35,6 +35,10 @@ class SafeTokens extends ThemeExtension<SafeTokens> {
     required this.strongDivider,
     required this.inactiveBullet,
     required this.commentRule,
+    required this.commentText,
+    required this.softAccentText,
+    required this.tabShadow,
+    required this.toastShadow,
     required this.searchHighlight,
   });
 
@@ -57,6 +61,19 @@ class SafeTokens extends ThemeExtension<SafeTokens> {
   final Color strongDivider;
   final Color inactiveBullet;
   final Color commentRule;
+
+  /// Texte d'un commentaire: plus doux que l'encre, un commentaire n'est pas
+  /// une valeur.
+  final Color commentText;
+
+  /// Texte de glose sur la surface accent douce, celle du tuto de syntaxe.
+  final Color softAccentText;
+
+  /// Les deux seules ombres du handoff: la pastille d'onglet active et le
+  /// toast. Elles sont ici parce qu'une ombre est une couleur.
+  final Color tabShadow;
+  final Color toastShadow;
+
   final Color searchHighlight;
 
   static const SafeTokens light = SafeTokens(
@@ -79,6 +96,10 @@ class SafeTokens extends ThemeExtension<SafeTokens> {
     strongDivider: Color(0xFFDCDFDA),
     inactiveBullet: Color(0xFFC3C8C3),
     commentRule: Color(0xFFD3D7D1),
+    commentText: Color(0xFF5F6862),
+    softAccentText: Color(0xFF2C4438),
+    tabShadow: Color(0x17000000),
+    toastShadow: Color(0x2E000000),
     searchHighlight: Color(0xFFDFF0E5),
   );
 
