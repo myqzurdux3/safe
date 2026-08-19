@@ -44,6 +44,29 @@ void main() {
     expect(hits.single.matchedLine, isNull);
   });
 
+  test('le nom l\'emporte vraiment: une fiche dont le nom et un intertitre '
+      'correspondent tous deux à la même requête', () {
+    // Sans collision réelle entre les deux catégories, ce test passerait
+    // même si la priorité était inversée: le nom seul suffirait.
+    final coffre = Vault([
+      VaultEntry.now(key: 'wifi maison', value: 'wifi:\nabcdef'),
+    ]);
+    final hits = searchVault(coffre, 'wifi');
+    expect(hits.single.entry.key, 'wifi maison');
+    expect(hits.single.matchedTitle, isNull);
+    expect(hits.single.matchedLine, isNull);
+  });
+
+  test('l\'intertitre l\'emporte vraiment: un intertitre et une ligne de '
+      'valeur correspondent tous deux à la même requête, sans le nom', () {
+    final coffre = Vault([
+      VaultEntry.now(key: 'divers', value: 'secret:\nsecret'),
+    ]);
+    final hits = searchVault(coffre, 'secret');
+    expect(hits.single.matchedTitle, 'secret');
+    expect(hits.single.matchedLine, isNull);
+  });
+
   test(
     'une fiche n\'apparaît qu\'une fois même si elle correspond partout',
     () {
@@ -53,6 +76,22 @@ void main() {
       expect(searchVault(coffre, 'test').length, 1);
     },
   );
+
+  test('l\'unicité vaut aussi sans le nom: plusieurs intertitres et plusieurs '
+      'lignes de valeur correspondent, la fiche ne compte qu\'une fois', () {
+    // Le test précédent court-circuite par le nom ('test' contient
+    // 'test'): il ne passe jamais par la branche titre/valeur. Celui-ci
+    // l'exerce vraiment, avec deux intertitres et deux lignes matchant.
+    final coffre = Vault([
+      VaultEntry.now(
+        key: 'divers',
+        value:
+            'test:\nligne1\n\ntest2:\nligne2\n\n'
+            'note:\ntestvalue\n\nautre:\ntestautre',
+      ),
+    ]);
+    expect(searchVault(coffre, 'test').length, 1);
+  });
 
   test('la casse et les accents composés sont ignorés', () {
     final coffre = Vault([
