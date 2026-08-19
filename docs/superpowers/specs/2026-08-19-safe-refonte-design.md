@@ -193,7 +193,7 @@ compteur) pour qu'un fichier unique à branches devienne illisible.
 
 Logo 34 px, 26 px d'espace, titre « Content de te revoir. » 600 30 px/1.15. Champ sans
 boîte, filet bas `1.5px #183a2b`, valeur en mono 500 16 px `letter-spacing: .16em`, caret
-`#2f7d5b`. Bouton œil à droite. Bouton primaire pleine largeur 52 px, rayon 26 px. Pied de
+`#2f7d5b`. Bouton œil à droite. Bouton primaire pleine largeur 50 px, rayon 25 px. Pied de
 page rappelant le délai de verrouillage.
 
 **Le sous-titre ne peut pas annoncer le nombre de fiches.** La maquette affiche « 14 fiches
