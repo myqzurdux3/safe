@@ -343,8 +343,10 @@ class _EntryScreenState extends State<EntryScreen> {
         child: Padding(
           // L'écart de 8 px qui suivait le retour est passé dans sa marge
           // basse, et deux pixels de plus l'amènent à 48: la cible fait la
-          // taille d'un doigt, comme celle de la nouvelle fiche, et la flèche
-          // ne bouge pas d'un pixel.
+          // taille d'un doigt, comme celle de la nouvelle fiche. La flèche ne
+          // bouge pas, et ces deux pixels sont repris sur l'écart sous le titre
+          // — seul le titre descend de deux pixels, tout le reste de l'écran
+          // reste exactement où il était.
           padding: const EdgeInsets.only(top: 10, bottom: 20),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -371,7 +373,8 @@ class _EntryScreenState extends State<EntryScreen> {
         decoration: InputDecoration(
           isDense: true,
           // Aucune marge: le titre occupe exactement la place qu'il occupait
-          // en `Text`, à 1,5 px près — celui du filet. Le champ fait donc 29 px
+          // en `Text` — 29 px, mesurés identiques avec et sans le focus, le
+          // filet ne coûtant rien. Le champ fait donc 29 px
           // et non 48: au-dessus, le retour est déjà une cible; en dessous, la
           // seule place libre est celle du compteur, qu'on ne peut pas rendre
           // touchable sans que taper « 3 blocs · 4 lignes » ouvre le clavier.
@@ -392,7 +395,10 @@ class _EntryScreenState extends State<EntryScreen> {
           ),
         ),
       ),
-      const SizedBox(height: 6),
+      // Quatre et non six: les deux pixels manquants sont ceux que la marge
+      // basse du retour a pris pour atteindre 48. Rendus ici, le compteur, la
+      // barre de mode et tout ce qui suit retrouvent leur place exacte.
+      const SizedBox(height: 4),
       Text(
         describeGroups(groups),
         style: SafeText.counter.copyWith(color: tokens.hintText),

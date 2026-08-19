@@ -42,6 +42,30 @@ void main() {
     session.lock();
   });
 
+  testWidgets('le titre d\'une fiche existante non plus', (tester) async {
+    final session = await makeUnlockedSession();
+    await session.save(
+      session.vault!.upsert(VaultEntry.now(key: 'perso', value: 'note')),
+    );
+    await tester.pumpWidget(
+      wrapScreen(
+        EntryScreen(
+          session: session,
+          entry: session.vault!.entries.single,
+          settings: MemorySettingsStore(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Le titre est modifiable depuis la refonte: c'est un nom de fiche, donc
+    // chiffré dans le coffre, et le clavier n'a pas à l'apprendre.
+    final champ = tester.widget<TextField>(find.byKey(const Key('name')));
+    expect(champ.autocorrect, isFalse);
+    expect(champ.enableSuggestions, isFalse);
+    session.lock();
+  });
+
   testWidgets('le texte brut d\'une fiche existante non plus', (tester) async {
     final session = await makeUnlockedSession();
     await session.save(

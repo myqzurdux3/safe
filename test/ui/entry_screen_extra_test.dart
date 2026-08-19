@@ -16,6 +16,16 @@ Widget _creation(VaultSession session) => wrapScreen(
   NewEntryScreen(session: session, settings: MemorySettingsStore()),
 );
 
+/// La fiche d'une entrée choisie par son nom, quand le coffre en porte
+/// plusieurs.
+Widget _ficheDe(VaultSession session, String key) => wrapScreen(
+  EntryScreen(
+    session: session,
+    entry: session.vault!.entries.firstWhere((e) => e.key == key),
+    settings: MemorySettingsStore(),
+  ),
+);
+
 Widget _fiche(VaultSession session) => wrapScreen(
   EntryScreen(
     session: session,
@@ -91,6 +101,71 @@ void main() {
     await tester.pumpAndSettle();
     expect(session.vault!.entries.single, isA<VaultEntry>());
     expect(session.vault!.entries.single.value, '');
+    session.lock();
+  });
+
+  testWidgets('renommer vers un nom vide est refusé', (tester) async {
+    final session = await makeUnlockedSession(keys: ['gmail']);
+    await tester.pumpWidget(_fiche(session));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('name')), '   ');
+    await tester.tap(find.text('Enregistrer'));
+    // Une seule image: `pumpAndSettle` laisserait filer le toast jusqu'au bout
+    // de son fondu, et il n'y aurait plus rien à trouver.
+    await tester.pump();
+
+    // La fiche garde son nom: une fiche sans nom serait introuvable dans la
+    // liste, qui n'affiche que les noms.
+    expect(session.vault!.entries.single.key, 'gmail');
+    expect(find.text('Le nom ne peut pas être vide'), findsOneWidget);
+    session.lock();
+  });
+
+  testWidgets('renommer vers le nom d\'une autre fiche est refusé, et '
+      'l\'autre fiche est intacte', (tester) async {
+    final session = await makeUnlockedSession(keys: ['gmail', 'banque']);
+    await tester.pumpWidget(_ficheDe(session, 'gmail'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Texte brut'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('raw')), 'contenu de gmail');
+    await tester.enterText(find.byKey(const Key('name')), 'banque');
+    await tester.tap(find.text('Enregistrer'));
+    await tester.pump();
+
+    // Le coffre d'abord, le message ensuite: sans cette garde,
+    // l'enregistrement retirerait « gmail » puis écraserait « banque » avec le
+    // contenu de « gmail ». Une fiche entière disparaîtrait sans un mot, et
+    // c'est cela qu'il faut voir tomber en premier.
+    expect(session.vault!.entries, hasLength(2));
+    final banque = session.vault!.entries.firstWhere((e) => e.key == 'banque');
+    expect(banque.value, 'p4ss-banque');
+    final gmail = session.vault!.entries.firstWhere((e) => e.key == 'gmail');
+    expect(gmail.value, 'p4ss-gmail');
+    expect(find.text('Ce nom existe déjà'), findsOneWidget);
+    session.lock();
+  });
+
+  testWidgets('renommer deux fois de suite ne laisse qu\'une entrée', (
+    tester,
+  ) async {
+    final session = await makeUnlockedSession(keys: ['gmail']);
+    await tester.pumpWidget(_fiche(session));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const Key('name')), 'courriel');
+    await tester.tap(find.text('Enregistrer'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('name')), 'messagerie');
+    await tester.tap(find.text('Enregistrer'));
+    await tester.pumpAndSettle();
+
+    // Le second renommage doit retirer « courriel », pas « gmail »: l'écran
+    // suit le nom sous lequel la fiche est au coffre, pas celui qu'il a reçu à
+    // l'ouverture. Sinon « courriel » reste derrière, en doublon.
+    expect(session.vault!.entries, hasLength(1));
+    expect(session.vault!.entries.single.key, 'messagerie');
+    expect(session.vault!.entries.single.value, 'p4ss-gmail');
     session.lock();
   });
 }
