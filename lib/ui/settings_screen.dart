@@ -299,6 +299,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const Divider(height: 1),
           ListTile(
+            // Le verrouillage manuel a suivi les réglages quand l'accueil a
+            // été redessiné: la maquette validée ne pose qu'une commande dans
+            // son en-tête, et lui en ajouter une seconde reviendrait à
+            // dessiner à la place du designer. Il vit donc ici, à côté du
+            // délai automatique dont il est le pendant immédiat — et non plus
+            // à un doigt de la liste, mais toujours à portée.
+            key: const Key('lock'),
+            leading: const Icon(Icons.lock_outline),
+            title: const Text('Verrouiller maintenant'),
+            subtitle: const Text(
+              'Referme le coffre et efface la clef de la mémoire',
+            ),
+            enabled: !_busy,
+            onTap: widget.session.lock,
+          ),
+          const Divider(height: 1),
+          ListTile(
             leading: const Icon(Icons.timer_outlined),
             title: const Text('Verrouillage automatique'),
             // Les deux affichages tirent du même champ: sinon le sous-titre

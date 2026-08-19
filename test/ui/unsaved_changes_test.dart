@@ -35,7 +35,7 @@ void main() {
   ) async {
     final session = await monter(tester, MemoryVaultStore());
 
-    await tester.tap(find.byIcon(Icons.add));
+    await tester.tap(find.byKey(const Key('add')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('name')), 'banque');
     await tester.pumpAndSettle();
@@ -57,7 +57,7 @@ void main() {
   ) async {
     final session = await monter(tester, MemoryVaultStore());
 
-    await tester.tap(find.byIcon(Icons.add));
+    await tester.tap(find.byKey(const Key('add')));
     await tester.pumpAndSettle();
     await retourner(tester);
 
@@ -71,7 +71,7 @@ void main() {
   ) async {
     final session = await monter(tester, MemoryVaultStore());
 
-    await tester.tap(find.byIcon(Icons.add));
+    await tester.tap(find.byKey(const Key('add')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('raw')), 'secret-en-clair');
     await tester.pumpAndSettle();
@@ -91,7 +91,7 @@ void main() {
   ) async {
     final session = await monter(tester, MemoryVaultStore());
 
-    await tester.tap(find.byIcon(Icons.add));
+    await tester.tap(find.byKey(const Key('add')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('name')), 'banque');
     await tester.enterText(find.byKey(const Key('raw')), 'courrier:\nsecret');

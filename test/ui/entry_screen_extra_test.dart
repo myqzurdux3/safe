@@ -168,4 +168,56 @@ void main() {
     expect(session.vault!.entries.single.value, 'p4ss-gmail');
     session.lock();
   });
+
+  testWidgets('suppression demande confirmation puis retire la fiche', (
+    tester,
+  ) async {
+    final session = await makeUnlockedSession(keys: ['gmail']);
+    await tester.pumpWidget(_fiche(session));
+    await tester.pumpAndSettle();
+
+    // La suppression a quitté la liste avec elle: elle vit sur la fiche, où
+    // l'on voit ce qu'on efface.
+    await tester.tap(find.byKey(const Key('delete-entry')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Supprimer'), findsWidgets);
+    await tester.tap(find.byKey(const Key('confirm-delete')));
+    await tester.pumpAndSettle();
+    expect(session.vault!.entries, isEmpty);
+    session.lock();
+  });
+
+  testWidgets('annuler la suppression conserve la fiche', (tester) async {
+    final session = await makeUnlockedSession(keys: ['gmail']);
+    await tester.pumpWidget(_fiche(session));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('delete-entry')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('cancel-delete')));
+    await tester.pumpAndSettle();
+    expect(session.vault!.entries.single.key, 'gmail');
+    session.lock();
+  });
+
+  testWidgets('supprimer une fiche renommée vise son nom au coffre', (
+    tester,
+  ) async {
+    final session = await makeUnlockedSession(keys: ['gmail']);
+    await tester.pumpWidget(_fiche(session));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const Key('name')), 'courriel');
+    await tester.tap(find.text('Enregistrer'));
+    await tester.pumpAndSettle();
+
+    // Viser `widget.entry.key` chercherait « gmail », qui n'existe plus: la
+    // fiche resterait au coffre, sans que rien ne le dise.
+    await tester.tap(find.byKey(const Key('delete-entry')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirm-delete')));
+    await tester.pumpAndSettle();
+    expect(session.vault!.entries, isEmpty);
+    session.lock();
+  });
 }

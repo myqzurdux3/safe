@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:safe/main.dart';
 import 'package:safe/model/vault.dart';
 import 'package:safe/storage/vault_transfer.dart';
-import 'package:safe/ui/entries_screen.dart';
+import 'package:safe/ui/vault_tab.dart';
 import 'package:safe/ui/new_entry_screen.dart';
 import 'package:safe/ui/unlock_screen.dart';
 import 'package:safe/util/clipboard.dart';
@@ -94,7 +94,13 @@ void main() {
       keys: ['gmail'],
       autoLock: const Duration(milliseconds: 200),
     );
-    await tester.pumpWidget(wrapScreen(EntriesScreen(session: session)));
+    await tester.pumpWidget(
+      wrapScreen(
+        Scaffold(
+          body: VaultTab(session: session, onOpen: (_) {}),
+        ),
+      ),
+    );
     await tester.pump(const Duration(milliseconds: 150));
     await tester.enterText(find.byKey(const Key('search')), 'gm');
     await tester.pump(const Duration(milliseconds: 150));

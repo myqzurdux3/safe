@@ -40,4 +40,22 @@ void main() {
     expect(find.textContaining('5 min'), findsWidgets);
     session.lock();
   });
+
+  testWidgets('« Verrouiller maintenant » ferme la session', (tester) async {
+    // Transposé de l'ancienne liste, qui portait un cadenas dans sa barre.
+    // L'en-tête de l'accueil ne pose qu'une commande — celle des réglages —
+    // et le verrouillage manuel a suivi le délai automatique dont il est le
+    // pendant.
+    final session = await makeUnlockedSession(keys: ['gmail']);
+    await tester.pumpWidget(
+      wrapScreen(
+        SettingsScreen(session: session, settings: MemorySettingsStore()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('lock')));
+    await tester.pumpAndSettle();
+    expect(session.isUnlocked, isFalse);
+  });
 }

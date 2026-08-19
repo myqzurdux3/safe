@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:safe/model/vault.dart';
 import 'package:safe/ui/entry_screen.dart';
+import 'package:safe/ui/home_screen.dart';
 import 'package:safe/ui/new_entry_screen.dart';
 
 import '../support/session_fixture.dart';
@@ -85,6 +86,22 @@ void main() {
     await tester.pumpAndSettle();
 
     final champ = tester.widget<TextField>(find.byKey(const Key('raw')));
+    expect(champ.autocorrect, isFalse);
+    expect(champ.enableSuggestions, isFalse);
+    session.lock();
+  });
+
+  testWidgets('le champ de recherche de l\'accueil non plus', (tester) async {
+    final session = await makeUnlockedSession(keys: ['gmail']);
+    await tester.pumpWidget(
+      wrapScreen(HomeScreen(session: session, settings: MemorySettingsStore())),
+    );
+    await tester.pumpAndSettle();
+
+    // On y tape des noms de fiches et des morceaux de leur contenu — tout ce
+    // qui est chiffré dans le coffre passe par ce champ. C'était le seul des
+    // cinq champs de l'application que rien ne gardait.
+    final champ = tester.widget<TextField>(find.byKey(const Key('search')));
     expect(champ.autocorrect, isFalse);
     expect(champ.enableSuggestions, isFalse);
     session.lock();

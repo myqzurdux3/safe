@@ -50,7 +50,7 @@ void main() {
 
     // Repère: une tape sur l'écran de base compte, ça a toujours marché.
     session.touches = 0;
-    await tester.tap(find.byIcon(Icons.add));
+    await tester.tap(find.byKey(const Key('add')));
     await tester.pumpAndSettle();
     expect(session.touches, greaterThan(0));
 

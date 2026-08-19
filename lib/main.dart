@@ -10,7 +10,7 @@ import 'storage/blob_store.dart';
 import 'storage/private_directory.dart';
 import 'storage/vault_file.dart';
 import 'storage/vault_transfer.dart';
-import 'ui/entries_screen.dart';
+import 'ui/home_screen.dart';
 import 'ui/theme/safe_theme.dart';
 import 'ui/unlock_screen.dart';
 import 'util/clipboard.dart';
@@ -199,7 +199,7 @@ class _VaultGateState extends State<VaultGate> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) => widget.session.isUnlocked
-      ? EntriesScreen(
+      ? HomeScreen(
           session: widget.session,
           clipboard: widget.clipboard,
           transfer: widget.transfer,

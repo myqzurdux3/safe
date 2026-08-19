@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:safe/model/vault.dart';
 import 'package:safe/state/vault_session.dart';
-import 'package:safe/ui/entries_screen.dart';
 import 'package:safe/ui/entry_screen.dart';
 import 'package:safe/ui/new_entry_screen.dart';
+import 'package:safe/ui/vault_tab.dart';
 
 import '../support/session_fixture.dart';
 
@@ -95,19 +95,23 @@ void main() {
     session.lock();
   });
 
-  testWidgets('la liste ne montre que la première ligne', (tester) async {
+  testWidgets('la fiche garde les lignes d\'un texte multiligne', (
+    tester,
+  ) async {
+    // La liste n'aperçoit plus rien: c'est la fiche qui porte le texte, et
+    // elle le porte entier. L'aperçu rogné à la première ligne n'a plus lieu
+    // d'être, mais les lignes suivantes, elles, ne doivent pas se perdre.
     final session = await makeUnlockedSession();
     await session.save(
       session.vault!.upsert(
         VaultEntry.now(key: 'note', value: 'première\nseconde\ntroisième'),
       ),
     );
-    await tester.pumpWidget(wrapScreen(EntriesScreen(session: session)));
-    await tester.tap(find.byKey(const Key('reveal-note')));
+    await tester.pumpWidget(fiche(session));
     await tester.pumpAndSettle();
     expect(find.textContaining('première'), findsOneWidget);
-    expect(find.textContaining('seconde'), findsNothing);
-    expect(find.textContaining('+2 lignes'), findsOneWidget);
+    expect(find.textContaining('seconde'), findsOneWidget);
+    expect(find.textContaining('troisième'), findsOneWidget);
     session.lock();
   });
 
@@ -178,7 +182,13 @@ void main() {
     tester,
   ) async {
     final session = await sessionAvecPieceJointe();
-    await tester.pumpWidget(wrapScreen(EntriesScreen(session: session)));
+    await tester.pumpWidget(
+      wrapScreen(
+        Scaffold(
+          body: VaultTab(session: session, onOpen: (_) {}),
+        ),
+      ),
+    );
     expect(find.byKey(const Key('has-attachments-passeport')), findsOneWidget);
     session.lock();
   });
@@ -188,8 +198,9 @@ void main() {
   ) async {
     final blobs = MemoryBlobStore();
     final session = await sessionAvecPieceJointe(blobs: blobs);
-    await tester.pumpWidget(wrapScreen(EntriesScreen(session: session)));
-    await tester.tap(find.byKey(const Key('delete-passeport')));
+    await tester.pumpWidget(fiche(session));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('delete-entry')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('confirm-delete')));
     await tester.pumpAndSettle();

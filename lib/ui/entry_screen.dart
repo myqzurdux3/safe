@@ -252,6 +252,65 @@ class _EntryScreenState extends State<EntryScreen> {
     showSafeToast(context, 'Enregistré');
   }
 
+  /// Supprime la fiche, après confirmation.
+  ///
+  /// La suppression vit ici, sur la fiche, et non dans la liste: la maquette
+  /// de l'accueil ne montre aucune commande par ligne, et un geste
+  /// irréversible n'a rien à faire sous le doigt qui fait défiler. Ici, on a
+  /// devant les yeux ce qu'on efface.
+  Future<void> _supprimer() async {
+    widget.session.touch();
+    final navigator = Navigator.of(context);
+    final confirme = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Supprimer cette fiche ?'),
+        content: Text(
+          'La fiche « $_key », son texte et ses pièces jointes seront '
+          'définitivement retirés du coffre.',
+        ),
+        actions: [
+          TextButton(
+            key: const Key('cancel-delete'),
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            key: const Key('confirm-delete'),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+    if (!(confirme ?? false) || !mounted) {
+      return;
+    }
+    try {
+      // `deleteEntry`, et non `save(vault.remove(...))`: il efface aussi les
+      // blobs des pièces jointes, qui resteraient sinon orphelins sur le
+      // disque.
+      await widget.session.deleteEntry(_key);
+    } catch (_) {
+      // Sans cela, la boîte se refermait, la fiche restait en place et rien ne
+      // l'expliquait — l'erreur partant en erreur asynchrone non gérée.
+      if (mounted) {
+        showSafeToast(context, 'Suppression impossible');
+      }
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    // La fiche n'existe plus: rester dessus laisserait son texte à l'écran, et
+    // un enregistrement la ferait revenir d'entre les morts.
+    setState(() {
+      _saved = _controller.text;
+      _savedName = _nameController.text;
+    });
+    navigator.pop();
+  }
+
   Future<void> _openAttachments() => showAttachmentsSheet(
     context: context,
     session: widget.session,
@@ -337,29 +396,28 @@ class _EntryScreenState extends State<EntryScreen> {
   Widget _header(SafeTokens tokens, List<EntryGroup> groups) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => Navigator.of(context).maybePop(),
-        child: Padding(
-          // L'écart de 8 px qui suivait le retour est passé dans sa marge
-          // basse, et deux pixels de plus l'amènent à 48: la cible fait la
-          // taille d'un doigt, comme celle de la nouvelle fiche. La flèche ne
-          // bouge pas, et ces deux pixels sont repris sur l'écart sous le titre
-          // — seul le titre descend de deux pixels, tout le reste de l'écran
-          // reste exactement où il était.
-          padding: const EdgeInsets.only(top: 10, bottom: 20),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.arrow_back, size: 18, color: tokens.secondaryText),
-              const SizedBox(width: 6),
-              Text(
-                'Coffre',
-                style: SafeText.action.copyWith(color: tokens.secondaryText),
+      Row(
+        children: [
+          _retour(tokens),
+          const Spacer(),
+          // À l'opposé du retour, et de la même hauteur que lui: les deux
+          // cibles font 48 px, la rangée n'en gagne pas un seul, et rien ne
+          // peut être touché par erreur en visant l'autre.
+          GestureDetector(
+            key: const Key('delete-entry'),
+            behavior: HitTestBehavior.opaque,
+            onTap: _supprimer,
+            child: SizedBox(
+              height: SafeMetrics.touchTarget,
+              child: Center(
+                child: Text(
+                  'Supprimer',
+                  style: SafeText.action.copyWith(color: tokens.secondaryText),
+                ),
               ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
       TextField(
         key: const Key('name'),
@@ -404,6 +462,32 @@ class _EntryScreenState extends State<EntryScreen> {
         style: SafeText.counter.copyWith(color: tokens.hintText),
       ),
     ],
+  );
+
+  /// Le retour au coffre.
+  ///
+  /// L'écart de 8 px qui suivait le retour est passé dans sa marge basse, et
+  /// deux pixels de plus l'amènent à 48: la cible fait la taille d'un doigt,
+  /// comme celle de la nouvelle fiche. La flèche ne bouge pas, et ces deux
+  /// pixels sont repris sur l'écart sous le titre — seul le titre descend de
+  /// deux pixels, tout le reste de l'écran reste exactement où il était.
+  Widget _retour(SafeTokens tokens) => GestureDetector(
+    behavior: HitTestBehavior.opaque,
+    onTap: () => Navigator.of(context).maybePop(),
+    child: Padding(
+      padding: const EdgeInsets.only(top: 10, bottom: 20),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.arrow_back, size: 18, color: tokens.secondaryText),
+          const SizedBox(width: 6),
+          Text(
+            'Coffre',
+            style: SafeText.action.copyWith(color: tokens.secondaryText),
+          ),
+        ],
+      ),
+    ),
   );
 
   Widget _modeBar(SafeTokens tokens) => Row(

@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:safe/ui/attachments_section.dart';
-import 'package:safe/ui/entries_screen.dart';
+import 'package:safe/ui/entry_screen.dart';
 
 import '../support/session_fixture.dart';
 
@@ -17,16 +17,27 @@ void main() {
     tester,
   ) async {
     final session = await makeUnlockedSession(keys: ['gmail']);
-    await tester.pumpWidget(wrapScreen(EntriesScreen(session: session)));
+    await tester.pumpWidget(
+      wrapScreen(
+        EntryScreen(
+          session: session,
+          entry: session.vault!.entries.single,
+          settings: MemorySettingsStore(),
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('delete-gmail')));
+    await tester.tap(find.byKey(const Key('delete-entry')));
     await tester.pumpAndSettle();
 
     // Le coffre se verrouille pendant que la confirmation est affichée.
     session.lock();
     await tester.tap(find.byKey(const Key('confirm-delete')));
-    await tester.pumpAndSettle();
+    // Sans `pumpAndSettle`: le toast compte son propre temps, et se laisser
+    // porter jusqu'au repos le ferait disparaître avant d'être lu.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.textContaining('Suppression impossible'), findsOneWidget);
   });

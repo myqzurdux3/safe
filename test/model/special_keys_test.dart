@@ -6,7 +6,7 @@ import 'package:safe/model/vault.dart';
 import 'package:safe/state/vault_session.dart';
 import 'package:safe/storage/blob_store.dart';
 import 'package:safe/storage/vault_file.dart';
-import 'package:safe/ui/entries_screen.dart';
+import 'package:safe/ui/vault_tab.dart';
 import 'package:safe/ui/new_entry_screen.dart';
 import 'package:safe/util/clipboard.dart';
 
@@ -149,17 +149,27 @@ void main() {
       vault = vault.upsert(VaultEntry.now(key: clef, value: 'v'));
     }
     await session.save(vault);
-    await tester.pumpWidget(wrapScreen(EntriesScreen(session: session)));
+    await tester.pumpWidget(
+      wrapScreen(
+        Scaffold(
+          body: VaultTab(session: session, onOpen: (_) {}),
+        ),
+      ),
+    );
 
     for (final fragment in ['(pro)', '(', ')', '()', '(maison)']) {
       await tester.enterText(find.byKey(const Key('search')), fragment);
       await tester.pumpAndSettle();
-      final attendu = clefs.where((c) => c.contains(fragment)).length;
-      expect(
-        find.byType(ListTile),
-        findsNWidgets(attendu),
-        reason: 'recherche "$fragment": $attendu résultats attendus',
-      );
+      // Nom par nom plutôt qu'en comptant les lignes: la liste n'est plus
+      // faite de `ListTile`, et vérifier *lesquelles* remontent dit plus que
+      // vérifier combien.
+      for (final clef in clefs) {
+        expect(
+          find.byKey(Key('entry-$clef')),
+          clef.contains(fragment) ? findsOneWidget : findsNothing,
+          reason: 'recherche "$fragment": la clef "$clef"',
+        );
+      }
     }
     session.lock();
   });

@@ -546,4 +546,26 @@ void main() {
     await tester.pumpAndSettle();
     session.lock();
   });
+
+  testWidgets('révéler une valeur: c\'est le bloc de la fiche qui s\'ouvre', (
+    tester,
+  ) async {
+    // Transposé de l'ancienne liste, qui portait un œil par ligne. Le geste a
+    // déménagé: c'est la fiche qui masque et révèle, bloc par bloc, et la
+    // liste ne montre plus aucune valeur.
+    final session = await makeUnlockedSession();
+    await session.save(
+      session.vault!.upsert(
+        VaultEntry.now(key: 'gmail', value: 'gmail:\np4ss-gmail'),
+      ),
+    );
+    await tester.pumpWidget(_ecran(session));
+    await tester.pumpAndSettle();
+
+    expect(find.text('p4ss-gmail'), findsNothing);
+    await tester.tap(find.text('GMAIL'));
+    await tester.pumpAndSettle();
+    expect(find.text('p4ss-gmail'), findsOneWidget);
+    session.lock();
+  });
 }
