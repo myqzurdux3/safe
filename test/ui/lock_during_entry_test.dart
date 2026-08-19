@@ -130,9 +130,12 @@ void main() {
         EntryScreen(session: session, entry: session.vault!.entries.first),
       ),
     );
+    // Une image pour laisser atterrir la lecture des réglages: la barre de
+    // mode ne s'affiche pas avant, pour ne pas se déplacer ensuite.
+    await tester.pump();
     await tester.tap(find.text('Texte brut'));
-    // Une seule image: `pumpAndSettle` laisserait filer l'animation d'onglet,
-    // donc le délai d'inactivité, avant même la première frappe.
+    // Une seule image ici encore: `pumpAndSettle` laisserait filer l'animation
+    // d'onglet, donc le délai d'inactivité, avant même la première frappe.
     await tester.pump();
 
     await tester.pump(const Duration(milliseconds: 150));

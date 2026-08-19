@@ -65,18 +65,17 @@ class _EntryScreenState extends State<EntryScreen> {
   /// verrouillage: le nom d'une fiche en dit déjà long.
   late String _title = widget.entry.key;
 
+  /// Réglages lus au montage; `null` tant qu'ils ne le sont pas.
   AppSettings? _preferences;
 
-  /// Visible d'emblée, masqué si la préférence le dit. L'inverse ferait
-  /// apparaître le tuto à la deuxième image, décalant la mise en page sous les
-  /// yeux le temps d'un aller-retour au disque.
-  bool _showTutorial = true;
-
-  /// L'utilisateur a-t-il déjà tranché sur le tuto pendant ce montage ?
+  /// Le tuto est-il à l'écran ? `null` tant que les réglages sont inconnus.
   ///
-  /// La lecture des réglages atterrit après la première image: sans cette
-  /// mémoire, un « Compris » donné entre-temps serait défait par elle.
-  bool _tutorialDecided = false;
+  /// Tant qu'ils le sont, l'écran ne montre que ce dont la place ne dépend pas
+  /// d'eux: son en-tête et son pied. Parier sur une réponse puis se corriger
+  /// ferait sauter la mise en page d'un côté ou de l'autre — le tuto qui
+  /// apparaît chez le nouveau venu, ou la carte qui clignote à chaque fiche
+  /// chez celui qui a déjà fait « Compris ».
+  bool? _showTutorial;
 
   int _mode = 0;
   bool _busy = false;
@@ -106,9 +105,7 @@ class _EntryScreenState extends State<EntryScreen> {
     if (mounted) {
       setState(() {
         _preferences = loaded;
-        if (!_tutorialDecided) {
-          _showTutorial = !loaded.syntaxTutorialDismissed;
-        }
+        _showTutorial = !loaded.syntaxTutorialDismissed;
       });
     }
   }
@@ -172,21 +169,18 @@ class _EntryScreenState extends State<EntryScreen> {
   }
 
   Future<void> _dismissTutorial() async {
-    setState(() {
-      _showTutorial = false;
-      _tutorialDecided = true;
-    });
+    final current = _preferences;
+    setState(() => _showTutorial = false);
     final store = widget.settings;
-    if (store == null) {
+    // On n'écrit jamais par-dessus des réglages qu'on n'a pas lus: repartir des
+    // valeurs par défaut effacerait le blocage des captures d'écran et le délai
+    // de verrouillage au profit d'une ligne de tuto.
+    if (store == null || current == null) {
       return;
     }
     // Une préférence d'affichage: si l'écriture échoue, le tuto reviendra au
     // prochain lancement, ce qui ne mérite pas d'interrompre la lecture.
     try {
-      // Les réglages ne sont peut-être pas encore lus. Partir des valeurs par
-      // défaut effacerait les autres préférences — le blocage des captures
-      // d'écran, le délai de verrouillage — au profit d'une ligne de tuto.
-      final current = _preferences ?? await store.read();
       final updated = current.copyWith(syntaxTutorialDismissed: true);
       _preferences = updated;
       await store.write(updated);
@@ -294,28 +288,35 @@ class _EntryScreenState extends State<EntryScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _header(tokens, groups),
-                // Six pixels de moins de part et d'autre de la barre de mode:
-                // c'est exactement la marge touchable qu'elle porte au-delà de
-                // sa hauteur visible. Rien ne bouge à l'écran.
-                const SizedBox(height: 8),
-                _modeBar(tokens),
-                if (_showTutorial) ...[
-                  const SizedBox(height: 6),
-                  SyntaxTutorial(onDismiss: _dismissTutorial),
-                  const SizedBox(height: 14),
-                ] else
-                  // Seul l'écart qui touche la barre de mode se réduit: c'est
-                  // là, et là seulement, qu'elle rend six pixels de marge.
+                // La barre de mode attend les réglages: le lien « Syntaxe »
+                // qu'elle porte à droite dépend d'eux, et son arrivée
+                // rétrécirait les onglets sous les yeux.
+                if (_showTutorial != null) ...[
+                  // Six pixels de moins de part et d'autre de la barre de mode:
+                  // c'est exactement la marge touchable qu'elle porte au-delà
+                  // de sa hauteur visible. Rien ne bouge à l'écran.
                   const SizedBox(height: 8),
+                  _modeBar(tokens),
+                  if (_showTutorial!) ...[
+                    const SizedBox(height: 6),
+                    SyntaxTutorial(onDismiss: _dismissTutorial),
+                    const SizedBox(height: 14),
+                  ] else
+                    // Seul l'écart qui touche la barre de mode se réduit: c'est
+                    // là, et là seulement, qu'elle rend six pixels de marge.
+                    const SizedBox(height: 8),
+                ],
                 Expanded(
-                  child: _mode == 0
-                      ? EntryReadingList(
-                          groups: groups,
-                          open: _open,
-                          onToggle: _toggle,
-                          onCopy: _copy,
-                        )
-                      : _raw(tokens),
+                  child: switch ((_showTutorial, _mode)) {
+                    (null, _) => const SizedBox.shrink(),
+                    (_, 0) => EntryReadingList(
+                      groups: groups,
+                      open: _open,
+                      onToggle: _toggle,
+                      onCopy: _copy,
+                    ),
+                    _ => _raw(tokens),
+                  },
                 ),
                 const SizedBox(height: 12),
                 _footer(),
@@ -374,13 +375,10 @@ class _EntryScreenState extends State<EntryScreen> {
       ),
       // Le rappel n'a de sens que quand le tuto est rangé: sinon il pointerait
       // sur ce qui est déjà sous les yeux.
-      if (!_showTutorial)
+      if (_showTutorial == false)
         GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: () => setState(() {
-            _showTutorial = true;
-            _tutorialDecided = true;
-          }),
+          onTap: () => setState(() => _showTutorial = true),
           child: SizedBox(
             // Aussi haute que la barre de mode d'à côté: le libellé reste à sa
             // place, centré, et la cible fait la taille d'un doigt.

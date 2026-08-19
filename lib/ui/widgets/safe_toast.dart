@@ -26,9 +26,13 @@ void _hide(OverlayState overlay, OverlayEntry entry) {
     return;
   }
   _visible[overlay] = null;
-  if (entry.mounted) {
-    entry.remove();
-  }
+  // Sans condition. Une `OverlayEntry` n'est `mounted` qu'à partir de la
+  // première image qui suit son insertion: sauter le retrait avant celle-ci
+  // laissait la pilule dans l'`Overlay` pour toujours, et `dispose`, qui exige
+  // un retrait préalable, levait par-dessus. `remove` sait déjà quoi faire d'un
+  // `Overlay` démonté, et la garde d'identité ci-dessus assure qu'on ne passe
+  // ici qu'une fois.
+  entry.remove();
   entry.dispose();
 }
 
