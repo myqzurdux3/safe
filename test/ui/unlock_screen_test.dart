@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:safe/ui/theme/safe_theme.dart';
 import 'package:safe/ui/unlock_screen.dart';
+import 'package:safe/ui/widgets/primary_button.dart';
 
 import '../support/session_fixture.dart';
 
@@ -88,5 +90,49 @@ void main() {
     expect(session.isUnlocked, isTrue);
     expect(session.vault!.entries.single.key, 'gmail');
     session.lock();
+  });
+
+  testWidgets('le pied de page annonce le vrai délai de verrouillage', (
+    tester,
+  ) async {
+    final session = await makeTestSession(autoLock: const Duration(minutes: 2));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: safeLightTheme(),
+        home: UnlockScreen(session: session, isCreation: false),
+      ),
+    );
+    expect(find.textContaining('2 min'), findsOneWidget);
+    expect(find.textContaining('5 min'), findsNothing);
+  });
+
+  testWidgets('le sous-titre n\'annonce aucun nombre de fiches', (
+    tester,
+  ) async {
+    // Coffre fermé: le compte est chiffré, l'annoncer supposerait de l'écrire
+    // en clair à côté.
+    final session = await makeTestSession();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: safeLightTheme(),
+        home: UnlockScreen(session: session, isCreation: false),
+      ),
+    );
+    expect(find.textContaining('fiches attendent'), findsNothing);
+    expect(find.text('Content de te revoir.'), findsOneWidget);
+  });
+
+  testWidgets('le bouton de déverrouillage est le bouton pilule', (
+    tester,
+  ) async {
+    final session = await makeTestSession();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: safeLightTheme(),
+        home: UnlockScreen(session: session, isCreation: false),
+      ),
+    );
+    expect(find.byType(SafePrimaryButton), findsOneWidget);
+    expect(find.text('Déverrouiller'), findsOneWidget);
   });
 }
