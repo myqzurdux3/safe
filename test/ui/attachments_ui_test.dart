@@ -155,32 +155,22 @@ void main() {
     session.lock();
   });
 
-  // Le renommage d'une fiche n'a plus d'écran: la refonte donne à la fiche un
-  // nom fixe et aucune tâche du plan ne le restaure. La garantie que portait ce
-  // test — un renommage ne perd ni les pièces jointes ni leurs blobs — est
-  // vérifiée ici sur le coffre lui-même, au niveau où elle survit.
-  test('renommer une entrée conserve ses pièces jointes', () async {
-    final blobs = MemoryBlobStore();
-    final session = await sessionAvecPieceJointe(blobs: blobs);
-    final entry = session.vault!.entries.single;
-    await session.save(
-      session.vault!
-          .remove(entry.key)
-          .upsert(
-            VaultEntry(
-              key: 'papiers',
-              value: entry.value,
-              created: entry.created,
-              updated: DateTime.now().toUtc(),
-              attachments: entry.attachments,
-            ),
-          ),
-    );
-    expect(session.vault!.entries.single.key, 'papiers');
-    expect(session.vault!.entries.single.attachments, hasLength(1));
-    // Le blob n'est pas devenu orphelin au passage: rien à mettre de côté.
-    expect(await session.purgeOrphanBlobs(), 0);
-    expect(blobs.contents, hasLength(1));
+  testWidgets('renommer une entrée conserve ses pièces jointes', (
+    tester,
+  ) async {
+    final session = await sessionAvecPieceJointe();
+    final avant = session.vault!.entries.single;
+    await tester.pumpWidget(fiche(session));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('name')), 'papiers');
+    await tester.tap(find.text('Enregistrer'));
+    await tester.pumpAndSettle();
+
+    final apres = session.vault!.entries.single;
+    expect(apres.key, 'papiers');
+    expect(apres.attachments, hasLength(1));
+    // La date de création suit la fiche: un renommage n'est pas une naissance.
+    expect(apres.created, avant.created);
     session.lock();
   });
 

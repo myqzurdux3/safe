@@ -1,6 +1,76 @@
 import 'package:flutter/material.dart';
 
+import '../../storage/app_settings.dart';
 import '../theme/safe_theme.dart';
+
+/// L'état du tuto de syntaxe, partagé par les deux écrans qui le portent.
+///
+/// Il vit ici et non dans chaque écran parce qu'il porte une garde de sécurité:
+/// **on n'écrit jamais par-dessus des réglages qu'on n'a pas lus**. Repartir des
+/// valeurs par défaut pour ranger une ligne de tuto effacerait le blocage des
+/// captures d'écran et le délai de verrouillage automatique. Recopiée dans deux
+/// écrans, cette garde finit par n'être vérifiée que dans un seul.
+class SyntaxTutorialPreference extends ChangeNotifier {
+  SyntaxTutorialPreference(this._store);
+
+  /// Nul signifie « ne rien persister », comme partout ailleurs.
+  final SettingsStore? _store;
+
+  AppSettings? _settings;
+  bool? _visible;
+  bool _disposed = false;
+
+  /// Le tuto est-il à l'écran ? `null` tant que les réglages sont inconnus.
+  ///
+  /// Les écrans s'en servent pour ne rien poser dont la place dépende d'eux:
+  /// parier sur une réponse puis se corriger ferait sauter la mise en page —
+  /// le tuto qui apparaît chez le nouveau venu, ou la carte qui clignote chez
+  /// celui qui a déjà fait « Compris ».
+  bool? get visible => _visible;
+
+  Future<void> load() async {
+    final loaded = await _store?.read() ?? const AppSettings();
+    if (_disposed) {
+      return;
+    }
+    _settings = loaded;
+    _visible = !loaded.syntaxTutorialDismissed;
+    notifyListeners();
+  }
+
+  /// Rappelle le tuto écarté; rien n'est persisté, l'oubli est volontaire.
+  void recall() {
+    _visible = true;
+    notifyListeners();
+  }
+
+  /// Écarte le tuto pour de bon.
+  Future<void> dismiss() async {
+    final current = _settings;
+    _visible = false;
+    notifyListeners();
+    final store = _store;
+    // La garde: sans réglages lus, on n'écrit pas.
+    if (store == null || current == null) {
+      return;
+    }
+    // Une préférence d'affichage: si l'écriture échoue, le tuto reviendra au
+    // prochain lancement, ce qui ne mérite pas d'interrompre la lecture.
+    try {
+      final updated = current.copyWith(syntaxTutorialDismissed: true);
+      _settings = updated;
+      await store.write(updated);
+    } catch (_) {
+      // Sans effet visible ici, et déjà appliqué à l'écran.
+    }
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+}
 
 /// Les trois règles de la syntaxe, dans l'ordre où on les rencontre.
 const List<(String, String)> _rules = [

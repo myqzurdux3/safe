@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:safe/state/vault_session.dart';
+import 'package:safe/storage/app_settings.dart';
 import 'package:safe/ui/new_entry_screen.dart';
 import 'package:safe/ui/theme/safe_theme.dart';
 
@@ -10,6 +11,12 @@ import '../support/session_fixture.dart';
 Widget _ecran(VaultSession session) => MaterialApp(
   theme: safeLightTheme(),
   home: NewEntryScreen(session: session, settings: MemorySettingsStore()),
+);
+
+/// Même écran, magasin de réglages choisi par le test.
+Widget _ecranAvec(VaultSession session, SettingsStore settings) => MaterialApp(
+  theme: safeLightTheme(),
+  home: NewEntryScreen(session: session, settings: settings),
 );
 
 void main() {
@@ -149,6 +156,49 @@ void main() {
 
     expect(champ.controller!.text, 'aCOLLÉb');
     expect(champ.controller!.selection.baseOffset, 'aCOLLÉ'.length);
+    session.lock();
+  });
+  testWidgets('écarter le tuto ne touche pas aux autres réglages', (
+    tester,
+  ) async {
+    // Des valeurs franchement différentes des défauts: repartir de
+    // `const AppSettings()` pour écrire la préférence rallumerait le blocage
+    // des captures d'écran et rallongerait le délai de verrouillage.
+    final settings = MemorySettingsStore(
+      const AppSettings(
+        blockScreenshots: false,
+        autoLockDelay: Duration(seconds: 30),
+      ),
+    );
+    final session = await makeUnlockedSession();
+    await tester.pumpWidget(_ecranAvec(session, settings));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Compris'));
+    await tester.pumpAndSettle();
+
+    final ecrit = await settings.read();
+    expect(ecrit.syntaxTutorialDismissed, isTrue);
+    expect(ecrit.blockScreenshots, isFalse);
+    expect(ecrit.autoLockDelay, const Duration(seconds: 30));
+    session.lock();
+  });
+
+  testWidgets('« Syntaxe » rappelle le tuto écarté', (tester) async {
+    final session = await makeUnlockedSession();
+    await tester.pumpWidget(
+      _ecranAvec(
+        session,
+        MemorySettingsStore(const AppSettings(syntaxTutorialDismissed: true)),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Compris'), findsNothing);
+
+    await tester.tap(find.text('Syntaxe'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Compris'), findsOneWidget);
     session.lock();
   });
 }

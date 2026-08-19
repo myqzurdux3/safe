@@ -75,6 +75,9 @@ void main() {
     await tester.enterText(find.byKey(const Key('raw')), 'nouvelle');
     await tester.tap(find.text('Enregistrer'));
     await tester.pumpAndSettle();
+    // `single`: le nom n'a pas changé, la fiche ne doit pas s'être dédoublée —
+    // ce qui arriverait si la validation ne s'exemptait pas de sa propre clef.
+    expect(session.vault!.entries.single.key, 'gmail');
     expect(session.vault!.entries.single.value, 'nouvelle');
     session.lock();
   });

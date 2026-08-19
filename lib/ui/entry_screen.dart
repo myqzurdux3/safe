@@ -62,53 +62,56 @@ class _EntryScreenState extends State<EntryScreen> {
   /// cours, qu'un retour arrière ne doit pas jeter sans demander.
   late String _saved = widget.entry.value;
 
-  /// Le nom affiché. Copié de l'entrée pour pouvoir être effacé au
-  /// verrouillage: le nom d'une fiche en dit déjà long.
-  late String _title = widget.entry.key;
+  /// Le nom affiché, et modifiable: renommer une fiche se fait ici, pas dans
+  /// un écran à part. Copié de l'entrée pour pouvoir être effacé au
+  /// verrouillage — le nom d'une fiche en dit déjà long.
+  late final TextEditingController _nameController = TextEditingController(
+    text: widget.entry.key,
+  );
 
-  /// Réglages lus au montage; `null` tant qu'ils ne le sont pas.
-  AppSettings? _preferences;
+  /// La clef sous laquelle la fiche est **au coffre**, qui n'est plus celle
+  /// reçue à l'ouverture dès qu'un renommage a été enregistré. Tout ce qui
+  /// s'adresse au coffre — pièces jointes, retrait de l'ancienne entrée —
+  /// passe par elle: rester sur `widget.entry.key` ferait chercher la fiche
+  /// sous un nom qu'elle ne porte plus.
+  late String _key = widget.entry.key;
 
-  /// Le tuto est-il à l'écran ? `null` tant que les réglages sont inconnus.
-  ///
-  /// Tant qu'ils le sont, l'écran ne montre que ce dont la place ne dépend pas
-  /// d'eux: son en-tête et son pied. Parier sur une réponse puis se corriger
-  /// ferait sauter la mise en page d'un côté ou de l'autre — le tuto qui
-  /// apparaît chez le nouveau venu, ou la carte qui clignote à chaque fiche
-  /// chez celui qui a déjà fait « Compris ».
-  bool? _showTutorial;
+  /// Le nom tel qu'il est au coffre, pendant du texte enregistré.
+  late String _savedName = widget.entry.key;
+
+  /// L'état du tuto, garde de sécurité comprise; voir
+  /// [SyntaxTutorialPreference].
+  late final SyntaxTutorialPreference _tutorial = SyntaxTutorialPreference(
+    widget.settings,
+  );
 
   int _mode = 0;
   bool _busy = false;
 
-  bool get _dirty => _controller.text != _saved;
+  bool get _dirty =>
+      _controller.text != _saved || _nameController.text != _savedName;
 
   @override
   void initState() {
     super.initState();
     widget.session.addListener(_onSession);
     _controller.addListener(_onText);
-    unawaited(_loadPreferences());
+    _nameController.addListener(_onName);
+    _tutorial.addListener(_onTutorial);
+    unawaited(_tutorial.load());
   }
 
   @override
   void dispose() {
     widget.session.removeListener(_onSession);
     _controller.dispose();
+    _nameController.dispose();
     if (widget.clipboard == null) {
       _clipboard.dispose();
     }
+    _tutorial.removeListener(_onTutorial);
+    _tutorial.dispose();
     super.dispose();
-  }
-
-  Future<void> _loadPreferences() async {
-    final loaded = await widget.settings?.read() ?? const AppSettings();
-    if (mounted) {
-      setState(() {
-        _preferences = loaded;
-        _showTutorial = !loaded.syntaxTutorialDismissed;
-      });
-    }
   }
 
   /// Au verrouillage, l'écran se vide et cesse de retenir le retour.
@@ -123,9 +126,10 @@ class _EntryScreenState extends State<EntryScreen> {
       return;
     }
     _controller.clear();
+    _nameController.clear();
     setState(() {
       _saved = '';
-      _title = '';
+      _savedName = '';
       _open.clear();
       _busy = false;
     });
@@ -138,6 +142,13 @@ class _EntryScreenState extends State<EntryScreen> {
     // alors d'autres blocs — l'écran révélait le contenu d'un bloc que
     // l'utilisateur n'avait jamais ouvert, et y restait.
     _open.clear();
+    setState(() {});
+  }
+
+  /// Le nom ne commande aucun affichage dérivé: seule la garde de sortie s'en
+  /// déduit, et elle n'est lue qu'à l'image suivante.
+  void _onName() {
+    widget.session.touch();
     setState(() {});
   }
 
@@ -169,31 +180,28 @@ class _EntryScreenState extends State<EntryScreen> {
     }
   }
 
-  Future<void> _dismissTutorial() async {
-    final current = _preferences;
-    setState(() => _showTutorial = false);
-    final store = widget.settings;
-    // On n'écrit jamais par-dessus des réglages qu'on n'a pas lus: repartir des
-    // valeurs par défaut effacerait le blocage des captures d'écran et le délai
-    // de verrouillage au profit d'une ligne de tuto.
-    if (store == null || current == null) {
-      return;
-    }
-    // Une préférence d'affichage: si l'écriture échoue, le tuto reviendra au
-    // prochain lancement, ce qui ne mérite pas d'interrompre la lecture.
-    try {
-      final updated = current.copyWith(syntaxTutorialDismissed: true);
-      _preferences = updated;
-      await store.write(updated);
-    } catch (_) {
-      // Sans effet visible ici, et déjà appliqué à l'écran.
-    }
-  }
-
   Future<void> _save() async {
     final vault = widget.session.vault;
     if (vault == null) {
       showSafeToast(context, 'Coffre verrouillé');
+      return;
+    }
+    final name = _nameController.text.trim();
+    if (name.isEmpty) {
+      showSafeToast(context, 'Le nom ne peut pas être vide');
+      return;
+    }
+    // Comparaison canonique, avec exemption du nom d'origine: sans elle,
+    // « Gmail » et « gmail » feraient deux fiches indiscernables à l'écran —
+    // mais sans l'exemption, réenregistrer une fiche sans la renommer se
+    // heurterait à elle-même.
+    final collision = vault.entries.any(
+      (entry) =>
+          canonicalKey(entry.key) == canonicalKey(name) &&
+          canonicalKey(entry.key) != canonicalKey(_key),
+    );
+    if (collision) {
+      showSafeToast(context, 'Ce nom existe déjà');
       return;
     }
     setState(() => _busy = true);
@@ -202,17 +210,24 @@ class _EntryScreenState extends State<EntryScreen> {
     // reçue à l'ouverture: celles ajoutées depuis cet écran n'y figurent pas,
     // et reconstruire l'entrée sans elles les perdrait.
     final current = vault.entries
-        .where((entry) => entry.key == widget.entry.key)
+        .where((entry) => entry.key == _key)
         .firstOrNull;
+    var updated = vault;
+    // Un nom canoniquement différent est une autre entrée: l'ancienne doit
+    // partir, sans quoi le renommage laisserait un doublon derrière lui.
+    if (canonicalKey(name) != canonicalKey(_key)) {
+      updated = updated.remove(_key);
+    }
     try {
       await widget.session.save(
-        vault.upsert(
+        updated.upsert(
           VaultEntry(
-            key: widget.entry.key,
+            key: name,
             // Tel quel: ni `trim`, ni normalisation, ni réordonnancement. Les
             // espaces de bord sont du texte comme un autre.
             value: text,
-            created: widget.entry.created,
+            // Un renommage n'est pas une naissance.
+            created: current?.created ?? widget.entry.created,
             updated: DateTime.now().toUtc(),
             attachments: current?.attachments ?? widget.entry.attachments,
           ),
@@ -231,6 +246,8 @@ class _EntryScreenState extends State<EntryScreen> {
     setState(() {
       _busy = false;
       _saved = text;
+      _savedName = name;
+      _key = name;
     });
     showSafeToast(context, 'Enregistré');
   }
@@ -238,13 +255,20 @@ class _EntryScreenState extends State<EntryScreen> {
   Future<void> _openAttachments() => showAttachmentsSheet(
     context: context,
     session: widget.session,
-    entryKey: widget.entry.key,
+    entryKey: _key,
     onChanged: () {
       if (mounted) {
         setState(() {});
       }
     },
   );
+
+  /// Le tuto a bougé: seule la mise en page en dépend.
+  void _onTutorial() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -273,15 +297,15 @@ class _EntryScreenState extends State<EntryScreen> {
                 // La barre de mode attend les réglages: le lien « Syntaxe »
                 // qu'elle porte à droite dépend d'eux, et son arrivée
                 // rétrécirait les onglets sous les yeux.
-                if (_showTutorial != null) ...[
+                if (_tutorial.visible != null) ...[
                   // Six pixels de moins de part et d'autre de la barre de mode:
                   // c'est exactement la marge touchable qu'elle porte au-delà
                   // de sa hauteur visible. Rien ne bouge à l'écran.
                   const SizedBox(height: 8),
                   _modeBar(tokens),
-                  if (_showTutorial!) ...[
+                  if (_tutorial.visible!) ...[
                     const SizedBox(height: 6),
-                    SyntaxTutorial(onDismiss: _dismissTutorial),
+                    SyntaxTutorial(onDismiss: _tutorial.dismiss),
                     const SizedBox(height: 14),
                   ] else
                     // Seul l'écart qui touche la barre de mode se réduit: c'est
@@ -289,7 +313,7 @@ class _EntryScreenState extends State<EntryScreen> {
                     const SizedBox(height: 8),
                 ],
                 Expanded(
-                  child: switch ((_showTutorial, _mode)) {
+                  child: switch ((_tutorial.visible, _mode)) {
                     (null, _) => const SizedBox.shrink(),
                     (_, 0) => EntryReadingList(
                       groups: groups,
@@ -318,8 +342,10 @@ class _EntryScreenState extends State<EntryScreen> {
         onTap: () => Navigator.of(context).maybePop(),
         child: Padding(
           // L'écart de 8 px qui suivait le retour est passé dans sa marge
-          // basse: la cible grandit, la flèche ne bouge pas d'un pixel.
-          padding: const EdgeInsets.only(top: 10, bottom: 18),
+          // basse, et deux pixels de plus l'amènent à 48: la cible fait la
+          // taille d'un doigt, comme celle de la nouvelle fiche, et la flèche
+          // ne bouge pas d'un pixel.
+          padding: const EdgeInsets.only(top: 10, bottom: 20),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -333,7 +359,39 @@ class _EntryScreenState extends State<EntryScreen> {
           ),
         ),
       ),
-      Text(_title, style: SafeText.screenTitle.copyWith(color: tokens.ink)),
+      TextField(
+        key: const Key('name'),
+        controller: _nameController,
+        // Le clavier n'a pas à apprendre un nom de fiche: il est chiffré dans
+        // le coffre, il n'a pas à ressortir ailleurs en suggestion.
+        autocorrect: false,
+        enableSuggestions: false,
+        style: SafeText.screenTitle.copyWith(color: tokens.ink),
+        cursorColor: tokens.accent,
+        decoration: InputDecoration(
+          isDense: true,
+          // Aucune marge: le titre occupe exactement la place qu'il occupait
+          // en `Text`, à 1,5 px près — celui du filet. Le champ fait donc 29 px
+          // et non 48: au-dessus, le retour est déjà une cible; en dessous, la
+          // seule place libre est celle du compteur, qu'on ne peut pas rendre
+          // touchable sans que taper « 3 blocs · 4 lignes » ouvre le clavier.
+          // Une marge confortable, elle, pousserait de vingt pixels tout ce qui
+          // suit sur un écran déjà validé à l'œil. Le titre reste large:
+          // 29 px sur toute la largeur de l'écran, pas une lettre isolée.
+          contentPadding: EdgeInsets.zero,
+          // La maquette ne dessine pas de trait sous ce titre: au repos, le
+          // champ doit être indiscernable du texte qu'il remplace. Le filet
+          // n'apparaît qu'au focus — et le filet au repos, de la couleur du
+          // fond, garde la géométrie exacte des deux états: rien ne saute au
+          // moment où l'on touche le titre.
+          enabledBorder: UnderlineInputBorder(
+            borderSide: BorderSide(color: tokens.pageBackground, width: 1.5),
+          ),
+          focusedBorder: UnderlineInputBorder(
+            borderSide: BorderSide(color: tokens.strongDivider, width: 1.5),
+          ),
+        ),
+      ),
       const SizedBox(height: 6),
       Text(
         describeGroups(groups),
@@ -357,10 +415,10 @@ class _EntryScreenState extends State<EntryScreen> {
       ),
       // Le rappel n'a de sens que quand le tuto est rangé: sinon il pointerait
       // sur ce qui est déjà sous les yeux.
-      if (_showTutorial == false)
+      if (_tutorial.visible == false)
         GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: () => setState(() => _showTutorial = true),
+          onTap: () => _tutorial.recall(),
           child: SizedBox(
             // Aussi haute que la barre de mode d'à côté: le libellé reste à sa
             // place, centré, et la cible fait la taille d'un doigt.
@@ -388,6 +446,7 @@ class _EntryScreenState extends State<EntryScreen> {
     child: Padding(
       padding: const EdgeInsets.all(14),
       child: SafeRawEditor(
+        fieldKey: const Key('raw'),
         controller: _controller,
         hintText: 'Colle ou tape ici. Tout est accepté.',
       ),

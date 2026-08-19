@@ -164,11 +164,12 @@ class _VaultGateState extends State<VaultGate> with WidgetsBindingObserver {
     _etaitOuvert = unlocked;
 
     if (!unlocked) {
-      // Un écran empilé (édition, réglages) survivrait au verrouillage et
-      // resterait affiché par-dessus l'écran de verrou: on le dépile. Après la
-      // frame, pour que les écrans concernés aient d'abord pu réagir au
-      // verrouillage — l'écran d'édition efface sa saisie et lève sa garde de
-      // sortie à ce moment-là.
+      // Un écran empilé (fiche, création, réglages) survivrait au verrouillage
+      // et resterait affiché par-dessus l'écran de verrou: on le dépile. Après
+      // la frame, pour que les écrans concernés aient d'abord pu réagir au
+      // verrouillage — la fiche et la création effacent leur saisie à ce
+      // moment-là, et c'est le clair à l'écran que ce délai fait disparaître,
+      // pas un obstacle au dépilement: `popUntil` ne consulte pas `PopScope`.
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) {
           return;

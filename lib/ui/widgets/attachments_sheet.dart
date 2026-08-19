@@ -6,13 +6,15 @@ import '../theme/safe_theme.dart';
 
 /// Ouvre les pièces jointes d'une entrée dans une feuille modale.
 ///
-/// La tuyauterie est ici et non dans les écrans: la feuille se redessine elle
-/// -même quand une pièce jointe arrive ou part, et l'écran hôte doit se
-/// redessiner **aussi** — sa liste porte le même contenu. Deux appelants qui
-/// recopient ce couplage finissent toujours par en oublier une moitié.
+/// La tuyauterie est ici et non dans l'écran: la feuille se redessine elle-même
+/// quand une pièce jointe arrive ou part, et l'écran hôte doit se redessiner
+/// **aussi** — sa liste porte le même contenu. Un appelant qui recopierait ce
+/// couplage en oublierait une moitié; la fiche est le seul aujourd'hui, l'écran
+/// d'accueil est attendu.
 ///
-/// [entryKey] nul signifie « entrée pas encore enregistrée »: la section le dit
-/// à l'utilisateur au lieu de proposer un bouton qui ne peut pas marcher.
+/// [entryKey] désigne forcément une entrée déjà enregistrée: un blob est
+/// référencé par la clef de son entrée, qui doit donc exister. C'est pourquoi la
+/// nouvelle fiche n'ouvre pas cette feuille.
 ///
 /// [onChanged] est appelé pendant que la feuille est ouverte: l'appelant reste
 /// responsable de vérifier qu'il est toujours monté — un verrouillage peut
@@ -20,7 +22,7 @@ import '../theme/safe_theme.dart';
 Future<void> showAttachmentsSheet({
   required BuildContext context,
   required VaultSession session,
-  required String? entryKey,
+  required String entryKey,
   required VoidCallback onChanged,
 }) {
   session.touch();

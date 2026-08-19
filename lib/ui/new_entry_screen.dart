@@ -38,15 +38,11 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _rawController = TextEditingController();
 
-  /// Réglages lus au montage; `null` tant qu'ils ne le sont pas.
-  AppSettings? _preferences;
-
-  /// Le tuto est-il à l'écran ? `null` tant que les réglages sont inconnus.
-  ///
-  /// Tant qu'ils le sont, l'écran ne montre que ce dont la place ne dépend pas
-  /// d'eux: son en-tête et son pied. Parier sur une réponse puis se corriger
-  /// ferait sauter la carte de saisie d'un côté ou de l'autre.
-  bool? _showTutorial;
+  /// L'état du tuto, garde de sécurité comprise; voir
+  /// [SyntaxTutorialPreference].
+  late final SyntaxTutorialPreference _tutorial = SyntaxTutorialPreference(
+    widget.settings,
+  );
 
   /// Message affiché sous le champ de nom: refus de validation, verrouillage,
   /// échec d'écriture.
@@ -71,7 +67,8 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
     widget.session.addListener(_onSession);
     _nameController.addListener(_onText);
     _rawController.addListener(_onText);
-    unawaited(_loadPreferences());
+    _tutorial.addListener(_onTutorial);
+    unawaited(_tutorial.load());
   }
 
   @override
@@ -79,25 +76,18 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
     widget.session.removeListener(_onSession);
     _nameController.dispose();
     _rawController.dispose();
+    _tutorial.removeListener(_onTutorial);
+    _tutorial.dispose();
     super.dispose();
   }
 
-  Future<void> _loadPreferences() async {
-    final loaded = await widget.settings?.read() ?? const AppSettings();
-    if (mounted) {
-      setState(() {
-        _preferences = loaded;
-        _showTutorial = !loaded.syntaxTutorialDismissed;
-      });
-    }
-  }
-
-  /// Au verrouillage, l'écran efface sa saisie et cesse de retenir le retour.
+  /// Au verrouillage, l'écran efface sa saisie.
   ///
-  /// Sans cela, la confirmation d'abandon bloquerait le dépilement déclenché
-  /// par le verrouillage, et le clair resterait affiché par-dessus l'écran de
-  /// verrou. Effacer les contrôleurs enlève le clair de l'écran avant même que
-  /// la route ne disparaisse.
+  /// La raison est le clair, pas le dépilement: `Navigator.popUntil` ne
+  /// consulte pas `PopScope`, la confirmation d'abandon ne retient donc rien.
+  /// Ce qu'elle retiendrait, c'est le texte en mémoire et à l'écran, le temps
+  /// que la route disparaisse — et la garde de sortie tombe d'elle-même une
+  /// fois les champs vides.
   void _onSession() {
     if (!mounted || widget.session.isUnlocked) {
       return;
@@ -126,36 +116,18 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
     setState(() {});
   }
 
-  Future<void> _dismissTutorial() async {
-    final current = _preferences;
-    setState(() => _showTutorial = false);
-    final store = widget.settings;
-    // On n'écrit jamais par-dessus des réglages qu'on n'a pas lus: repartir des
-    // valeurs par défaut effacerait le blocage des captures d'écran et le délai
-    // de verrouillage au profit d'une ligne de tuto.
-    if (store == null || current == null) {
-      return;
-    }
-    // Une préférence d'affichage: si l'écriture échoue, le tuto reviendra au
-    // prochain lancement, ce qui ne mérite pas d'interrompre la saisie.
-    try {
-      final updated = current.copyWith(syntaxTutorialDismissed: true);
-      _preferences = updated;
-      await store.write(updated);
-    } catch (_) {
-      // Sans effet visible ici, et déjà appliqué à l'écran.
-    }
-  }
-
   /// Insère le presse-papier système à la position du curseur.
   Future<void> _paste() async {
     widget.session.touch();
     final ClipboardData? data;
     try {
       data = await Clipboard.getData(Clipboard.kTextPlain);
-    } on MissingPluginException {
-      // Aucun presse-papier sous la main — un hôte de développement, pas un
-      // téléphone. Rien à signaler: il n'y a rien à corriger côté utilisateur.
+    } catch (_) {
+      // Presse-papier absent (un hôte de développement) ou refusé par la
+      // plateforme: `Clipboard.getData` lève aussi des `PlatformException`, et
+      // une exception qui remonte d'ici part dans le vide — personne n'attend
+      // ce futur. Rien à signaler non plus: il n'y a rien à corriger côté
+      // utilisateur, et le champ est resté intact.
       return;
     }
     final pasted = data?.text;
@@ -242,6 +214,13 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
     }
   }
 
+  /// Le tuto a bougé: seule la mise en page en dépend.
+  void _onTutorial() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final tokens = SafeTokens.of(context);
@@ -267,15 +246,20 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                 _header(tokens),
                 // Le tuto attend les réglages: apparaître à la deuxième image
                 // ferait sauter la carte de saisie sous les yeux.
-                if (_showTutorial != null) ...[
-                  if (_showTutorial!) ...[
+                if (_tutorial.visible != null) ...[
+                  if (_tutorial.visible!) ...[
                     const SizedBox(height: 16),
-                    SyntaxTutorial(onDismiss: _dismissTutorial),
-                  ],
-                  const SizedBox(height: 16),
+                    SyntaxTutorial(onDismiss: _tutorial.dismiss),
+                    const SizedBox(height: 16),
+                  ] else
+                    // Le rappel prend la place du tuto rangé. La préférence est
+                    // globale: un « Compris » donné depuis une fiche existante
+                    // retire le tuto d'ici aussi, alors que c'est ici qu'on
+                    // écrit son premier bloc et qu'on en a le plus besoin.
+                    _syntaxLink(tokens),
                 ],
                 Expanded(
-                  child: _showTutorial == null
+                  child: _tutorial.visible == null
                       ? const SizedBox.shrink()
                       : _card(tokens),
                 ),
@@ -361,6 +345,31 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
     ],
   );
 
+  /// Le rappel du tuto, aligné à droite comme sur la fiche.
+  Widget _syntaxLink(SafeTokens tokens) => Align(
+    alignment: Alignment.centerRight,
+    child: GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: _tutorial.recall,
+      child: SizedBox(
+        // Le libellé fait onze pixels de haut: c'est cette boîte qui fait la
+        // cible, et elle occupe l'écart qui séparait déjà le nom de la carte.
+        height: SafeMetrics.touchTarget,
+        child: Center(
+          child: Padding(
+            // Le libellé est aligné à droite: cette marge gauche élargit la
+            // cible sans déplacer la lettre d'un pixel.
+            padding: const EdgeInsets.only(left: 14),
+            child: Text(
+              'Syntaxe',
+              style: SafeText.action.copyWith(color: tokens.accent),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+
   /// La carte de saisie: le texte, puis son compteur et l'action « Coller ».
   Widget _card(SafeTokens tokens) => DecoratedBox(
     decoration: BoxDecoration(
@@ -375,6 +384,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
         children: [
           Expanded(
             child: SafeRawEditor(
+              fieldKey: const Key('raw'),
               controller: _rawController,
               hintText: 'Colle ou tape ici.\nTout est accepté.',
             ),
