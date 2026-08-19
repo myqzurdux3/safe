@@ -359,9 +359,11 @@ class _GeneratorSheetState extends State<_GeneratorSheet> {
         Slider(
           key: const Key('generate-length'),
           value: _length,
-          min: 12,
-          max: 64,
-          divisions: 52,
+          // Bornes du générateur lui-même: un curseur plus large laisserait
+          // passer une longueur que `generatePassword` refuse.
+          min: minPasswordLength.toDouble(),
+          max: maxPasswordLength.toDouble(),
+          divisions: maxPasswordLength - minPasswordLength,
           label: '${_length.round()}',
           onChanged: (value) => setState(() => _length = value),
         ),

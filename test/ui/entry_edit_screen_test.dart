@@ -70,6 +70,28 @@ void main() {
     session.lock();
   });
 
+  testWidgets(
+    'le curseur du générateur ne dépasse jamais ce que le générateur accepte',
+    (tester) async {
+      final session = await makeUnlockedSession();
+      await tester.pumpWidget(wrapScreen(EntryEditScreen(session: session)));
+      await tester.tap(find.byKey(const Key('generate')));
+      await tester.pumpAndSettle();
+      // Pousse le curseur à fond à droite: la borne affichée doit être celle
+      // que `generatePassword` accepte réellement, pas un vestige de l'ancienne
+      // borne à 128.
+      await tester.drag(
+        find.byKey(const Key('generate-length')),
+        const Offset(1000, 0),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('generate-confirm')));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      session.lock();
+    },
+  );
+
   testWidgets('valeur vide acceptée', (tester) async {
     final session = await makeUnlockedSession();
     await tester.pumpWidget(wrapScreen(EntryEditScreen(session: session)));
