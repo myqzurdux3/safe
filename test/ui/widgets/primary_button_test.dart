@@ -51,6 +51,19 @@ void main() {
       SafeMetrics.pillHeight,
     );
   });
+
+  testWidgets('occupé, le bouton primaire montre une roue plutôt que son '
+      'texte', (tester) async {
+    // Un bouton simplement grisé ne se distingue pas d'un bouton invalide;
+    // sur une dérivation de plusieurs secondes, ça pousse à taper deux fois.
+    await tester.pumpWidget(
+      _host(
+        SafePrimaryButton(label: 'Déverrouiller', onPressed: () {}, busy: true),
+      ),
+    );
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.text('Déverrouiller'), findsNothing);
+  });
 }
 
 class _HostConst extends StatelessWidget {

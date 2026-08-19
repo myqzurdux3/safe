@@ -171,7 +171,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
                       hintText: 'Mot de passe maître',
                       hintStyle: TextStyle(
                         fontFamily: safeSans,
-                        fontSize: 14,
+                        fontSize: 13.5,
                         color: tokens.hintText,
                       ),
                       border: InputBorder.none,
@@ -216,7 +216,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
                         hintText: 'Confirmation',
                         hintStyle: TextStyle(
                           fontFamily: safeSans,
-                          fontSize: 14,
+                          fontSize: 13.5,
                           color: tokens.hintText,
                         ),
                         border: InputBorder.none,
@@ -243,9 +243,10 @@ class _UnlockScreenState extends State<UnlockScreen> {
                     label: widget.isCreation
                         ? 'Créer le coffre'
                         : 'Déverrouiller',
-                    // `SafePrimaryButton` n'a pas d'état occupé: `onPressed`
-                    // nul suffit à empêcher un double envoi pendant l'attente.
                     onPressed: _busy ? null : _submit,
+                    // La dérivation Argon2id prend plusieurs secondes: une
+                    // roue distingue l'attente d'un simple bouton invalide.
+                    busy: _busy,
                   ),
                   const SizedBox(height: 16),
                   Text(
