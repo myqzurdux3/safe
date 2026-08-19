@@ -20,28 +20,14 @@ class SafeLogo extends StatelessWidget {
   final Color? color;
 
   @override
-  Widget build(BuildContext context) {
-    final effectiveColor = color ?? _getDefaultColor(context);
-    return SizedBox(
-      width: size,
-      height: size,
-      child: CustomPaint(
-        painter: SafeLogoPainter(effectiveColor),
-        isComplex: false,
-      ),
-    );
-  }
-
-  /// Détermine la couleur du logo: explicite, ou accent du thème, ou fallback.
-  Color _getDefaultColor(BuildContext context) {
-    // Essayer d'abord d'accéder à SafeTokens pour la couleur accent.
-    final tokens = Theme.of(context).extension<SafeTokens>();
-    if (tokens != null) {
-      return tokens.accent;
-    }
-    // Fallback: utiliser la couleur primaire du thème si SafeTokens n'existe pas.
-    return Theme.of(context).colorScheme.primary;
-  }
+  Widget build(BuildContext context) => SizedBox(
+    width: size,
+    height: size,
+    child: CustomPaint(
+      painter: SafeLogoPainter(color ?? SafeTokens.of(context).accent),
+      isComplex: false,
+    ),
+  );
 }
 
 /// Public pour que les tests puissent lire la couleur effectivement peinte.

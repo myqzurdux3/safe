@@ -9,10 +9,7 @@ import '../support/session_fixture.dart';
 void main() {
   testWidgets('le logo se dessine à la taille demandée', (tester) async {
     await tester.pumpWidget(
-      MaterialApp(
-        theme: safeLightTheme(),
-        home: const Scaffold(body: Center(child: SafeLogo(size: 64))),
-      ),
+      wrapScreen(const Scaffold(body: Center(child: SafeLogo(size: 64)))),
     );
     expect(tester.getSize(find.byType(SafeLogo)), const Size(64, 64));
   });
@@ -32,10 +29,7 @@ void main() {
   testWidgets('l\'écran de verrou affiche le logo', (tester) async {
     final session = await makeTestSession();
     await tester.pumpWidget(
-      MaterialApp(
-        theme: safeLightTheme(),
-        home: UnlockScreen(session: session, isCreation: true),
-      ),
+      wrapScreen(UnlockScreen(session: session, isCreation: true)),
     );
     expect(find.byType(SafeLogo), findsOneWidget);
   });
