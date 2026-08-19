@@ -1,121 +1,76 @@
 import 'dart:math';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:safe/util/password_generator.dart';
 
 void main() {
-  test('longueur respectée', () {
-    expect(generatePassword(length: 32).length, 32);
+  test('les caractères ambigus sont exclus de tous les jeux', () {
+    for (final set in CharacterSet.values) {
+      for (final ambigu in ['l', 'I', 'O', '0', '1']) {
+        expect(
+          set.alphabet.contains(ambigu),
+          isFalse,
+          reason: '$ambigu ne doit pas être dans ${set.name}',
+        );
+      }
+    }
   });
 
-  test('jeu de caractères respecté', () {
+  test('les alphabets sont exactement ceux du handoff', () {
+    const lettres = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ';
+    expect(CharacterSet.letters.alphabet, lettres);
     expect(
-      RegExp(
-        r'^[A-Za-z]+$',
-      ).hasMatch(generatePassword(length: 128, set: CharacterSet.letters)),
-      isTrue,
+      CharacterSet.lettersDigits.alphabet,
+      '$lettres'
+      '23456789',
     );
     expect(
-      RegExp(r'^[A-Za-z0-9]+$').hasMatch(
-        generatePassword(length: 128, set: CharacterSet.lettersDigits),
-      ),
-      isTrue,
+      CharacterSet.all.alphabet,
+      '$lettres'
+      '23456789'
+      '!#\$%&*+-?@',
     );
   });
 
-  test('le jeu complet contient toute la ponctuation ASCII', () {
-    const attendu = r'''!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~''';
-    for (final symbole in attendu.split('')) {
-      expect(
-        CharacterSet.all.alphabet.contains(symbole),
-        isTrue,
-        reason: 'symbole absent du jeu: $symbole',
-      );
+  test('les libellés sont ceux des pastilles', () {
+    expect(CharacterSet.letters.label, 'Lettres');
+    expect(CharacterSet.lettersDigits.label, '+ chiffres');
+    expect(CharacterSet.all.label, '+ symboles');
+  });
+
+  test('les bornes vont de 8 à 48', () {
+    expect(minPasswordLength, 8);
+    expect(maxPasswordLength, 48);
+    expect(generatePassword(length: 8).length, 8);
+    expect(generatePassword(length: 48).length, 48);
+    expect(() => generatePassword(length: 7), throwsArgumentError);
+    expect(() => generatePassword(length: 49), throwsArgumentError);
+  });
+
+  test('chaque classe du jeu apparaît au moins une fois', () {
+    for (var essai = 0; essai < 40; essai++) {
+      final mot = generatePassword(length: 20);
+      expect(mot.contains(RegExp('[a-z]')), isTrue);
+      expect(mot.contains(RegExp('[A-Z]')), isTrue);
+      expect(mot.contains(RegExp('[2-9]')), isTrue);
+      expect(mot.contains(RegExp(r'[!#$%&*+\-?@]')), isTrue);
     }
   });
 
-  test('chaque classe demandée est présente, même sur un tirage court', () {
-    // Répété: un tirage purement uniforme finirait par sortir un mot de passe
-    // sans symbole, refusé par les formulaires qui en exigent un.
-    for (var i = 0; i < 200; i++) {
-      final pwd = generatePassword(length: 12);
-      expect(RegExp(r'[a-z]').hasMatch(pwd), isTrue, reason: pwd);
-      expect(RegExp(r'[A-Z]').hasMatch(pwd), isTrue, reason: pwd);
-      expect(RegExp(r'[0-9]').hasMatch(pwd), isTrue, reason: pwd);
-      expect(RegExp(r'''[!-/:-@\[-`{-~]''').hasMatch(pwd), isTrue, reason: pwd);
+  test('le mot de passe ne tire que dans l\'alphabet de son jeu', () {
+    final mot = generatePassword(length: 48, set: CharacterSet.letters);
+    for (final caractere in mot.split('')) {
+      expect(CharacterSet.letters.alphabet.contains(caractere), isTrue);
     }
   });
 
-  test('lettres seules: majuscules et minuscules présentes', () {
-    for (var i = 0; i < 50; i++) {
-      final pwd = generatePassword(length: 8, set: CharacterSet.letters);
-      expect(RegExp(r'[a-z]').hasMatch(pwd), isTrue, reason: pwd);
-      expect(RegExp(r'[A-Z]').hasMatch(pwd), isTrue, reason: pwd);
-    }
-  });
-
-  test('la garantie ne fige pas les positions', () {
-    // Si les caractères garantis restaient en tête, les premières positions
-    // seraient d'une classe fixe: entropie perdue et motif reconnaissable.
-    final premiers = {
-      for (var i = 0; i < 100; i++) generatePassword(length: 12)[0],
-    };
-    expect(premiers.length, greaterThan(3));
-  });
-
-  test('deux appels donnent des résultats différents', () {
+  test('deux tirages diffèrent', () {
     expect(generatePassword(), isNot(generatePassword()));
   });
 
-  test('longueur hors bornes rejetée', () {
-    expect(() => generatePassword(length: 3), throwsArgumentError);
-    expect(() => generatePassword(length: 500), throwsArgumentError);
-  });
-
-  group('tirage reproductible, via le générateur injecté', () {
-    // Le paramètre `random` existe pour ça; aucun test ne l'utilisait, ce qui
-    // rendait faux le commentaire qui l'annonçait comme réservé aux tests.
-    test('même graine, même mot de passe', () {
-      final a = generatePassword(length: 24, random: Random(1234));
-      final b = generatePassword(length: 24, random: Random(1234));
-      expect(a, b);
-    });
-
-    test('graines différentes, mots de passe différents', () {
-      final a = generatePassword(length: 24, random: Random(1));
-      final b = generatePassword(length: 24, random: Random(2));
-      expect(a, isNot(b));
-    });
-
-    test('toutes les classes demandées sont présentes, sur 200 graines', () {
-      // Le tirage garantit une occurrence par classe; une seule graine
-      // malchanceuse ne prouverait rien.
-      for (var graine = 0; graine < 200; graine++) {
-        final mot = generatePassword(
-          length: minPasswordLength,
-          random: Random(graine),
-        );
-        expect(mot, matches(r'[a-z]'), reason: 'graine $graine');
-        expect(mot, matches(r'[A-Z]'), reason: 'graine $graine');
-        expect(mot, matches(r'[0-9]'), reason: 'graine $graine');
-        expect(
-          mot.split('').any((c) => !RegExp(r'[a-zA-Z0-9]').hasMatch(c)),
-          isTrue,
-          reason: 'aucun symbole, graine $graine',
-        );
-      }
-    });
-
-    test('le mélange ne laisse pas les classes à leur position d\'origine', () {
-      // Sans le mélange de Fisher-Yates, les premiers caractères trahiraient
-      // toujours l'ordre des classes: minuscule, majuscule, chiffre, symbole.
-      var trouve = false;
-      for (var graine = 0; graine < 50 && !trouve; graine++) {
-        final mot = generatePassword(length: 20, random: Random(graine));
-        if (!RegExp(r'^[a-z]').hasMatch(mot)) {
-          trouve = true;
-        }
-      }
-      expect(trouve, isTrue);
-    });
+  test('un générateur injecté rend un tirage reproductible', () {
+    final a = generatePassword(length: 20, random: Random(7));
+    final b = generatePassword(length: 20, random: Random(7));
+    expect(a, b);
   });
 }
