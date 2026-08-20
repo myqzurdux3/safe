@@ -418,7 +418,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
       ),
-      Text('Réglages', style: SafeText.screenTitle.copyWith(color: tokens.ink)),
+      // `header` et `namesRoute`: l'`AppBar` les posait toute seule. Sans le
+      // second, la synthèse vocale n'annonce rien quand l'écran s'ouvre; sans
+      // le premier, la navigation par en-têtes ne s'arrête plus sur le titre.
+      Semantics(
+        header: true,
+        namesRoute: true,
+        child: Text(
+          'Réglages',
+          style: SafeText.screenTitle.copyWith(color: tokens.ink),
+        ),
+      ),
       const SizedBox(height: 16),
     ],
   );
@@ -488,7 +498,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               // Le handoff ne dessine pas de boîte de contrôle: le trait de
               // Material sous la valeur n'a rien à faire dans une carte.
               underline: const SizedBox.shrink(),
-              isDense: true,
+              // Pas de `isDense`: il ramène la cible à 24 px, la moitié d'un
+              // doigt, et c'est le seul contrôle de l'écran qu'on ouvre sans
+              // le voir grandir.
               borderRadius: BorderRadius.circular(SafeMetrics.cardRadius),
               dropdownColor: tokens.cardSurface,
               icon: Icon(
@@ -576,7 +588,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       'L\'export ne contient que les clefs et les valeurs. Les pièces '
       'jointes vivent dans des fichiers séparés: exportez-les une par '
       'une depuis l\'entrée concernée.',
-      style: _paragraph.copyWith(color: tokens.secondaryText),
+      // En encre, et non en texte secondaire: sur le fond crème ce gris tombe
+      // à 4,37:1, sous le seuil AA. C'est la seule phrase de l'application qui
+      // dit que le mot de passe maître ne se récupère pas — elle ne peut pas
+      // être le texte le plus pâle de la page.
+      style: _paragraph.copyWith(color: tokens.ink),
     ),
   );
 }
