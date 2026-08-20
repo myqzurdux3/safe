@@ -57,8 +57,9 @@ class _HomeScreenState extends State<HomeScreen> {
   /// logo de 17 px.
   static const double _hauteurEnTete = 19;
 
-  /// Ce que la commande de réglages ajoute de part et d'autre de l'en-tête
-  /// pour atteindre la cible tactile. Repris sur les écarts voisins.
+  /// Ce que les deux commandes de l'en-tête — le cadenas et les réglages —
+  /// ajoutent de part et d'autre pour atteindre la cible tactile. Elles font
+  /// la hauteur de la ligne à elles seules; l'écart au-dessus la déduit.
   static const double _margeEnTete =
       (SafeMetrics.touchTarget - _hauteurEnTete) / 2;
 
@@ -154,7 +155,7 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Vingt-deux pixels visés au-dessus de l'en-tête, moins ce que
-              // la commande de réglages ajoute au-dessus du logotype.
+              // les commandes de l'en-tête ajoutent au-dessus du logotype.
               const SizedBox(height: 22 - _margeEnTete),
               _enTete(tokens),
               // Aucun écart écrit ici: l'en-tête et la barre d'onglets rendent
@@ -204,10 +205,44 @@ class _HomeScreenState extends State<HomeScreen> {
       Text('safe', style: SafeText.wordmark.copyWith(color: tokens.ink)),
       const Spacer(),
       GestureDetector(
+        key: const Key('header-lock'),
+        // Le geste qu'on fait quand quelqu'un entre dans la pièce: il doit
+        // tomber sous le pouce depuis l'accueil, sans passer par les réglages
+        // — deux tapes et une lecture de liste arrivent trop tard. La commande
+        // reste AUSSI dans les réglages, à côté du délai automatique.
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.session.lock,
+        child: SizedBox(
+          width: SafeMetrics.touchTarget,
+          height: SafeMetrics.touchTarget,
+          child: Center(
+            child: Semantics(
+              button: true,
+              label: 'Verrouiller',
+              // Un pictogramme, pas un caractère: aucune des deux fontes
+              // embarquées ne porte de cadenas, et un carré vide à la place du
+              // verrou serait la pire des annonces. `Icons` vient de
+              // MaterialIcons, livrée avec l'application.
+              //
+              // Vingt et un pixels comme le cercle voisin, mais en
+              // `secondaryText` et non en `inactiveBullet`: le cercle des
+              // réglages est un décor que le handoff dessine pâle, le cadenas
+              // est un signe qu'il faut voir.
+              child: Icon(
+                Icons.lock_outline,
+                size: 21,
+                color: tokens.secondaryText,
+              ),
+            ),
+          ),
+        ),
+      ),
+      GestureDetector(
         key: const Key('settings'),
         // Opaque et de la taille d'un doigt: le cercle du handoff ne fait que
-        // 21 px, et il est seul dans son coin — la cible peut donc s'étendre
-        // sans en rencontrer une autre.
+        // 21 px. Le cadenas est désormais son voisin immédiat, et les deux
+        // cibles se touchent sans se recouvrir — la garde de l'accueil mesure
+        // les deux rectangles.
         behavior: HitTestBehavior.opaque,
         onTap: _ouvrirReglages,
         child: SizedBox(

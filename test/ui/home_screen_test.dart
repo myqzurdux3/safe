@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:safe/model/vault.dart';
 import 'package:safe/state/vault_session.dart';
+import 'package:safe/ui/generator_tab.dart';
 import 'package:safe/ui/home_screen.dart';
 import 'package:safe/ui/theme/safe_theme.dart';
+import 'package:safe/ui/widgets/pill_tabs.dart';
 import 'package:safe/util/clipboard.dart';
 
 import '../support/session_fixture.dart';
@@ -155,6 +157,79 @@ void main() {
     );
     session.lock();
   });
+
+  testWidgets(
+    'le cadenas de l\'en-tête verrouille, et emporte l\'historique du générateur',
+    (tester) async {
+      final session = await makeUnlockedSession(keys: ['gmail']);
+      await tester.pumpWidget(_accueil(session));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Générateur'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('regenerate')));
+      await tester.pumpAndSettle();
+
+      // La session du générateur elle-même, et non ce que l'écran en montre:
+      // ce qu'il faut voir vide, c'est la mémoire — une liste qui disparaît de
+      // l'arbre prouve seulement que l'écran a changé.
+      final generator = tester
+          .widget<GeneratorTab>(find.byType(GeneratorTab))
+          .generator;
+      expect(session.isUnlocked, isTrue);
+      expect(generator.value, isNotEmpty);
+      expect(generator.history, isNotEmpty);
+
+      await tester.tap(find.byKey(const Key('header-lock')));
+      await tester.pumpAndSettle();
+
+      expect(
+        session.isUnlocked,
+        isFalse,
+        reason: 'le cadenas de l\'accueil doit fermer la session',
+      );
+      expect(
+        generator.history,
+        isEmpty,
+        reason: 'les valeurs précédentes ont survécu au verrouillage',
+      );
+      expect(
+        generator.value,
+        isEmpty,
+        reason: 'la valeur affichée a survécu au verrouillage',
+      );
+    },
+  );
+
+  testWidgets(
+    'les deux commandes de l\'en-tête font un doigt chacune, sans se marcher dessus',
+    (tester) async {
+      final session = await makeUnlockedSession();
+      await tester.pumpWidget(_accueil(session));
+      await tester.pumpAndSettle();
+
+      final cadenas = tester.getRect(find.byKey(const Key('header-lock')));
+      final reglages = tester.getRect(find.byKey(const Key('settings')));
+
+      const doigt = Size(SafeMetrics.touchTarget, SafeMetrics.touchTarget);
+      expect(cadenas.size, doigt);
+      expect(reglages.size, doigt);
+
+      // Pas un pixel commun, et le cadenas à gauche: une cible rognée par sa
+      // voisine ferait rater le verrou au moment précis où on le presse.
+      expect(cadenas.overlaps(reglages), isFalse);
+      expect(cadenas.right, lessThanOrEqualTo(reglages.left));
+
+      // L'en-tête ne pèse toujours qu'une seule cible tactile: la barre
+      // d'onglets n'a pas reculé d'un pixel en lui ajoutant le cadenas.
+      expect(
+        tester.getTopLeft(find.byType(SafePillTabs)).dy,
+        7.5 + SafeMetrics.touchTarget,
+        reason: 'l\'en-tête a grandi et pousse tout l\'écran vers le bas',
+      );
+      session.lock();
+    },
+  );
 
   testWidgets('coffre vide: une invite, pas une liste blanche', (tester) async {
     final session = await makeUnlockedSession();

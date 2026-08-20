@@ -468,12 +468,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           _filet(tokens),
           ListTile(
-            // Le verrouillage manuel a suivi les réglages quand l'accueil a
-            // été redessiné: la maquette validée ne pose qu'une commande dans
-            // son en-tête, et lui en ajouter une seconde reviendrait à
-            // dessiner à la place du designer. Il vit donc ici, à côté du
-            // délai automatique dont il est le pendant immédiat — et non plus
-            // à un doigt de la liste, mais toujours à portée.
+            // Le verrouillage manuel est ici ET dans l'en-tête de l'accueil,
+            // décision du propriétaire: le cadenas de l'accueil est le geste
+            // pressé, celui-ci est le pendant du délai automatique, juste
+            // au-dessous, où on le cherche quand on règle les deux ensemble.
+            // Ne pas le retirer d'ici sous prétexte que l'accueil en a un.
             key: const Key('lock'),
             leading: const Icon(Icons.lock_outline, size: 18),
             title: const Text('Verrouiller maintenant'),
