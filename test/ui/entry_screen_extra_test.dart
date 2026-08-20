@@ -34,6 +34,32 @@ Widget _fiche(VaultSession session) => wrapScreen(
   ),
 );
 
+/// La fiche empilée au-dessus d'un écran repère.
+///
+/// Le repère tient lieu de liste: c'est le seul moyen de constater qu'on en
+/// revient. Une fiche montée seule ne permet pas de distinguer « revenu à la
+/// liste » de « resté sur une fiche qui n'existe plus ».
+Widget _ficheAuDessusDeLaListe(VaultSession session) => wrapScreen(
+  Builder(
+    builder: (context) => Scaffold(
+      body: Center(
+        child: TextButton(
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => EntryScreen(
+                session: session,
+                entry: session.vault!.entries.single,
+                settings: MemorySettingsStore(),
+              ),
+            ),
+          ),
+          child: const Text('la liste'),
+        ),
+      ),
+    ),
+  ),
+);
+
 void main() {
   testWidgets('entrée ajoutée: elle rejoint le coffre', (tester) async {
     final session = await makeUnlockedSession();
@@ -169,11 +195,12 @@ void main() {
     session.lock();
   });
 
-  testWidgets('suppression demande confirmation puis retire la fiche', (
-    tester,
-  ) async {
+  testWidgets('suppression demande confirmation, retire la fiche et rend la '
+      'liste', (tester) async {
     final session = await makeUnlockedSession(keys: ['gmail']);
-    await tester.pumpWidget(_fiche(session));
+    await tester.pumpWidget(_ficheAuDessusDeLaListe(session));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('la liste'));
     await tester.pumpAndSettle();
 
     // La suppression a quitté la liste avec elle: elle vit sur la fiche, où
@@ -184,6 +211,16 @@ void main() {
     await tester.tap(find.byKey(const Key('confirm-delete')));
     await tester.pumpAndSettle();
     expect(session.vault!.entries, isEmpty);
+
+    // Le nom ne doit plus être nulle part à l'écran: l'assertion perdue à la
+    // transposition, et la seule qui distinguait une fiche effacée d'une fiche
+    // effacée mais toujours affichée.
+    expect(find.text('gmail'), findsNothing);
+
+    // Et l'on est bien redescendu à la liste. Rester sur la fiche d'une entrée
+    // supprimée laisserait « Enregistrer » la ressusciter.
+    expect(find.text('la liste'), findsOneWidget);
+    expect(find.byKey(const Key('delete-entry')), findsNothing);
     session.lock();
   });
 
