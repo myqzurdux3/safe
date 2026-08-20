@@ -20,7 +20,6 @@ class SafeTokens extends ThemeExtension<SafeTokens> {
     required this.barSurface,
     required this.tabContainer,
     required this.cardSurface,
-    required this.secondaryCardSurface,
     required this.softAccentSurface,
     required this.ink,
     required this.accent,
@@ -46,7 +45,6 @@ class SafeTokens extends ThemeExtension<SafeTokens> {
   final Color barSurface;
   final Color tabContainer;
   final Color cardSurface;
-  final Color secondaryCardSurface;
   final Color softAccentSurface;
   final Color ink;
   final Color accent;
@@ -81,7 +79,6 @@ class SafeTokens extends ThemeExtension<SafeTokens> {
     barSurface: Color(0xFFEAE7E1),
     tabContainer: Color(0xFFE4E1DB),
     cardSurface: Color(0xFFFFFFFF),
-    secondaryCardSurface: Color(0xFFEFECE6),
     softAccentSurface: Color(0xFFEAF4EE),
     ink: Color(0xFF183A2B),
     accent: Color(0xFF2F7D5B),
