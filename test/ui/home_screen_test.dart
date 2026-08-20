@@ -214,10 +214,6 @@ void main() {
       const doigt = Size(SafeMetrics.touchTarget, SafeMetrics.touchTarget);
       expect(cadenas.size, doigt);
       expect(reglages.size, doigt);
-
-      // Pas un pixel commun, et le cadenas à gauche: une cible rognée par sa
-      // voisine ferait rater le verrou au moment précis où on le presse.
-      expect(cadenas.overlaps(reglages), isFalse);
       expect(cadenas.right, lessThanOrEqualTo(reglages.left));
 
       // L'en-tête ne pèse toujours qu'une seule cible tactile: la barre
@@ -227,6 +223,38 @@ void main() {
         7.5 + SafeMetrics.touchTarget,
         reason: 'l\'en-tête a grandi et pousse tout l\'écran vers le bas',
       );
+
+      // Les rectangles de mise en page ne prouvent pas le doigt: dans une Row,
+      // deux enfants ne peuvent pas se recouvrir, et un dessin de 21 px logé
+      // au centre d'une boîte de 48 laisserait les bords muets. On tape donc
+      // aux quatre bords, et on regarde la session.
+      for (final bord in <Offset>[
+        cadenas.centerLeft + const Offset(1, 0),
+        cadenas.centerRight - const Offset(1, 0),
+        cadenas.topCenter + const Offset(0, 1),
+        cadenas.bottomCenter - const Offset(0, 1),
+      ]) {
+        await session.unlock(testPassword);
+        await tester.pumpAndSettle();
+        expect(session.isUnlocked, isTrue);
+
+        await tester.tapAt(bord);
+        await tester.pumpAndSettle();
+        expect(
+          session.isUnlocked,
+          isFalse,
+          reason: 'le cadenas ne répond pas en $bord',
+        );
+      }
+
+      // Et la cible voisine n'a pas été avalée: la commande des réglages
+      // ouvre les réglages, elle ne verrouille pas.
+      await session.unlock(testPassword);
+      await tester.pumpAndSettle();
+      await tester.tapAt(reglages.center);
+      await tester.pumpAndSettle();
+      expect(session.isUnlocked, isTrue);
+      expect(find.text('Réglages'), findsOneWidget);
       session.lock();
     },
   );
