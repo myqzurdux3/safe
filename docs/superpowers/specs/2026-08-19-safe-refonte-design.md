@@ -217,7 +217,8 @@ Onglet Coffre : champ de recherche pilule `#eae7e1` hauteur 44 px, puis liste d�
 Ligne : puce 8 px, nom 500 14.5 px, hairline bas, `padding: 15px 0`, troncature.
 
 Onglet Générateur : carte blanche rayon 18 px, valeur en mono 400 19 px/1.55, hauteur
-minimale 62 px ; « Copier » (48 px, devient « Copié ✓ » 1,6 s) et régénérer 48 × 48 px ;
+minimale 62 px ; « Copier » (48 px, devient « Copié » précédé d'une coche 1,6 s — voir
+« Deux signes de la maquette n'existent pas dans les polices ») et régénérer 48 × 48 px ;
 curseur de longueur 8–48 ; trois pastilles de jeu ; historique « GÉNÉRÉ AVANT » de trois
 valeurs avec la mention « Effacé au verrouillage. Jamais écrit sur le disque. »
 
@@ -403,6 +404,16 @@ Le handoff visait GTK4/libadwaita ; la pile est Flutter.
   structure et ses fonctions : le designer le renvoie explicitement à un second temps.
 - **Nombre de fiches au déverrouillage.** Impossible sans divulguer une métadonnée en
   clair. Voir la section Déverrouillage.
+- **Deux signes de la maquette n'existent pas dans les polices.** La maquette écrit « ↻ »
+  (U+21BB) sur le bouton régénérer et « Copié ✓ » (U+2713) sur le retour de copie. Ni
+  Instrument Sans ni JetBrains Mono ne portent ces deux caractères — leurs tables `cmap`
+  ont été lues, et ce sont les deux seuls trous : tous les autres signes non-ASCII de
+  l'application y sont. La maquette est une page HTML, où les fontes du système les
+  fournissent ; l'application, elle, n'embarque que ces deux familles. Android se
+  rabattrait sur une autre fonte au milieu du texte, et un appareil sans repli afficherait
+  un carré vide. L'application pose donc `Icons.refresh` et `Icons.check`, qui viennent de
+  MaterialIcons, livrée avec elle. Le sens et la durée (1,6 s) ne changent pas ; seul le
+  dessin du signe est celui de Material et non celui de la maquette.
 
 ## Ce qui ne bouge pas
 
