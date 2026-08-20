@@ -37,7 +37,7 @@ class GeneratorTab extends StatefulWidget {
 }
 
 class _GeneratorTabState extends State<GeneratorTab> {
-  /// Durée pendant laquelle le bouton dit « Copié ✓ ».
+  /// Durée pendant laquelle le bouton dit « Copié ».
   static const Duration _retourDeCopie = Duration(milliseconds: 1600);
 
   /// Hauteur visible d'une pastille de jeu de caractères.
@@ -62,7 +62,7 @@ class _GeneratorTabState extends State<GeneratorTab> {
   /// Au verrouillage, la session se vide.
   ///
   /// Le bouton, lui, compte son propre temps: sans cela il continuerait
-  /// d'annoncer « Copié ✓ » jusqu'à une seconde et demie après la fermeture du
+  /// d'annoncer « Copié » jusqu'à une seconde et demie après la fermeture du
   /// coffre, au-dessus d'une valeur qui n'existe plus.
   void _onGenerateur() {
     if (mounted && _copie && widget.generator.value.isEmpty) {
@@ -185,7 +185,11 @@ class _GeneratorTabState extends State<GeneratorTab> {
         // 48 px ici ferait deux boutons pleins dans l'application, à deux
         // pixels près, pour rien.
         child: SafePrimaryButton(
-          label: _copie ? 'Copié ✓' : 'Copier',
+          label: _copie ? 'Copié' : 'Copier',
+          // Une icône et non « ✓ »: le signe n'a de glyphe dans aucune des
+          // deux polices embarquées, et Android le rendrait dans une autre
+          // fonte — ou pas du tout.
+          icon: _copie ? Icons.check : null,
           onPressed: () => _copier(widget.generator.value),
         ),
       ),
@@ -208,15 +212,11 @@ class _GeneratorTabState extends State<GeneratorTab> {
               borderRadius: BorderRadius.circular(SafeMetrics.pillHeight / 2),
             ),
             child: ExcludeSemantics(
-              child: Text(
-                '↻',
-                style: TextStyle(
-                  fontFamily: safeSans,
-                  fontSize: 18,
-                  height: 1,
-                  color: tokens.accent,
-                ),
-              ),
+              // Une icône et non « ↻ » (U+21BB): ce signe n'a de glyphe dans
+              // aucune des deux polices embarquées. MaterialIcons, elle, est
+              // livrée avec l'application — c'est déjà d'elle que viennent
+              // tous les autres pictogrammes de l'écran.
+              child: Icon(Icons.refresh, size: 18, color: tokens.accent),
             ),
           ),
         ),

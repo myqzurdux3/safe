@@ -9,7 +9,42 @@ import 'package:safe/util/password_generator.dart';
 import '../support/session_fixture.dart';
 
 void main() {
-  testWidgets('« Copier » devient « Copié ✓ » puis revient', (tester) async {
+  testWidgets('les deux commandes portent des icônes, pas des glyphes absents '
+      'des polices embarquées', (tester) async {
+    final vault = await makeUnlockedSession();
+    final gen = GeneratorSession(vault);
+    addTearDown(gen.dispose);
+    final clipboard = SecureClipboard();
+    addTearDown(clipboard.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: safeLightTheme(),
+        home: Scaffold(
+          body: GeneratorTab(generator: gen, clipboard: clipboard),
+        ),
+      ),
+    );
+
+    // « ↻ » (U+21BB) et « ✓ » (U+2713) n'ont de glyphe dans AUCUNE des deux
+    // polices embarquées — vérifié dans leur table `cmap`. Sur appareil,
+    // Android se rabat sur une autre fonte, d'autres métriques et une autre
+    // graisse au milieu du texte; sans repli, c'est un tofu. Les `Icons`
+    // viennent de MaterialIcons, qui, elle, est livrée avec l'application.
+    expect(find.byIcon(Icons.refresh), findsOneWidget);
+    expect(find.text('↻'), findsNothing);
+
+    await tester.tap(find.text('Copier'));
+    await tester.pump();
+    expect(find.byIcon(Icons.check), findsOneWidget);
+    expect(find.text('Copié'), findsOneWidget);
+    expect(find.textContaining('✓'), findsNothing);
+
+    await tester.pump(const Duration(milliseconds: 1700));
+    vault.lock();
+  });
+
+  testWidgets('« Copier » devient « Copié » puis revient', (tester) async {
     final vault = await makeUnlockedSession();
     final gen = GeneratorSession(vault);
     addTearDown(gen.dispose);
@@ -27,7 +62,7 @@ void main() {
 
     await tester.tap(find.text('Copier'));
     await tester.pump();
-    expect(find.text('Copié ✓'), findsOneWidget);
+    expect(find.text('Copié'), findsOneWidget);
 
     await tester.pump(const Duration(milliseconds: 1700));
     expect(find.text('Copier'), findsOneWidget);
@@ -149,14 +184,14 @@ void main() {
 
     await tester.tap(find.text('Copier'));
     await tester.pump();
-    expect(find.text('Copié ✓'), findsOneWidget);
+    expect(find.text('Copié'), findsOneWidget);
 
     // Le coffre se ferme dans la seconde et demie qui suit la copie: la
     // session est vidée, et le bouton ne doit pas continuer d'annoncer une
     // copie au-dessus d'une valeur qui n'existe plus.
     vault.lock();
     await tester.pump();
-    expect(find.text('Copié ✓'), findsNothing);
+    expect(find.text('Copié'), findsNothing);
     expect(find.text('Copier'), findsOneWidget);
   });
 }

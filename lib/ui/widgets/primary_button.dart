@@ -13,11 +13,21 @@ class SafePrimaryButton extends StatelessWidget {
   const SafePrimaryButton({
     required this.label,
     required this.onPressed,
+    this.icon,
     this.busy = false,
     super.key,
   });
 
   final String label;
+
+  /// Pictogramme posé devant le libellé, ou nul — le cas courant.
+  ///
+  /// Il vient de MaterialIcons, livrée avec l'application: les deux polices
+  /// embarquées n'ont pas de glyphe pour les signes qu'on serait tenté
+  /// d'écrire dans le libellé (« ✓ », « ↻ »), et Android se rabattrait alors
+  /// sur une autre fonte au milieu du texte, quand il en a une.
+  final IconData? icon;
+
   final VoidCallback? onPressed;
   final bool busy;
 
@@ -60,7 +70,21 @@ class SafePrimaryButton extends StatelessWidget {
                   color: tokens.onInk,
                 ),
               )
-            : Text(label),
+            : icon == null
+            ? Text(label)
+            : Row(
+                // Le bouton garde sa largeur — elle est imposée par le parent
+                // — et l'icône, plus basse que la pilule, ne change pas sa
+                // hauteur non plus.
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Sans couleur écrite: le bouton pose la sienne, celle de
+                  // son libellé, et l'icône suit l'état actif ou grisé.
+                  Icon(icon, size: 15),
+                  const SizedBox(width: 6),
+                  Text(label),
+                ],
+              ),
       ),
     );
   }
