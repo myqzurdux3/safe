@@ -68,6 +68,28 @@ void main() {
     session.lock();
   });
 
+  testWidgets('la puce d\'une ligne est vide, jamais pleine', (tester) async {
+    final session = await makeUnlockedSession(keys: ['gmail']);
+    await tester.pumpWidget(_onglet(session));
+    await tester.pumpAndSettle();
+
+    final puce = find.descendant(
+      of: find.byKey(const Key('entry-gmail')),
+      matching: find.byType(Container),
+    );
+    expect(puce, findsOneWidget);
+    final decor = tester.widget<Container>(puce).decoration! as BoxDecoration;
+
+    // Un cercle bordé sans aplat. La maquette montre une puce pleine « si
+    // épinglée », mais rien n'épingle une fiche et rien ne dit où cet état
+    // vivrait: une puce remplie ferait paraître épinglées TOUTES les fiches du
+    // coffre, ce qui ne veut plus rien dire.
+    expect(decor.shape, BoxShape.circle);
+    expect(decor.color, isNull);
+    expect(decor.border, isNotNull);
+    session.lock();
+  });
+
   testWidgets('une fiche multiligne ne laisse rien voir de son texte', (
     tester,
   ) async {
