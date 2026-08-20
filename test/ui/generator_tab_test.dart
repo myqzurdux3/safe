@@ -166,6 +166,31 @@ void main() {
     vault.lock();
   });
 
+  testWidgets('le curseur ne propose que des longueurs que le générateur '
+      'accepte', (tester) async {
+    final vault = await makeUnlockedSession();
+    final gen = GeneratorSession(vault);
+    addTearDown(gen.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: safeLightTheme(),
+        home: Scaffold(body: GeneratorTab(generator: gen)),
+      ),
+    );
+
+    // Les bornes du curseur lui-même, et non le clamp de [GeneratorSession]:
+    // celui-ci est couvert ailleurs, et il rattrape un curseur trop large en
+    // silence — le test qui le traverse reste donc vert alors que le curseur
+    // ment. Or c'est un curseur plus large que ce que `generatePassword`
+    // accepte qui a déjà fait tomber l'écran dans ce dépôt.
+    final curseur = tester.widget<Slider>(find.byType(Slider));
+    expect(curseur.min, minPasswordLength.toDouble());
+    expect(curseur.max, maxPasswordLength.toDouble());
+    expect(curseur.divisions, maxPasswordLength - minPasswordLength);
+    vault.lock();
+  });
+
   testWidgets('le verrouillage rend le bouton à « Copier »', (tester) async {
     final vault = await makeUnlockedSession();
     final gen = GeneratorSession(vault);
