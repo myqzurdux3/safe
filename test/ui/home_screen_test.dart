@@ -259,6 +259,29 @@ void main() {
     },
   );
 
+  testWidgets('le cadenas s\'annonce comme un bouton, et il a un nom', (
+    tester,
+  ) async {
+    final poignee = tester.ensureSemantics();
+    final session = await makeUnlockedSession();
+    await tester.pumpWidget(_accueil(session));
+    await tester.pumpAndSettle();
+
+    // Un pictogramme sans mot est muet: le lecteur d'écran annoncerait
+    // « bouton » à côté de « bouton », et rien ne dirait lequel referme le
+    // coffre.
+    expect(
+      tester.getSemantics(find.byKey(const Key('header-lock'))),
+      matchesSemantics(
+        label: 'Verrouiller',
+        isButton: true,
+        hasTapAction: true,
+      ),
+    );
+    poignee.dispose();
+    session.lock();
+  });
+
   testWidgets('coffre vide: une invite, pas une liste blanche', (tester) async {
     final session = await makeUnlockedSession();
     await tester.pumpWidget(_accueil(session));
