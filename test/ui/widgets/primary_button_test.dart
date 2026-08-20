@@ -39,6 +39,50 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('avec un pictogramme, le bouton garde sa pilule et la couleur '
+      'de son libellé', (tester) async {
+    // Les deux polices embarquées n'ont de glyphe ni pour « ✓ » ni pour
+    // « ↻ »: le pictogramme vient de MaterialIcons. Reste à ce qu'il ne
+    // déforme pas le bouton et ne se détache pas du texte par sa couleur.
+    await tester.pumpWidget(
+      _host(
+        SafePrimaryButton(label: 'Copié', icon: Icons.check, onPressed: () {}),
+      ),
+    );
+
+    expect(find.byIcon(Icons.check), findsOneWidget);
+    expect(find.text('Copié'), findsOneWidget);
+    // Vérifier la hauteur de la pilule ne prouverait rien: elle est imposée
+    // par un `SizedBox`, donc un pictogramme trop grand déborderait en
+    // silence au lieu de la faire grandir. Ce qu'il faut exiger, c'est qu'il
+    // tienne DANS la pilule.
+    final pilule = tester.getRect(find.byType(SafePrimaryButton));
+    expect(pilule.height, SafeMetrics.pillHeight);
+    final marque = tester.getRect(find.byIcon(Icons.check));
+    expect(
+      pilule.contains(marque.topLeft) && pilule.contains(marque.bottomRight),
+      isTrue,
+      reason: 'le pictogramme déborde de la pilule: $marque hors de $pilule',
+    );
+
+    // La couleur n'est pas écrite sur l'icône: elle doit venir du bouton, la
+    // même que le libellé. Écrite à la main, elle dériverait au prochain
+    // changement de thème.
+    final icone = tester.widget<Icon>(find.byIcon(Icons.check));
+    expect(icone.color, isNull);
+    final rendu = tester.firstWidget<RichText>(
+      find.descendant(of: find.text('Copié'), matching: find.byType(RichText)),
+    );
+    final tokens = SafeTokens.of(
+      tester.element(find.byType(SafePrimaryButton)),
+    );
+    expect(rendu.text.style?.color, tokens.onInk);
+    expect(
+      IconTheme.of(tester.element(find.byIcon(Icons.check))).color,
+      tokens.onInk,
+    );
+  });
+
   testWidgets('le bouton secondaire porte une bordure, pas un aplat', (
     tester,
   ) async {

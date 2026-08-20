@@ -13,11 +13,15 @@ Widget _accueil(VaultSession session) => MaterialApp(
   home: HomeScreen(session: session, settings: MemorySettingsStore()),
 );
 
-/// Une session qui laisse voir s'il lui reste des auditeurs.
+/// Une session qui laisse voir combien d'auditeurs lui restent.
 ///
 /// Le générateur de l'accueil s'abonne à la session pour vider son historique
 /// au verrouillage. C'est le seul moyen, depuis l'extérieur, de constater
-/// qu'il a bien été libéré: l'accueil le garde privé.
+/// qu'il a bien été construit puis libéré: l'accueil le garde privé.
+///
+/// Compter, et pas seulement constater qu'il reste quelqu'un: l'onglet Coffre
+/// s'abonne lui aussi, et `hasListeners` seul reste vrai même si le générateur
+/// n'existe pas encore.
 class _ObservedSession extends VaultSession {
   _ObservedSession({
     required super.crypto,
@@ -26,6 +30,20 @@ class _ObservedSession extends VaultSession {
     required super.clipboard,
     required super.kdfParams,
   });
+
+  int watchers = 0;
+
+  @override
+  void addListener(VoidCallback listener) {
+    watchers++;
+    super.addListener(listener);
+  }
+
+  @override
+  void removeListener(VoidCallback listener) {
+    watchers--;
+    super.removeListener(listener);
+  }
 
   bool get stillWatched => hasListeners;
 }
@@ -110,9 +128,18 @@ void main() {
     await tester.pumpWidget(_accueil(session));
     await tester.pumpAndSettle();
 
-    // Il écoute: le générateur est construit dès le montage, sans attendre
-    // qu'on ouvre son onglet.
-    expect(session.stillWatched, isTrue);
+    // Deux auditeurs, et pas un: l'onglet Coffre en pose un, le générateur
+    // l'autre. Le compte est ce qui distingue les deux — `hasListeners` seul
+    // resterait vrai si le générateur n'était construit qu'à l'ouverture de
+    // son onglet, et un abonnement pris paresseusement laisserait passer le
+    // verrouillage qui le précède: la valeur déjà tirée survivrait au verrou.
+    expect(
+      session.watchers,
+      2,
+      reason:
+          'le générateur doit être construit dès le montage, sans attendre '
+          "qu'on ouvre son onglet",
+    );
 
     // Remplacer l'arbre démonte l'accueil, comme un retour à l'écran de
     // déverrouillage.
