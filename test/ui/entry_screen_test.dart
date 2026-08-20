@@ -568,4 +568,28 @@ void main() {
     expect(find.text('p4ss-gmail'), findsOneWidget);
     session.lock();
   });
+
+  testWidgets('« Supprimer » est sur la même ligne que le retour au coffre', (
+    tester,
+  ) async {
+    final session = await _sessionAvecTexte();
+    await tester.pumpWidget(_ecran(session));
+    await tester.pumpAndSettle();
+
+    // Les deux commandes se font face dans la même rangée. L'une était calée
+    // par une marge, l'autre par un centrage dans une boîte de 48: « Supprimer
+    // » tombait cinq pixels plus bas que « Coffre », sur deux mots qui se
+    // regardent d'un bord à l'autre de l'écran.
+    expect(
+      tester.getCenter(find.text('Supprimer')).dy,
+      tester.getCenter(find.text('Coffre')).dy,
+    );
+
+    // Et la cible garde la taille d'un doigt.
+    expect(
+      tester.getSize(find.byKey(const Key('delete-entry'))).height,
+      SafeMetrics.touchTarget,
+    );
+    session.lock();
+  });
 }

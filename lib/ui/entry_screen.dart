@@ -407,13 +407,16 @@ class _EntryScreenState extends State<EntryScreen> {
             key: const Key('delete-entry'),
             behavior: HitTestBehavior.opaque,
             onTap: _supprimer,
-            child: SizedBox(
-              height: SafeMetrics.touchTarget,
-              child: Center(
-                child: Text(
-                  'Supprimer',
-                  style: SafeText.action.copyWith(color: tokens.secondaryText),
-                ),
+            // Calé comme le retour d'en face, et non centré dans une boîte de
+            // 48: le centrage posait le mot cinq pixels plus bas que
+            // « Coffre », sur deux commandes qui se regardent d'un bord à
+            // l'autre de la rangée. Onze pixels de texte entre ces deux
+            // marges font toujours la cible de 48.
+            child: Padding(
+              padding: const EdgeInsets.only(top: 13.5, bottom: 23.5),
+              child: Text(
+                'Supprimer',
+                style: SafeText.action.copyWith(color: tokens.secondaryText),
               ),
             ),
           ),
