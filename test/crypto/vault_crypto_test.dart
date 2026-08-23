@@ -5,6 +5,8 @@ import 'package:safe/crypto/vault_crypto.dart';
 import 'package:safe/model/vault.dart';
 import 'package:sodium/sodium_sumo.dart';
 
+import '../support/crypto_fixture.dart';
+
 /// Paramètres volontairement faibles: les tests vérifient la mécanique, pas la
 /// résistance au cassage. Les vrais paramètres sont dans [KdfParams.defaults].
 const testParams = KdfParams(opsLimit: 1, memLimit: 8 * 1024 * 1024);

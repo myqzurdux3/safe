@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:safe/model/vault.dart';
+import 'package:safe/model/vault_search.dart';
 
 void main() {
   test('aller-retour JSON', () {
@@ -69,9 +70,12 @@ void main() {
   });
 
   test('recherche insensible à la casse', () {
+    // `searchVault` et non plus `Vault.search`: c'est ce que l'écran appelle.
+    // L'ancienne méthode ne cherchait que dans les clefs et n'était plus
+    // appelée que d'ici — un test qui ne prouvait plus rien de l'application.
     final vault = Vault.empty.upsert(VaultEntry.now(key: 'Gmail', value: 'x'));
-    expect(vault.search('gma').single.key, 'Gmail');
-    expect(vault.search('  '), hasLength(1));
-    expect(vault.search('zzz'), isEmpty);
+    expect(searchVault(vault, 'gma').single.entry.key, 'Gmail');
+    expect(searchVault(vault, '  '), hasLength(1));
+    expect(searchVault(vault, 'zzz'), isEmpty);
   });
 }

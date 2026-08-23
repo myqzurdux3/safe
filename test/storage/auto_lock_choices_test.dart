@@ -28,8 +28,11 @@ void main() {
   });
 
   test('les bornes encadrent bien les choix', () {
-    expect(autoLockChoices.first, minAutoLockDelay);
-    expect(autoLockChoices.last, maxAutoLockDelay);
+    // Des durées écrites en clair, et non deux constantes du même fichier:
+    // comparer `autoLockChoices.first` à un `minAutoLockDelay` qui aurait
+    // dérivé avec lui n'aurait jamais rien attrapé.
+    expect(autoLockChoices.first, const Duration(seconds: 30));
+    expect(autoLockChoices.last, const Duration(minutes: 5));
     expect(autoLockChoices, contains(defaultAutoLockDelay));
   });
 }

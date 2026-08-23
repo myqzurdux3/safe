@@ -8,6 +8,7 @@ import 'package:safe/model/vault.dart';
 import 'package:safe/storage/vault_transfer.dart';
 import 'package:safe/ui/settings_screen.dart';
 
+import '../support/crypto_fixture.dart';
 import '../support/fake_file_selector.dart';
 import '../support/session_fixture.dart';
 

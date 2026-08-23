@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:safe/model/vault.dart';
+import 'package:safe/model/vault_search.dart';
 
 void main() {
   // « café » écrit de deux façons: le é précomposé (U+00E9), et le e suivi de
@@ -14,13 +15,13 @@ void main() {
 
   test('chercher l\'une trouve l\'autre', () {
     final vault = Vault([VaultEntry.now(key: precompose, value: 'p4ss')]);
-    expect(vault.search(decompose), hasLength(1));
-    expect(vault.search('café'), hasLength(1));
+    expect(searchVault(vault, decompose), hasLength(1));
+    expect(searchVault(vault, 'café'), hasLength(1));
   });
 
   test('la recherche par fragment marche aussi entre les deux formes', () {
     final vault = Vault([VaultEntry.now(key: decompose, value: 'p4ss')]);
-    expect(vault.search('café'), hasLength(1));
+    expect(searchVault(vault, 'café'), hasLength(1));
   });
 
   test('upsert reconnaît la même clef sous ses deux écritures', () {

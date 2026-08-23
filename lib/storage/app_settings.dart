@@ -16,12 +16,12 @@ const List<Duration> autoLockChoices = [
   Duration(minutes: 5),
 ];
 
-/// Bornes du délai, déduites des choix.
+/// Le délai retenu tant que rien n'a été choisi.
 ///
-/// Elles valident ce qui est relu du disque: un fichier modifié à la main ne
-/// doit pas pouvoir garder le coffre ouvert indéfiniment.
-const Duration minAutoLockDelay = Duration(seconds: 30);
-const Duration maxAutoLockDelay = Duration(minutes: 5);
+/// Il n'existe pas de constantes de bornes: [_clampDelay] ramène tout ce qui
+/// est relu du disque à l'un des [autoLockChoices], si bien qu'un minimum et
+/// un maximum déclarés à part n'auraient rien à valider. Il en a existé, sous
+/// un commentaire qui affirmait le contraire.
 const Duration defaultAutoLockDelay = Duration(minutes: 2);
 
 /// Préférences de l'application.

@@ -320,23 +320,6 @@ class VaultCrypto {
     }
   }
 
-  /// Dérive une clé sur un sel neuf, chiffre [vault], puis libère la clé.
-  ///
-  /// Utilisé à la création du coffre et au changement de mot de passe.
-  Uint8List sealWithPassword(
-    Vault vault,
-    String password, {
-    KdfParams params = KdfParams.defaults,
-  }) {
-    final salt = newSalt();
-    final key = deriveKey(password, salt, params);
-    try {
-      return seal(vault, key, salt, params);
-    } finally {
-      key.dispose();
-    }
-  }
-
   /// Chiffre le contenu d'une pièce jointe avec la clé de session.
   ///
   /// Chaque appel tire son propre nonce; l'en-tête sert de données associées,

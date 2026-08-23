@@ -5,6 +5,8 @@ import 'package:safe/crypto/vault_crypto.dart';
 import 'package:safe/model/vault.dart';
 import 'package:sodium/sodium_sumo.dart';
 
+import '../support/crypto_fixture.dart';
+
 void main() {
   test('la dérivation hors isolat donne la même clé que sur place', () async {
     final sodium = await SodiumSumoInit.init();

@@ -8,6 +8,8 @@ import 'package:safe/storage/vault_file.dart';
 import 'package:safe/storage/vault_transfer.dart';
 import 'package:sodium/sodium_sumo.dart';
 
+import '../support/crypto_fixture.dart';
+
 const testParams = KdfParams(opsLimit: 1, memLimit: 8 * 1024 * 1024);
 
 void main() {

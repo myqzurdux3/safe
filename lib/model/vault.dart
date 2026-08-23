@@ -296,16 +296,4 @@ class Vault {
     final canonical = canonicalKey(key);
     return Vault([...entries.where((e) => canonicalKey(e.key) != canonical)]);
   }
-
-  /// Filtre les entrées dont la clef contient [query], casse ignorée.
-  List<VaultEntry> search(String query) {
-    final needle = canonicalKey(query.trim());
-    if (needle.isEmpty) {
-      return entries;
-    }
-    return [
-      for (final entry in entries)
-        if (canonicalKey(entry.key).contains(needle)) entry,
-    ];
-  }
 }

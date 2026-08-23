@@ -62,18 +62,18 @@ void main() {
     // coffre ouvert des heures.
     expect(
       AppSettings.fromJson(const {'autoLockSeconds': 86400}).autoLockDelay,
-      maxAutoLockDelay,
+      const Duration(minutes: 5),
     );
   });
 
   test('zéro ou négatif est ramené au minimum', () {
     expect(
       AppSettings.fromJson(const {'autoLockSeconds': 0}).autoLockDelay,
-      minAutoLockDelay,
+      const Duration(seconds: 30),
     );
     expect(
       AppSettings.fromJson(const {'autoLockSeconds': -5}).autoLockDelay,
-      minAutoLockDelay,
+      const Duration(seconds: 30),
     );
   });
 
