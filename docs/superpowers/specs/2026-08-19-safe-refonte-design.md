@@ -432,3 +432,146 @@ réécrits, jamais supprimés.
 Vérification sur l'émulateur Pixel 9a (`emulator-5554`) après chaque écran, captures à
 l'appui. Le téléphone réel porte le coffre de l'utilisateur et ne sert qu'aux
 installations `adb install -r`.
+
+## État à la clôture
+
+Écrit le 2026-08-23, sur la branche `refonte-interface`, 36 commits au-dessus de `master`.
+Rien n'est fusionné : l'application installée sur le téléphone du propriétaire ne porte
+aucune de ces modifications.
+
+### Ce qui a été fait
+
+Les onze tâches du plan, sauf la vérification sur appareil.
+
+| Tâche | Résultat |
+|---|---|
+| 1 | `lib/model/entry_text.dart` — la découpe en blocs et en notes |
+| 2 | Polices embarquées, jetons de couleur, de texte et d'espacement, `safeLightTheme()` |
+| 3 | Le monogramme redessiné au trait |
+| 4 | Déverrouillage restylé, sans compteur de fiches |
+| 5 | Générateur : bornes 8–48, jeux sans caractères ambigus, état de session |
+| 6 | La fiche : blocs masqués, notes en clair, mode texte brut, tuto de syntaxe |
+| 7 | La nouvelle fiche, et le titre rendu modifiable (décision du propriétaire) |
+| 8 | `lib/model/vault_search.dart` — noms, intertitres, lignes de valeur |
+| 9 | L'accueil à deux onglets, l'ancienne liste supprimée |
+| 10 | Réglages restylés aux jetons |
+| 11 | Code mort, couverture, documentation — mais **pas** le parcours sur appareil |
+| — | Le cadenas de verrouillage manuel dans l'en-tête (décision du propriétaire) |
+
+### Ce qui a été vérifié, et comment
+
+**424 tests verts**, répartis sur 67 fichiers ; `flutter analyze` et `dart format` propres.
+
+Chaque tâche a été écrite par un agent et relue par un autre, sans lui montrer le rapport
+du premier. Les relectures ont trouvé ce qu'une suite verte ne trouve pas : des assertions
+vraies par construction, une cible tactile tombée à 24 px, un écran qui ne s'annonçait
+plus, et la seule phrase disant que le mot de passe maître ne se récupère pas passée sous
+le seuil de contraste AA. Chaque garde a été prouvée par **sabotage exécuté** — casser le
+code, lancer la suite, citer la ligne rouge, restaurer.
+
+Deux trouvailles hors plan méritent d'être nommées, parce qu'elles portent sur la sécurité
+et non sur le dessin :
+
+- **Deux fils du verrouillage automatique n'étaient gardés par rien** (`main.dart:87-88`
+  et `153-155`). Débranchés, la suite restait verte. Or, sans le premier, le coffre se
+  verrouille sous les doigts de qui remplit une fiche au clavier, et la saisie non
+  enregistrée part avec lui ; sans le second, un coffre laissé en arrière-plan pendant
+  qu'Android gèle le processus **revient ouvert**. `test/ui/app_wiring_test.dart` les tient
+  désormais.
+- **Couverture globale 2248/2358 lignes, 95,34 %** (`lcov` étant absent de la machine, les
+  enregistrements `DA:` ont été comptés à la main). Aucune ligne de déchiffrement, de
+  sérialisation ni d'export n'est non couverte, vérifié ligne à ligne. Seul `lib/main.dart`
+  est sous 80 % — 75 %, de l'amorçage non couvrable sous horloge simulée.
+
+Le rendu a été regardé sur des PNG rendus hors écran (`RenderRepaintBoundary.toImage` sous
+`runAsync`, vraies polices chargées par `FontLoader`, 411 × 891 à 2,625×). C'est une image
+juste du dessin, pas une preuve du comportement de l'appareil.
+
+### Ce qui n'a jamais été vérifié sur un écran
+
+**Rien de cette refonte n'a été regardé sur un appareil réel ni sur l'émulateur.** Aucun
+n'était branché pendant l'exécution. Les Steps 3, 4 et 6 de la tâche 11 sont donc ouverts,
+et dans cet ordre d'importance :
+
+1. **Réimporter une sauvegarde exportée par une version antérieure.** C'est la seule chose
+   qui, si elle est cassée, coûte des données. Le diff ne touche pas d'une ligne
+   `vault_transfer.dart`, `vault_crypto.dart` ni le format de fichier, et la couverture le
+   confirme — mais *personne ne l'a fait*. À faire avant toute installation sur le
+   téléphone réel.
+2. **Le rendu des deux icônes** qui remplacent « ↻ » et « ✓ » (voir plus haut).
+3. **Le cadenas de l'en-tête** : 21 px à côté du cercle des réglages, et son déséquilibre
+   de teinte assumé.
+4. Le reste du parcours : création de fiche à trois blocs, ouverture et fermeture d'un
+   bloc, copie d'une ligne et d'un bloc, mode texte brut, recherche par intertitre puis par
+   valeur, générateur, verrouillage.
+
+Rappels pour ce jour-là : toujours `adb -s <numéro de série>`, jamais sans — le nom du
+modèle ne distingue plus le téléphone réel de l'émulateur. Jamais d'`adb uninstall`, jamais
+d'`adb install` sans `-r` sur le téléphone réel : le coffre et les pièces jointes seraient
+effacés. Jamais de compilation *debug* sur le téléphone réel — `run-as` rendrait le coffre
+lisible.
+
+### Écarts assumés
+
+Ceux qui touchent le dessin ou le contenu sont décrits plus haut dans ce document. Résumé,
+avec ce que chacun coûte :
+
+| Écart | Conséquence |
+|---|---|
+| Les notes sans titre s'affichent en clair | Une entrée d'avant la refonte, d'une seule ligne, est aujourd'hui masquée et ne le sera plus. Ajouter une ligne `nom:` au-dessus la remasque, et le tuto le dit |
+| La recherche indexe les valeurs | Une ligne de valeur peut apparaître surlignée dans les résultats sans qu'aucun bloc ait été ouvert |
+| `Icons.refresh` / `Icons.check` au lieu de « ↻ » et « ✓ » | Le dessin est celui de Material, pas celui de la maquette |
+| L'`AppBar` des réglages remplacée par l'en-tête maison | Une `AppBar` ne sait poser ni la gouttière de 24 ni `screenTitle`, tous deux exigés par le plan. Le retour fait toujours `Navigator.maybePop()` et s'annonce « Retour » |
+| Le cadenas de l'en-tête est plus sombre que le cercle des réglages voisin | 4,37:1 contre 1,35:1. Le cercle est un décor que le handoff dessine pâle ; un cadenas aussi pâle serait invisible. **Jamais vu à l'œil** |
+| Pas de compteur de fiches au déverrouillage | Impossible sans divulguer une métadonnée en clair |
+| `CommentBlock` rattache la note par un filet vertical, sans l'encadrer | Le handoff nomme une « surface carte secondaire » ; elle a été supprimée comme jeton mort. La remettre, c'est `block_card.dart:177` |
+| `SafeText.sectionLabel` inutilisé | Inventer « SÉCURITÉ » et « SAUVEGARDE » aurait ajouté des mots à un écran dont le brief gèle les libellés |
+
+### Une perte d'ergonomie consentie
+
+**Copier une valeur depuis la liste demandait une tape ; il en faut trois** (ouvrir la
+fiche, ouvrir le bloc, copier). Le propriétaire du dépôt l'a décidé en connaissance de
+cause : le nouveau modèle de contenu est fait pour des fiches à plusieurs valeurs, où une
+commande unique par ligne devrait deviner laquelle copier — et une copie silencieusement
+fausse est la pire panne d'un gestionnaire de mots de passe. Ce n'est pas un oubli.
+
+### Décisions encore en attente
+
+- **`Vault.search`** (`vault.dart:301`) est mort dans `lib/` — `VaultTab` passe par
+  `searchVault` — mais retenu par `vault_test` et `unicode_keys_test`.
+- **`VaultCrypto.sealWithPassword`** (`vault_crypto.dart:326`) est dans le même cas, avec
+  20 sites de test. **Il touche au chiffrement** : c'est le seul chemin de scellement par
+  mot de passe, celui qui fabrique les octets qu'un export doit rester capable de rouvrir.
+  Ne rien y toucher avant le parcours d'import réel.
+- **`minAutoLockDelay` / `maxAutoLockDelay`** (`app_settings.dart:23-24`) : leur commentaire
+  affirme qu'elles valident ce qui est relu du disque, ce qui est devenu faux —
+  `_clampDelay` ramène tout à `autoLockChoices`. Soit supprimer les constantes et la garde,
+  soit corriger le commentaire.
+
+### Ce qui reste faible
+
+- **Aucun test ne garde le style des cinq écrans refaits.** Un sabotage de jeton ne fait
+  tomber personne. `test/ui/settings_style_test.dart` est le premier du genre — et le seul.
+- **Trois trous de couverture qui comptent** : `home_screen._copier` (copier une ligne
+  depuis un résultat de recherche, avec son repli `MissingPluginException` et ses deux
+  toasts) ; le bouton **Annuler** de `confirm_discard.dart`, jamais pressé — s'il renvoyait
+  `true`, une saisie serait perdue en croyant la garder ; `VaultFile.defaultDirectory()`,
+  où se tromper de dossier revient à ouvrir le mauvais coffre.
+- **Le focus directionnel ignore les commandes des en-têtes** — cadenas, réglages, flèche
+  de retour. Ce sont des `GestureDetector` : pas de `Focus`, pas d'infobulle, pas de retour
+  d'encre au toucher. Défaut préexistant, non aggravé, non corrigé.
+- **Titres sans `header` ni `namesRoute`** dans `entry_screen.dart` et
+  `new_entry_screen.dart` — le défaut exact corrigé dans les réglages. Préexistant.
+- **Mineurs différés**, relevés en relecture et jugés sans conséquence : la liste rendue par
+  `parseEntryText` est croissable ; `length` compte des unités UTF-16 et non des graphèmes ;
+  deux titres consécutifs sans ligne entre eux gardent un groupe vide ; le pied de page
+  ancré au clavier n'est figé par aucun test durable ; le test « chaque classe présente »
+  pour le jeu « Lettres » a une marge de détection faible ; un test de recherche promet plus
+  qu'il ne prouve ; quatre cibles tactiles entre 29 et 46 px dans la fiche.
+
+### Ce que le propriétaire doit vérifier lui-même
+
+Réimporter une sauvegarde d'avant la refonte, avant tout le reste. Puis regarder les deux
+icônes et le cadenas. Puis trancher les trois symboles morts ci-dessus. L'installation sur
+le Pixel 9a se fait `adb install -r` sur une compilation *release*, et `firstInstallTime`
+doit être inchangé après.
