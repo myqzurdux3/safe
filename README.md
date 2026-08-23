@@ -187,11 +187,14 @@ Le script produit les mipmaps Android (héritées, rondes, adaptatives) et les
 PNG `assets/icon/`. Modifier les couleurs ou la géométrie se fait dans
 `tool/generate_icons.py`, puis on relance la commande.
 
-**L'icône de lancement et la marque affichée dans l'application sont deux
-dessins différents.** Le lanceur porte un bouclier à serrure évidée, produit par
-le script ci-dessus. L'application, elle, dessine le « fermoir » —
-`lib/ui/safe_logo.dart`, deux équerres qui s'emboîtent sans se toucher, en
-vectoriel, aux couleurs du thème. Les réunir reste à faire.
+**C'est la même marque partout.** Le lanceur et l'application montrent le
+« fermoir »: deux équerres qui s'emboîtent sans se toucher. Le script la
+rastérise pour Android et Linux; `lib/ui/safe_logo.dart` la redessine à
+l'écran, en vectoriel, pour suivre la couleur du thème. Les deux partent du même
+tracé, écrit dans les deux fichiers.
+
+Sur le fond vert sombre du lanceur, les traits prennent la déclinaison claire
+(`#7ee0a8` et `#eef2ef`): les teintes du fond clair y seraient invisibles.
 
 Sous Linux, l'icône de fenêtre est chargée par le lanceur natif depuis les
 ressources empaquetées. Pour une installation système, `linux/packaging/safe.desktop`

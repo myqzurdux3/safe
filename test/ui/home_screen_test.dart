@@ -282,6 +282,46 @@ void main() {
     session.lock();
   });
 
+  testWidgets('la commande des réglages dessine quelque chose', (tester) async {
+    // Elle n'était qu'un cercle vide, pâle, hérité du handoff: à l'écran,
+    // rien n'y disait qu'elle ouvre les réglages, et le propriétaire l'a
+    // signalée comme « l'image qui ne s'affiche pas ». Depuis que le cadenas,
+    // lisible, est son voisin immédiat, un cercle nu se lit comme une puce
+    // décorative.
+    final session = await makeUnlockedSession();
+    await tester.pumpWidget(_accueil(session));
+    await tester.pumpAndSettle();
+
+    final pictogramme = find.descendant(
+      of: find.byKey(const Key('settings')),
+      matching: find.byType(Icon),
+    );
+    expect(
+      pictogramme,
+      findsOneWidget,
+      reason: 'la commande des réglages ne dessine aucun pictogramme',
+    );
+
+    // Et il se voit: la même encre que le cadenas, pas le gris de décor.
+    final tokens = SafeTokens.of(
+      tester.element(find.byKey(const Key('settings'))),
+    );
+    expect(tester.widget<Icon>(pictogramme).color, tokens.secondaryText);
+    expect(
+      tester.widget<Icon>(pictogramme).size,
+      tester
+          .widget<Icon>(
+            find.descendant(
+              of: find.byKey(const Key('header-lock')),
+              matching: find.byType(Icon),
+            ),
+          )
+          .size,
+      reason: 'les deux commandes de l\'en-tête doivent faire la même taille',
+    );
+    session.lock();
+  });
+
   testWidgets('coffre vide: une invite, pas une liste blanche', (tester) async {
     final session = await makeUnlockedSession();
     await tester.pumpWidget(_accueil(session));

@@ -386,9 +386,11 @@ Pour une version une-couleur — barre système, gabarit foncé — les deux tra
 
 **Décision du propriétaire, 2026-08-23 :** le monogramme S (marque `B`), retenu par le
 handoff dans tous ses écrans validés et implémenté jusque-là, est remplacé par le fermoir.
-Les autres écrans ne bougent pas ; seul le signe change. L'**icône de lancement** reste le
-bouclier à serrure évidée de `tool/generate_icons.py` : l'application montre donc deux
-marques différentes selon qu'on la lance ou qu'on l'ouvre.
+Les autres écrans ne bougent pas ; seul le signe change. L'**icône de lancement** suit :
+`tool/generate_icons.py` ne dessine plus le bouclier à serrure évidée mais le même fermoir,
+si bien que le lanceur et l'application montrent désormais la même marque. Sur le fond vert
+sombre du lanceur, les traits prennent la déclinaison claire du handoff — `#7ee0a8` et
+`#eef2ef` — parce que `#183a2b` sur `#255C42` serait un trait invisible.
 
 ## Écarts imposés par la plateforme
 
@@ -448,7 +450,7 @@ installations `adb install -r`.
 
 ## État à la clôture
 
-Écrit le 2026-08-23, sur la branche `refonte-interface`, 40 commits au-dessus de `master`.
+Écrit le 2026-08-23, sur la branche `refonte-interface`, 41 commits au-dessus de `master`.
 Rien n'est fusionné : l'application installée sur le téléphone du propriétaire ne porte
 aucune de ces modifications.
 
@@ -470,11 +472,11 @@ Les onze tâches du plan, sauf la vérification sur appareil.
 | 10 | Réglages restylés aux jetons |
 | 11 | Code mort, couverture, documentation, parcours sur l'émulateur |
 | — | Le cadenas de verrouillage manuel dans l'en-tête (décision du propriétaire) |
-| — | Le logo passé du monogramme S au fermoir (décision du propriétaire) |
+| — | Le logo passé du monogramme S au fermoir, écran **et** lanceur (décision du propriétaire) |
 
 ### Ce qui a été vérifié, et comment
 
-**430 tests verts**, répartis sur 68 fichiers ; `flutter analyze` et `dart format` propres.
+**431 tests verts**, répartis sur 68 fichiers ; `flutter analyze` et `dart format` propres.
 
 Chaque tâche a été écrite par un agent et relue par un autre, sans lui montrer le rapport
 du premier. Les relectures ont trouvé ce qu'une suite verte ne trouve pas : des assertions
@@ -555,12 +557,13 @@ Trois choses qu'aucune suite verte n'avait signalées.
    **Corrigé**, avec trois gardes qui lisent le style *rendu* de l'invite.
 2. **Les réglages parlaient encore de « clefs » et de « valeurs ».** Vocabulaire d'avant la
    refonte, resté parce que le contrat de la tâche 10 gelait les libellés. **Corrigé.**
-3. **La commande des réglages est un cercle vide pâle** et ne dit rien de ce qu'elle
+3. **La commande des réglages était un cercle vide pâle** et ne disait rien de ce qu'elle
    ouvre — d'autant moins depuis que le cadenas, lisible, est son voisin immédiat : elle se
-   lit comme une puce décorative. Ce document n'écrit que « commande réglages à droite » ;
-   le cercle vient du handoff. **Non corrigé — décision du propriétaire :** y poser
-   `Icons.settings` comme le cadenas porte `Icons.lock_outline`, encrer le cercle, ou
-   laisser tel quel.
+   lisait comme une puce décorative, au point d'être signalée comme « l'image qui ne
+   s'affiche pas ». Ce document n'écrit que « commande réglages à droite » ; le cercle
+   venait du handoff. **Corrigé** sur décision du propriétaire : `Icons.settings_outlined`,
+   à la taille et à l'encre du cadenas, pour que les deux commandes de l'en-tête se lisent
+   comme une paire.
 
 ### Écarts assumés
 

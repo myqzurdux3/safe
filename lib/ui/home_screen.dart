@@ -239,10 +239,10 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       GestureDetector(
         key: const Key('settings'),
-        // Opaque et de la taille d'un doigt: le cercle du handoff ne fait que
-        // 21 px. Le cadenas est désormais son voisin immédiat, et les deux
-        // cibles se touchent sans se recouvrir — la garde de l'accueil mesure
-        // les deux rectangles.
+        // Opaque et de la taille d'un doigt: le signe du handoff ne fait que
+        // 21 px. Le cadenas est son voisin immédiat, et les deux cibles se
+        // touchent sans se recouvrir — la garde de l'accueil mesure les deux
+        // rectangles.
         behavior: HitTestBehavior.opaque,
         onTap: _ouvrirReglages,
         child: SizedBox(
@@ -252,13 +252,15 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Semantics(
               button: true,
               label: 'Réglages',
-              child: Container(
-                width: 21,
-                height: 21,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: tokens.inactiveBullet, width: 1.6),
-                ),
+              // Le handoff dessine ici un cercle vide et pâle. À l'écran il ne
+              // dit rien: rien n'y indique qu'il ouvre les réglages, et à côté
+              // d'un cadenas lisible il se lit comme une puce décorative. Une
+              // roue dentée, à la taille et à l'encre du cadenas, pour que les
+              // deux commandes de l'en-tête se lisent comme une paire.
+              child: Icon(
+                Icons.settings_outlined,
+                size: 21,
+                color: tokens.secondaryText,
               ),
             ),
           ),
