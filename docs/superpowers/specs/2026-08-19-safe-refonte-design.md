@@ -367,15 +367,28 @@ toast (`0 6px 18px rgba(0,0,0,.18)`). Aucune ombre de carte.
 
 ### Logo
 
-Monogramme S géométrique, tracé unique de deux demi-cercles, dans un `viewBox` de 48 :
+Le **fermoir** — marque `C` de la planche `1a` du handoff. Deux équerres qui s'emboîtent
+sans se toucher, dans un `viewBox` de 48 :
 
 ```
-M34 14 A10 10 0 1 0 24 24 A10 10 0 1 1 14 34
+M32 7 H16 A9 9 0 0 0 7 16 V26      trait #2f7d5b
+M16 41 H32 A9 9 0 0 0 41 32 V22    trait #183a2b
 ```
 
-Trait 7, extrémités arrondies, sans remplissage, couleur `#2f7d5b` (version foncée
-`#183a2b`). Tailles : 34 px au déverrouillage, 17 px en en-tête d'accueil, jamais moins de
-16 px. Logotype « safe » en Instrument Sans 600, `-0.03em`, `#183a2b`, à 9–12 px du signe.
+Trait 7, extrémités arrondies, sans remplissage. Le centre du carré reste **vide** : c'est
+ce que le dessin dit — verrouillé quand les deux équerres s'alignent, entrouvert quand
+elles glissent —, et c'est aussi ce qui le distingue à coup sûr du monogramme S.
+Tailles : 34 px au déverrouillage, 17 px en en-tête d'accueil, jamais moins de 16 px.
+Logotype « safe » en Instrument Sans 600, `-0.03em`, `#183a2b`, à 9–12 px du signe.
+
+Pour une version une-couleur — barre système, gabarit foncé — les deux traits prennent
+`#183a2b`.
+
+**Décision du propriétaire, 2026-08-23 :** le monogramme S (marque `B`), retenu par le
+handoff dans tous ses écrans validés et implémenté jusque-là, est remplacé par le fermoir.
+Les autres écrans ne bougent pas ; seul le signe change. L'**icône de lancement** reste le
+bouclier à serrure évidée de `tool/generate_icons.py` : l'application montre donc deux
+marques différentes selon qu'on la lance ou qu'on l'ouvre.
 
 ## Écarts imposés par la plateforme
 
@@ -435,7 +448,7 @@ installations `adb install -r`.
 
 ## État à la clôture
 
-Écrit le 2026-08-23, sur la branche `refonte-interface`, 39 commits au-dessus de `master`.
+Écrit le 2026-08-23, sur la branche `refonte-interface`, 40 commits au-dessus de `master`.
 Rien n'est fusionné : l'application installée sur le téléphone du propriétaire ne porte
 aucune de ces modifications.
 
@@ -457,10 +470,11 @@ Les onze tâches du plan, sauf la vérification sur appareil.
 | 10 | Réglages restylés aux jetons |
 | 11 | Code mort, couverture, documentation, parcours sur l'émulateur |
 | — | Le cadenas de verrouillage manuel dans l'en-tête (décision du propriétaire) |
+| — | Le logo passé du monogramme S au fermoir (décision du propriétaire) |
 
 ### Ce qui a été vérifié, et comment
 
-**427 tests verts**, répartis sur 68 fichiers ; `flutter analyze` et `dart format` propres.
+**430 tests verts**, répartis sur 68 fichiers ; `flutter analyze` et `dart format` propres.
 
 Chaque tâche a été écrite par un agent et relue par un autre, sans lui montrer le rapport
 du premier. Les relectures ont trouvé ce qu'une suite verte ne trouve pas : des assertions
