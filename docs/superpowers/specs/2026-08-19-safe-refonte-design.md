@@ -450,7 +450,7 @@ installations `adb install -r`.
 
 ## État à la clôture
 
-Écrit le 2026-08-23, sur la branche `refonte-interface`, 41 commits au-dessus de `master`.
+Écrit le 2026-08-23, sur la branche `refonte-interface`, 44 commits au-dessus de `master`.
 Rien n'est fusionné : l'application installée sur le téléphone du propriétaire ne porte
 aucune de ces modifications.
 
@@ -506,8 +506,17 @@ ce que l'appareil, lui, a montré.
 
 ### Ce qui a été vérifié sur un appareil
 
-Sur l'**émulateur** Pixel 9a (`emulator-5554`, APK *debug*). **Le téléphone réel n'a jamais
-été branché et rien n'y a été installé** : le Step 6 du plan reste entier.
+Sur l'**émulateur** Pixel 9a (`emulator-5554`, APK *debug*), puis sur le **téléphone réel**
+(`5A101JEBF39259`, APK *release*) le 2026-08-23.
+
+L'installation sur le téléphone a suivi le Step 6 du plan, avec ses vérifications avant :
+le certificat de signature de l'APK neuf et celui du paquet déjà installé ont été extraits
+et comparés — mêmes empreintes SHA-256, la clef *debug* d'Android — et l'APK a été confirmé
+**non débogable**. Sans cette égalité, `install -r` aurait échoué et la seule « issue »
+aurait été une désinstallation, c'est-à-dire la perte du coffre. Après l'installation,
+`firstInstallTime` est **inchangé** (2026-08-14 18:51:03) : c'était bien une mise à jour.
+L'application relancée affiche « Content de te revoir. / Ton coffre est fermé. », la branche
+« coffre existant » — le coffre a survécu. Il n'a pas été ouvert.
 
 Le point le plus important d'abord. **Une sauvegarde scellée par le code d'avant la
 refonte se réimporte.** Elle a été fabriquée avec le `sealWithPassword` de `master`, puis
@@ -538,8 +547,9 @@ Constaté aussi, pour la première fois :
 - **Une fiche d'avant la refonte s'affiche en clair**, comme une note rattachée par un
   filet — la conséquence de l'écart de masquage, vue sur l'écran et non plus déduite.
 
-**Ce qui reste sans regard :** le téléphone réel ; une fiche à trois blocs écrite à la
-main ; le mode texte brut ; la recherche tapée au clavier ; les pièces jointes.
+**Ce qui reste sans regard :** une fiche à trois blocs écrite à la main ; le mode texte
+brut ; la recherche tapée au clavier ; les pièces jointes. Et, sur le téléphone réel, tout
+ce qui se trouve derrière le mot de passe maître : il n'est jamais demandé.
 
 Rappels pour le jour du téléphone réel : toujours `adb -s <numéro de série>`, jamais sans —
 le nom du modèle ne distingue plus le téléphone de l'émulateur. Jamais d'`adb uninstall`,
@@ -627,8 +637,8 @@ fausse est la pire panne d'un gestionnaire de mots de passe. Ce n'est pas un oub
 
 ### Ce que le propriétaire doit vérifier lui-même
 
-Trancher le cercle des réglages, et les trois symboles morts ci-dessus. Puis, sur le
-téléphone : l'installation se fait `adb install -r` sur une compilation **release**, et
-`firstInstallTime` doit être inchangé après. Y refaire l'import d'une sauvegarde réelle
-avant de se fier à celui de l'émulateur : c'est le même code, mais ce n'est pas le même
-coffre.
+Ouvrir le coffre sur le téléphone et parcourir quelques fiches réelles : la refonte y est
+installée depuis le 2026-08-23, mais rien de ce qui est derrière le mot de passe maître n'a
+été vu. Y refaire l'import d'une sauvegarde réelle avant de se fier à celui de l'émulateur :
+c'est le même code, mais ce n'est pas le même coffre. Et trancher les trois symboles morts
+ci-dessus.
