@@ -1,8 +1,22 @@
-# safe
+<p align="center">
+  <img src="assets/icon/safe_128.png" width="84" alt="">
+</p>
 
-Coffre chiffré, minimaliste, pour Android et Linux. Une fiche porte un nom et
-un bloc de texte libre — plusieurs services, des codes, des notes; tout est
-chiffré en bloc par un mot de passe maître, et rien ne quitte l'appareil.
+<h1 align="center">safe</h1>
+
+<p align="center">
+  Un coffre à secrets chiffré, pour Android et Linux.<br>
+  Pas de compte, pas de serveur, pas de synchronisation : rien ne quitte l'appareil.
+</p>
+
+<p align="center">
+  <img src="docs/images/verrou.png" width="240" alt="L'écran de déverrouillage">
+  <img src="docs/images/accueil.png" width="240" alt="La liste des fiches, avec la recherche">
+  <img src="docs/images/generateur.png" width="240" alt="Le générateur de mots de passe">
+</p>
+
+Une fiche porte un nom et un bloc de texte libre — plusieurs services, des
+codes, des notes; tout est chiffré en bloc par un mot de passe maître.
 
 ## Ce qu'il fait
 
