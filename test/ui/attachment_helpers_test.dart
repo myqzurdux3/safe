@@ -1,23 +1,42 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:safe/l10n/app_localizations.dart';
 import 'package:safe/ui/attachments_section.dart';
 
 void main() {
   group('formatBytes', () {
-    test('sous le kilo-octet, en octets', () {
-      expect(formatBytes(0), '0 o');
-      expect(formatBytes(1023), '1023 o');
+    late L fr;
+    late L en;
+
+    setUpAll(() async {
+      fr = await L.delegate.load(const Locale('fr'));
+      en = await L.delegate.load(const Locale('en'));
     });
 
-    test('au-delà, en kilo-octets avec une virgule décimale', () {
-      // Virgule et non point: le reste de l'interface est en français.
-      expect(formatBytes(1024), '1,0 ko');
-      expect(formatBytes(1536), '1,5 ko');
-      expect(formatBytes(1024 * 1024 - 1), '1024,0 ko');
+    test('sous le kilo-octet, en octets', () {
+      expect(formatBytes(fr, 0), '0 o');
+      expect(formatBytes(fr, 1023), '1023 o');
+      expect(formatBytes(en, 1023), '1023 B');
+    });
+
+    test('au-delà, en kilo-octets', () {
+      expect(formatBytes(fr, 1024), '1,0 ko');
+      expect(formatBytes(fr, 1536), '1,5 ko');
+      // Espace fine insécable (U+202F) entre les milliers: c'est ce que pose
+      // `intl` en français, et non l'espace ordinaire.
+      expect(formatBytes(fr, 1024 * 1024 - 1), '1\u202f024,0 ko');
     });
 
     test('au-delà du mégaoctet, en mégaoctets', () {
-      expect(formatBytes(1024 * 1024), '1,0 Mo');
-      expect(formatBytes(25 * 1024 * 1024), '25,0 Mo');
+      expect(formatBytes(fr, 1024 * 1024), '1,0 Mo');
+      expect(formatBytes(fr, 25 * 1024 * 1024), '25,0 Mo');
+    });
+
+    test('le séparateur décimal suit la langue', () {
+      // Virgule en français, point en anglais. Un `replaceAll` codé en dur
+      // donnait « 1,5 kB » à un lecteur anglophone.
+      expect(formatBytes(fr, 1536), '1,5 ko');
+      expect(formatBytes(en, 1536), '1.5 kB');
     });
   });
 

@@ -100,14 +100,6 @@ int countBlocks(List<EntryGroup> groups) => groups.length;
 int countLines(List<EntryGroup> groups) =>
     groups.fold(0, (total, group) => total + group.lines.length);
 
-/// Le compteur affiché en en-tête de fiche: « 5 blocs · 7 lignes ».
-String describeGroups(List<EntryGroup> groups) {
-  final blocks = countBlocks(groups);
-  final lines = countLines(groups);
-  return '$blocks bloc${blocks > 1 ? 's' : ''} · '
-      '$lines ligne${lines > 1 ? 's' : ''}';
-}
-
 /// Groupe en cours de construction; l'immuabilité arrive au rendu.
 class _Group {
   _Group(this.title);

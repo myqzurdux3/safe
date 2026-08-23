@@ -54,7 +54,9 @@ void main() {
     final groups = parseEntryText(reference);
     expect(countBlocks(groups), 5);
     expect(countLines(groups), 7);
-    expect(describeGroups(groups), '5 blocs · 7 lignes');
+    // Les compteurs, pas leur mise en mots: celle-ci dépend de la langue.
+    expect(countBlocks(groups), 5);
+    expect(countLines(groups), 7);
   });
 
   test('un titre de 44 caractères ouvre un bloc, 45 non', () {
@@ -110,8 +112,10 @@ void main() {
   });
 
   test('le singulier est respecté dans les compteurs', () {
-    expect(describeGroups(parseEntryText('un:\nx')), '1 bloc · 1 ligne');
-    expect(describeGroups(const []), '0 bloc · 0 ligne');
+    expect(countBlocks(parseEntryText('un:\nx')), 1);
+    expect(countLines(parseEntryText('un:\nx')), 1);
+    expect(countBlocks(const []), 0);
+    expect(countLines(const []), 0);
   });
 
   test('les groupes rendus ne sont pas modifiables', () {

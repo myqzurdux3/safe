@@ -121,9 +121,9 @@
   "sizeBytes": "{count} o",
   "@sizeBytes": { "placeholders": { "count": { "type": "int" } } },
   "sizeKilobytes": "{value} ko",
-  "@sizeKilobytes": { "placeholders": { "value": { "type": "String" } } },
+  "@sizeKilobytes": { "placeholders": { "value": { "type": "double", "format": "decimalPatternDigits", "optionalParameters": { "decimalDigits": 1 } } } },
   "sizeMegabytes": "{value} Mo",
-  "@sizeMegabytes": { "placeholders": { "value": { "type": "String" } } },
+  "@sizeMegabytes": { "placeholders": { "value": { "type": "double", "format": "decimalPatternDigits", "optionalParameters": { "decimalDigits": 1 } } } },
 
   "settingsTitle": "Réglages",
   "settingsChangePassword": "Changer le mot de passe maître",

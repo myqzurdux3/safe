@@ -21,6 +21,8 @@ codes, des notes; tout est chiffré en bloc par un mot de passe maître.
 ## Ce qu'il fait
 
 - Créer un coffre protégé par un mot de passe maître
+- **Français et anglais**: l'application suit la langue de l'appareil, et le
+  réglage « Langue » permet de forcer l'une ou l'autre
 - Ajouter, modifier, supprimer, rechercher des fiches
 - Une fiche tient plusieurs services: son texte se découpe tout seul en blocs
   titrés et en notes, sans rien réécrire de ce qui a été tapé (voir plus bas)
@@ -159,17 +161,18 @@ une clé USB ne l'expose pas.
 
 ## Configuration
 
-`settings.json`, à côté du coffre, en clair. Deux réglages, tous deux modifiables
+`settings.json`, à côté du coffre, en clair. Trois réglages, tous modifiables
 depuis l'écran Réglages:
 
 | Clef | Valeurs | Défaut |
 |---|---|---|
 | `blockScreenshots` | `true` / `false` | `true` |
 | `autoLockSeconds` | 30, 60, 120 ou 300 | 120 |
+| `language` | `system`, `fr` ou `en` | `system` |
 
 Une valeur absente, aberrante ou hors de cette liste retombe sur le réglage le
 plus protecteur; un `autoLockSeconds` intermédiaire est ramené au choix
-inférieur. Supprimer le fichier remet les défauts. Il ne contient aucun secret et
+inférieur, et un `language` inconnu revient à `system`. Supprimer le fichier remet les défauts. Il ne contient aucun secret et
 ne dit rien du contenu du coffre.
 
 ## Transférer un coffre entre appareils
@@ -240,6 +243,7 @@ lib/
   state/vault_session.dart   Verrouillé / déverrouillé, auto-lock
   state/generator_session.dart  Longueur, jeu, historique en mémoire
   ui/                        Verrou, accueil à deux onglets, fiche, réglages
+  l10n/                      Traductions (ARB français et anglais)
   ui/theme/safe_theme.dart   Jetons de couleur, de texte et d'espacement
   ui/widgets/                Blocs, pilules, bouton, toast, tuto de syntaxe
   ui/safe_logo.dart          Logo vectoriel, dessiné au trait

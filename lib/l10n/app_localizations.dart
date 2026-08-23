@@ -653,13 +653,13 @@ abstract class L {
   ///
   /// In fr, this message translates to:
   /// **'{value} ko'**
-  String sizeKilobytes(String value);
+  String sizeKilobytes(double value);
 
   /// No description provided for @sizeMegabytes.
   ///
   /// In fr, this message translates to:
   /// **'{value} Mo'**
-  String sizeMegabytes(String value);
+  String sizeMegabytes(double value);
 
   /// No description provided for @settingsTitle.
   ///

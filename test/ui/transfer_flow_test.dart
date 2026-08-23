@@ -97,6 +97,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    // L'écran a gagné une ligne (« Langue ») et « Importer » tombe sous le
+    // bord des 600 px de la surface de test: sans ce défilement, la tape
+    // atterrit dans le vide et la boîte de mot de passe ne s'ouvre jamais.
+    await tester.ensureVisible(find.byKey(const Key('import')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('import')));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -135,6 +140,11 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    // L'écran a gagné une ligne (« Langue ») et « Importer » tombe sous le
+    // bord des 600 px de la surface de test: sans ce défilement, la tape
+    // atterrit dans le vide et la boîte de mot de passe ne s'ouvre jamais.
+    await tester.ensureVisible(find.byKey(const Key('import')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('import')));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -169,6 +179,11 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    // L'écran a gagné une ligne (« Langue ») et « Importer » tombe sous le
+    // bord des 600 px de la surface de test: sans ce défilement, la tape
+    // atterrit dans le vide et la boîte de mot de passe ne s'ouvre jamais.
+    await tester.ensureVisible(find.byKey(const Key('import')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('import')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('import-password')), 'peu');
@@ -201,6 +216,11 @@ void main() {
         ),
       ),
     );
+    await tester.pumpAndSettle();
+    // L'écran a gagné une ligne (« Langue ») et « Importer » tombe sous le
+    // bord des 600 px de la surface de test: sans ce défilement, la tape
+    // atterrit dans le vide et la boîte de mot de passe ne s'ouvre jamais.
+    await tester.ensureVisible(find.byKey(const Key('import')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('import')));
     await tester.pumpAndSettle();

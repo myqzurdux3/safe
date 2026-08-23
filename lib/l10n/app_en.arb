@@ -104,7 +104,9 @@
   "attachmentDeleteLabel": "Delete “{name}”",
   "sizeBytes": "{count} B",
   "sizeKilobytes": "{value} kB",
+  "@sizeKilobytes": { "placeholders": { "value": { "type": "double", "format": "decimalPatternDigits", "optionalParameters": { "decimalDigits": 1 } } } },
   "sizeMegabytes": "{value} MB",
+  "@sizeMegabytes": { "placeholders": { "value": { "type": "double", "format": "decimalPatternDigits", "optionalParameters": { "decimalDigits": 1 } } } },
 
   "settingsTitle": "Settings",
   "settingsChangePassword": "Change the master password",

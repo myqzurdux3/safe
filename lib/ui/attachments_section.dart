@@ -5,18 +5,24 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../l10n/app_localizations.dart';
 import '../model/vault.dart';
 import '../state/vault_session.dart';
 
 /// Affiche une taille en octets de façon lisible.
-String formatBytes(int bytes) {
+///
+/// Le séparateur décimal vient des traductions et non d'un `replaceAll`: il
+/// s'écrit avec une virgule en français et un point en anglais, et coder l'un
+/// des deux en dur donnait un « 1.5 ko » ou un « 1,5 kB » faux selon la
+/// langue.
+String formatBytes(L t, int bytes) {
   if (bytes < 1024) {
-    return '$bytes o';
+    return t.sizeBytes(bytes);
   }
   if (bytes < 1024 * 1024) {
-    return '${(bytes / 1024).toStringAsFixed(1).replaceAll('.', ',')} ko';
+    return t.sizeKilobytes(bytes / 1024);
   }
-  return '${(bytes / (1024 * 1024)).toStringAsFixed(1).replaceAll('.', ',')} Mo';
+  return t.sizeMegabytes(bytes / (1024 * 1024));
 }
 
 /// Devine le type d'un fichier à partir de son extension.
@@ -75,6 +81,8 @@ class _AttachmentsSectionState extends State<AttachmentsSection> {
   }
 
   Future<void> _add() async {
+    // Lu avant le premier `await`: après, le contexte a pu disparaître.
+    final t = L.of(context);
     final key = widget.entryKey;
     if (key == null) {
       return;
@@ -97,7 +105,9 @@ class _AttachmentsSectionState extends State<AttachmentsSection> {
         // Le sélecteur ne garantit pas un nom: certaines implémentations
         // rendent un fichier en mémoire, sans chemin ni nom. Une pièce jointe
         // sans nom serait indistinguable des autres dans la liste.
-        name: file.name.trim().isEmpty ? 'pièce jointe' : file.name,
+        name: file.name.trim().isEmpty
+            ? t.attachmentAdd.toLowerCase()
+            : file.name,
         mimeType: file.mimeType ?? guessMimeType(file.name),
         bytes: bytes,
       );
@@ -107,11 +117,13 @@ class _AttachmentsSectionState extends State<AttachmentsSection> {
       attached = true;
     } on AttachmentTooLargeException catch (error) {
       _tell(
-        'Fichier trop gros (${formatBytes(error.size)}); maximum '
-        '${formatBytes(maxAttachmentBytes)}',
+        t.attachmentTooBig(
+          formatBytes(t, error.size),
+          formatBytes(t, maxAttachmentBytes),
+        ),
       );
     } catch (_) {
-      _tell('Impossible de joindre ce fichier');
+      _tell(t.attachmentAddFailed);
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -123,6 +135,8 @@ class _AttachmentsSectionState extends State<AttachmentsSection> {
   }
 
   Future<void> _open(VaultAttachment attachment) async {
+    // Lu avant le premier `await`: après, le contexte a pu disparaître.
+    final t = L.of(context);
     setState(() => _busy = true);
     try {
       final bytes = await widget.session.readAttachment(attachment);
@@ -147,7 +161,7 @@ class _AttachmentsSectionState extends State<AttachmentsSection> {
                   ),
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Fermer'),
+                    child: Text(t.close),
                   ),
                 ],
               ),
@@ -163,7 +177,7 @@ class _AttachmentsSectionState extends State<AttachmentsSection> {
         bytes.fillRange(0, bytes.length, 0);
       }
     } catch (_) {
-      _tell('Lecture impossible: pièce jointe absente ou coffre verrouillé');
+      _tell(t.attachmentReadFailed);
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -172,6 +186,8 @@ class _AttachmentsSectionState extends State<AttachmentsSection> {
   }
 
   Future<void> _exportBytes(VaultAttachment attachment, Uint8List bytes) async {
+    // Lu avant le premier `await`: après, le contexte a pu disparaître.
+    final t = L.of(context);
     // Sortir une pièce jointe la rend lisible en clair sur le disque: c'est le
     // seul moment où le contenu quitte le coffre, et c'est un choix explicite.
     if (Platform.isAndroid || Platform.isIOS) {
@@ -186,7 +202,7 @@ class _AttachmentsSectionState extends State<AttachmentsSection> {
     final location = await getSaveLocation(suggestedName: attachment.name);
     if (location != null) {
       await File(location.path).writeAsBytes(bytes);
-      _tell('Enregistré en clair dans ${location.path}');
+      _tell(t.attachmentSavedPlain(location.path));
     }
   }
 
@@ -196,6 +212,8 @@ class _AttachmentsSectionState extends State<AttachmentsSection> {
   /// ouvraient deux boîtes d'enregistrement, et un déchiffrement raté ne disait
   /// rien du tout.
   Future<void> _export(VaultAttachment attachment) async {
+    // Lu avant le premier `await`: après, le contexte a pu disparaître.
+    final t = L.of(context);
     setState(() => _busy = true);
     try {
       final bytes = await widget.session.readAttachment(attachment);
@@ -205,7 +223,7 @@ class _AttachmentsSectionState extends State<AttachmentsSection> {
         bytes.fillRange(0, bytes.length, 0);
       }
     } catch (_) {
-      _tell('Export impossible: pièce jointe absente ou coffre verrouillé');
+      _tell(t.attachmentExportFailed);
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -214,6 +232,8 @@ class _AttachmentsSectionState extends State<AttachmentsSection> {
   }
 
   Future<void> _detach(VaultAttachment attachment) async {
+    // Lu avant le premier `await`: après, le contexte a pu disparaître.
+    final t = L.of(context);
     final key = widget.entryKey;
     if (key == null) {
       return;
@@ -221,18 +241,18 @@ class _AttachmentsSectionState extends State<AttachmentsSection> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Supprimer cette pièce jointe ?'),
-        content: Text('« ${attachment.name} » sera effacée définitivement.'),
+        title: Text(t.attachmentDeleteTitle),
+        content: Text(t.attachmentDeleteBody(attachment.name)),
         actions: [
           TextButton(
             key: const Key('cancel-detach'),
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Annuler'),
+            child: Text(t.cancel),
           ),
           FilledButton(
             key: const Key('confirm-detach'),
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Supprimer'),
+            child: Text(t.delete),
           ),
         ],
       ),
@@ -246,7 +266,7 @@ class _AttachmentsSectionState extends State<AttachmentsSection> {
         attachment: attachment,
       );
     } catch (_) {
-      _tell('Suppression impossible: le coffre s\'est peut-être verrouillé');
+      _tell(t.attachmentDeleteFailed);
       return;
     }
     if (mounted) {
@@ -266,33 +286,29 @@ class _AttachmentsSectionState extends State<AttachmentsSection> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final t = L.of(context);
     final attachments = _attachments;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
           children: [
-            Text('Pièces jointes', style: theme.textTheme.titleMedium),
+            Text(t.attachmentsTitle, style: theme.textTheme.titleMedium),
             const Spacer(),
             if (widget.entryKey != null)
               TextButton.icon(
                 key: const Key('attach'),
                 onPressed: _busy ? null : _add,
                 icon: const Icon(Icons.attach_file),
-                label: const Text('Ajouter'),
+                label: Text(t.add),
               ),
           ],
         ),
         if (widget.entryKey == null)
-          Text(
-            'Enregistrez l\'entrée pour pouvoir y joindre des photos ou des '
-            'documents.',
-            style: theme.textTheme.bodySmall,
-          )
+          Text(t.attachmentsSaveFirst, style: theme.textTheme.bodySmall)
         else if (attachments.isEmpty)
           Text(
-            'Aucune pièce jointe. Maximum '
-            '${formatBytes(maxAttachmentBytes)} par fichier.',
+            t.attachmentsEmpty(formatBytes(t, maxAttachmentBytes)),
             style: theme.textTheme.bodySmall,
           )
         else
@@ -310,7 +326,7 @@ class _AttachmentsSectionState extends State<AttachmentsSection> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              subtitle: Text(formatBytes(attachment.size)),
+              subtitle: Text(formatBytes(t, attachment.size)),
               onTap: _busy ? null : () => _open(attachment),
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -318,13 +334,13 @@ class _AttachmentsSectionState extends State<AttachmentsSection> {
                   IconButton(
                     key: Key('export-${attachment.id}'),
                     icon: const Icon(Icons.save_alt),
-                    tooltip: 'Exporter « ${attachment.name} » en clair',
+                    tooltip: t.attachmentExportLabel(attachment.name),
                     onPressed: _busy ? null : () => _export(attachment),
                   ),
                   IconButton(
                     key: Key('detach-${attachment.id}'),
                     icon: const Icon(Icons.delete_outline),
-                    tooltip: 'Supprimer « ${attachment.name} »',
+                    tooltip: t.attachmentDeleteLabel(attachment.name),
                     onPressed: _busy ? null : () => _detach(attachment),
                   ),
                 ],

@@ -342,13 +342,27 @@ class LEn extends L {
   }
 
   @override
-  String sizeKilobytes(String value) {
-    return '$value kB';
+  String sizeKilobytes(double value) {
+    final intl.NumberFormat valueNumberFormat =
+        intl.NumberFormat.decimalPatternDigits(
+          locale: localeName,
+          decimalDigits: 1,
+        );
+    final String valueString = valueNumberFormat.format(value);
+
+    return '$valueString kB';
   }
 
   @override
-  String sizeMegabytes(String value) {
-    return '$value MB';
+  String sizeMegabytes(double value) {
+    final intl.NumberFormat valueNumberFormat =
+        intl.NumberFormat.decimalPatternDigits(
+          locale: localeName,
+          decimalDigits: 1,
+        );
+    final String valueString = valueNumberFormat.format(value);
+
+    return '$valueString MB';
   }
 
   @override

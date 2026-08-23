@@ -3,11 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../l10n/app_localizations.dart';
 import '../model/entry_text.dart';
 import '../model/vault.dart';
 import '../state/vault_session.dart';
 import '../storage/app_settings.dart';
 import '../util/clipboard.dart';
+import 'entry_counts.dart';
 import 'theme/safe_theme.dart';
 import 'widgets/attachments_sheet.dart';
 import 'widgets/confirm_discard.dart';
@@ -165,7 +167,7 @@ class _EntryScreenState extends State<EntryScreen> {
     widget.session.touch();
     // Le toast part avant la copie: celle-ci est un aller-retour vers la
     // plateforme, et attendre sa réponse retarderait le retour au doigt.
-    showSafeToast(context, 'Copié');
+    showSafeToast(context, L.of(context).copied);
     try {
       await _clipboard.copy(value);
     } on MissingPluginException {
@@ -175,7 +177,7 @@ class _EntryScreenState extends State<EntryScreen> {
       // Le toast est déjà parti: le démentir vaut mieux que le laisser mentir
       // pendant que l'erreur file en exception de zone.
       if (mounted) {
-        showSafeToast(context, 'Copie impossible');
+        showSafeToast(context, L.of(context).copyFailed);
       }
     }
   }
@@ -183,12 +185,12 @@ class _EntryScreenState extends State<EntryScreen> {
   Future<void> _save() async {
     final vault = widget.session.vault;
     if (vault == null) {
-      showSafeToast(context, 'Coffre verrouillé');
+      showSafeToast(context, L.of(context).vaultLocked);
       return;
     }
     final name = _nameController.text.trim();
     if (name.isEmpty) {
-      showSafeToast(context, 'Le nom ne peut pas être vide');
+      showSafeToast(context, L.of(context).entryNameEmpty);
       return;
     }
     // Comparaison canonique, avec exemption du nom d'origine: sans elle,
@@ -201,7 +203,7 @@ class _EntryScreenState extends State<EntryScreen> {
           canonicalKey(entry.key) != canonicalKey(_key),
     );
     if (collision) {
-      showSafeToast(context, 'Ce nom existe déjà');
+      showSafeToast(context, L.of(context).entryNameTaken);
       return;
     }
     setState(() => _busy = true);
@@ -236,7 +238,7 @@ class _EntryScreenState extends State<EntryScreen> {
     } catch (_) {
       if (mounted) {
         setState(() => _busy = false);
-        showSafeToast(context, 'Enregistrement impossible');
+        showSafeToast(context, L.of(context).entrySaveFailed);
       }
       return;
     }
@@ -249,7 +251,7 @@ class _EntryScreenState extends State<EntryScreen> {
       _savedName = name;
       _key = name;
     });
-    showSafeToast(context, 'Enregistré');
+    showSafeToast(context, L.of(context).entrySaved);
   }
 
   /// Supprime la fiche, après confirmation.
@@ -260,25 +262,23 @@ class _EntryScreenState extends State<EntryScreen> {
   /// devant les yeux ce qu'on efface.
   Future<void> _supprimer() async {
     widget.session.touch();
+    final t = L.of(context);
     final navigator = Navigator.of(context);
     final confirme = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Supprimer cette fiche ?'),
-        content: Text(
-          'La fiche « $_key », son texte et ses pièces jointes seront '
-          'définitivement retirés du coffre.',
-        ),
+        title: Text(t.entryDeleteTitle),
+        content: Text(t.entryDeleteBody(_key)),
         actions: [
           TextButton(
             key: const Key('cancel-delete'),
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Annuler'),
+            child: Text(t.cancel),
           ),
           FilledButton(
             key: const Key('confirm-delete'),
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Supprimer'),
+            child: Text(t.delete),
           ),
         ],
       ),
@@ -295,7 +295,7 @@ class _EntryScreenState extends State<EntryScreen> {
       // Sans cela, la boîte se refermait, la fiche restait en place et rien ne
       // l'expliquait — l'erreur partant en erreur asynchrone non gérée.
       if (mounted) {
-        showSafeToast(context, 'Suppression impossible');
+        showSafeToast(context, L.of(context).entryDeleteFailed);
       }
       return;
     }
@@ -332,6 +332,7 @@ class _EntryScreenState extends State<EntryScreen> {
   @override
   Widget build(BuildContext context) {
     final tokens = SafeTokens.of(context);
+    final t = L.of(context);
     final groups = parseEntryText(_controller.text);
     return PopScope(
       canPop: !_dirty,
@@ -352,7 +353,7 @@ class _EntryScreenState extends State<EntryScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _header(tokens, groups),
+                _header(tokens, t, groups),
                 // La barre de mode attend les réglages: le lien « Syntaxe »
                 // qu'elle porte à droite dépend d'eux, et son arrivée
                 // rétrécirait les onglets sous les yeux.
@@ -361,7 +362,7 @@ class _EntryScreenState extends State<EntryScreen> {
                   // c'est exactement la marge touchable qu'elle porte au-delà
                   // de sa hauteur visible. Rien ne bouge à l'écran.
                   const SizedBox(height: 8),
-                  _modeBar(tokens),
+                  _modeBar(tokens, t),
                   if (_tutorial.visible!) ...[
                     const SizedBox(height: 6),
                     SyntaxTutorial(onDismiss: _tutorial.dismiss),
@@ -380,11 +381,11 @@ class _EntryScreenState extends State<EntryScreen> {
                       onToggle: _toggle,
                       onCopy: _copy,
                     ),
-                    _ => _raw(tokens),
+                    _ => _raw(tokens, t),
                   },
                 ),
                 const SizedBox(height: 12),
-                _footer(),
+                _footer(t),
               ],
             ),
           ),
@@ -393,12 +394,12 @@ class _EntryScreenState extends State<EntryScreen> {
     );
   }
 
-  Widget _header(SafeTokens tokens, List<EntryGroup> groups) => Column(
+  Widget _header(SafeTokens tokens, L t, List<EntryGroup> groups) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       Row(
         children: [
-          _retour(tokens),
+          _retour(tokens, t),
           const Spacer(),
           // À l'opposé du retour, et de la même hauteur que lui: les deux
           // cibles font 48 px, la rangée n'en gagne pas un seul, et rien ne
@@ -415,7 +416,7 @@ class _EntryScreenState extends State<EntryScreen> {
             child: Padding(
               padding: const EdgeInsets.only(top: 13.5, bottom: 23.5),
               child: Text(
-                'Supprimer',
+                t.delete,
                 style: SafeText.action.copyWith(color: tokens.secondaryText),
               ),
             ),
@@ -461,7 +462,7 @@ class _EntryScreenState extends State<EntryScreen> {
       // barre de mode et tout ce qui suit retrouvent leur place exacte.
       const SizedBox(height: 4),
       Text(
-        describeGroups(groups),
+        describeGroups(t, groups),
         style: SafeText.counter.copyWith(color: tokens.hintText),
       ),
     ],
@@ -474,7 +475,7 @@ class _EntryScreenState extends State<EntryScreen> {
   /// comme celle de la nouvelle fiche. La flèche ne bouge pas, et ces deux
   /// pixels sont repris sur l'écart sous le titre — seul le titre descend de
   /// deux pixels, tout le reste de l'écran reste exactement où il était.
-  Widget _retour(SafeTokens tokens) => GestureDetector(
+  Widget _retour(SafeTokens tokens, L t) => GestureDetector(
     behavior: HitTestBehavior.opaque,
     onTap: () => Navigator.of(context).maybePop(),
     child: Padding(
@@ -485,7 +486,7 @@ class _EntryScreenState extends State<EntryScreen> {
           Icon(Icons.arrow_back, size: 18, color: tokens.secondaryText),
           const SizedBox(width: 6),
           Text(
-            'Coffre',
+            t.tabVault,
             style: SafeText.action.copyWith(color: tokens.secondaryText),
           ),
         ],
@@ -493,11 +494,11 @@ class _EntryScreenState extends State<EntryScreen> {
     ),
   );
 
-  Widget _modeBar(SafeTokens tokens) => Row(
+  Widget _modeBar(SafeTokens tokens, L t) => Row(
     children: [
       Expanded(
         child: SafePillTabs(
-          labels: const ['Lecture', 'Texte brut'],
+          labels: [t.entryTabReading, t.entryTabRaw],
           selected: _mode,
           height: 28,
           onSelected: (index) {
@@ -520,7 +521,7 @@ class _EntryScreenState extends State<EntryScreen> {
               child: Padding(
                 padding: const EdgeInsets.only(left: 14),
                 child: Text(
-                  'Syntaxe',
+                  t.syntaxLink,
                   style: SafeText.action.copyWith(color: tokens.accent),
                 ),
               ),
@@ -530,7 +531,7 @@ class _EntryScreenState extends State<EntryScreen> {
     ],
   );
 
-  Widget _raw(SafeTokens tokens) => DecoratedBox(
+  Widget _raw(SafeTokens tokens, L t) => DecoratedBox(
     decoration: BoxDecoration(
       color: tokens.cardSurface,
       borderRadius: BorderRadius.circular(SafeMetrics.cardRadius),
@@ -541,26 +542,22 @@ class _EntryScreenState extends State<EntryScreen> {
       child: SafeRawEditor(
         fieldKey: const Key('raw'),
         controller: _controller,
-        hintText: 'Colle ou tape ici. Tout est accepté.',
+        hintText: t.entryRawHint,
       ),
     ),
   );
 
-  Widget _footer() => Row(
+  Widget _footer(L t) => Row(
     children: [
       Expanded(
         child: SafeSecondaryButton(
-          label: 'Pièce jointe',
+          label: t.attachmentAdd,
           onPressed: _openAttachments,
         ),
       ),
       const SizedBox(width: 10),
       Expanded(
-        child: SafePrimaryButton(
-          label: 'Enregistrer',
-          onPressed: _save,
-          busy: _busy,
-        ),
+        child: SafePrimaryButton(label: t.save, onPressed: _save, busy: _busy),
       ),
     ],
   );

@@ -344,13 +344,27 @@ class LFr extends L {
   }
 
   @override
-  String sizeKilobytes(String value) {
-    return '$value ko';
+  String sizeKilobytes(double value) {
+    final intl.NumberFormat valueNumberFormat =
+        intl.NumberFormat.decimalPatternDigits(
+          locale: localeName,
+          decimalDigits: 1,
+        );
+    final String valueString = valueNumberFormat.format(value);
+
+    return '$valueString ko';
   }
 
   @override
-  String sizeMegabytes(String value) {
-    return '$value Mo';
+  String sizeMegabytes(double value) {
+    final intl.NumberFormat valueNumberFormat =
+        intl.NumberFormat.decimalPatternDigits(
+          locale: localeName,
+          decimalDigits: 1,
+        );
+    final String valueString = valueNumberFormat.format(value);
+
+    return '$valueString Mo';
   }
 
   @override

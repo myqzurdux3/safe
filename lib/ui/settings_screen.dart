@@ -5,6 +5,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../l10n/app_localizations.dart';
 import '../crypto/vault_crypto.dart';
 import '../state/vault_session.dart';
 import '../storage/app_settings.dart';
@@ -110,6 +111,14 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  /// Les libellés de l'écran.
+  ///
+  /// Un raccourci et non un champ: la langue peut changer sous cet écran même
+  /// — c'est lui qui la règle —, et un libellé figé au premier montage
+  /// laisserait la moitié de la page dans l'ancienne langue. Les méthodes
+  /// asynchrones le lisent avant leur premier `await`.
+  L get t => L.of(context);
+
   bool _busy = false;
   AppSettings _settings = const AppSettings();
 
@@ -151,7 +160,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       // l'utilisateur ferait confiance à une protection absente.
       if (mounted) {
         setState(() => _settings = previous);
-        _tell('Blocage refusé par le système: les captures restent possibles');
+        _tell(t.settingsBlockRefused);
       }
       return;
     }
@@ -171,7 +180,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await widget.settings?.write(settings);
       return true;
     } catch (_) {
-      _tell('Réglage non enregistré: le fichier n\'a pas pu être écrit');
+      _tell(t.settingsNotSaved);
       return false;
     }
   }
@@ -187,9 +196,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _busy = true);
     try {
       await widget.session.changePassword(newPassword);
-      _tell('Mot de passe maître changé');
+      _tell(t.settingsPasswordChanged);
     } catch (_) {
-      _tell('Changement impossible: le coffre n\'a pas pu être ré-chiffré');
+      _tell(t.settingsChangeFailed);
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -214,8 +223,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!mounted) {
       return;
     }
-    if (entryCount == null) {
-      _tell('Aucune sauvegarde exploitable à côté du coffre');
+    // Recopié dans un local pour que Dart le promeuve en `int`: un `final`
+    // affecté dans un `try` ne l'est pas par le seul test de nullité.
+    final backupCount = entryCount;
+    if (backupCount == null) {
+      _tell(t.settingsNoBackup);
       return;
     }
     final currentCount = widget.session.vault?.entries.length ?? 0;
@@ -223,22 +235,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (context) => _safeDialog(
         context,
-        title: 'Restaurer la sauvegarde ?',
-        content: Text(
-          'La sauvegarde contient $entryCount entrée(s); le coffre actuel en a '
-          '$currentCount.\n\nLe coffre actuel devient à son tour la sauvegarde: '
-          'cette opération est donc annulable en la refaisant.\n\nLes pièces '
-          'jointes ne sont pas concernées; celles qui ne seraient plus '
-          'référencées partent dans le dossier des orphelins.',
-        ),
+        title: t.settingsRestoreTitle,
+        content: Text(t.settingsRestoreBody(backupCount, currentCount)),
         cancel: SafeSecondaryButton(
           key: const Key('cancel-restore'),
-          label: 'Annuler',
+          label: t.cancel,
           onPressed: () => Navigator.of(context).pop(false),
         ),
         confirm: SafePrimaryButton(
           key: const Key('confirm-restore'),
-          label: 'Restaurer',
+          label: t.settingsRestore,
           onPressed: () => Navigator.of(context).pop(true),
         ),
       ),
@@ -249,9 +255,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _busy = true);
     try {
       await widget.session.restorePrevious();
-      _tell('Sauvegarde restaurée');
+      _tell(t.settingsRestored);
     } catch (_) {
-      _tell('Restauration impossible: la sauvegarde n\'a pas pu être lue');
+      _tell(t.settingsRestoreFailed);
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -288,7 +294,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         // `null` = l'utilisateur a renoncé. Annoncer un export qui n'a pas eu
         // lieu ferait croire à une sauvegarde qui n'existe pas.
         if (nom != null) {
-          _tell('Coffre exporté vers $nom');
+          _tell(t.settingsExported(nom));
         }
       } else if (partager) {
         await SharePlus.instance.share(
@@ -303,11 +309,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
         final location = await getSaveLocation(suggestedName: 'vault.safe');
         if (location != null) {
           await File(location.path).writeAsBytes(bytes);
-          _tell('Coffre exporté vers ${location.path}');
+          _tell(t.settingsExported(location.path));
         }
       }
     } catch (_) {
-      _tell('Export impossible: le fichier n\'a pas pu être écrit');
+      _tell(t.settingsExportFailed);
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -333,7 +339,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  'Exporter le coffre',
+                  t.settingsExport,
                   style: SafeText.listTitle.copyWith(color: tokens.ink),
                 ),
               ),
@@ -341,15 +347,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ListTile(
               key: const Key('export-save'),
               leading: Icon(Icons.save_alt, color: tokens.secondaryText),
-              title: const Text('Enregistrer un fichier'),
-              subtitle: const Text('Tu choisis le dossier'),
+              title: Text(t.settingsExportSave),
+              subtitle: Text(t.settingsExportSaveSubtitle),
               onTap: () => Navigator.of(sheet).pop(_Export.enregistrer),
             ),
             ListTile(
               key: const Key('export-share'),
               leading: Icon(Icons.ios_share, color: tokens.secondaryText),
-              title: const Text('Partager'),
-              subtitle: const Text('Passer le fichier à une application'),
+              title: Text(t.settingsExportShare),
+              subtitle: Text(t.settingsExportShareSubtitle),
               onTap: () => Navigator.of(sheet).pop(_Export.partager),
             ),
             const SizedBox(height: 8),
@@ -386,21 +392,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
       // un déverrouillage avec celui-là, plutôt que de garder une clé qui
       // n'ouvre plus rien.
       widget.session.lock();
-      _tell('Coffre importé — déverrouillez-le avec son mot de passe');
+      _tell(t.settingsImported);
       if (mounted && Navigator.of(context).canPop()) {
         Navigator.of(context).pop();
       }
     } on FormatException {
-      _tell('Ce fichier n\'est pas un coffre safe');
+      _tell(t.settingsImportNotAVault);
     } on WrongPasswordException {
       // Message volontairement vague: un tag AEAD invalide ne dit pas si c'est
       // le mot de passe ou le fichier qui cloche.
-      _tell('Import refusé: mot de passe incorrect ou fichier abîmé');
+      _tell(t.settingsImportWrongPassword);
     } catch (_) {
       // Tout le reste — disque plein, permission refusée — mérite un autre
       // message: sinon l'utilisateur ressaisit indéfiniment un mot de passe
       // pourtant juste.
-      _tell('Import impossible: le coffre n\'a pas pu être remplacé');
+      _tell(t.settingsImportFailed);
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -438,7 +444,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  String _label(Duration delay) =>
+  /// Change la langue de l'application, et l'écrit.
+  ///
+  /// Le notifieur d'abord: c'est lui qui redessine tout de suite, y compris
+  /// cet écran-ci. L'écriture ensuite — si le fichier résiste, la langue reste
+  /// celle qu'on vient de choisir pour cette session, et la panne est dite.
+  Future<void> _setLanguage(AppLanguage choix) async {
+    widget.session.touch();
+    widget.language?.value = choix;
+    setState(() => _settings = _settings.copyWith(language: choix));
+    await _persist(_settings);
+  }
+
+  String _label(L t, Duration delay) =>
       delay.inSeconds < 60 ? '${delay.inSeconds} s' : '${delay.inMinutes} min';
 
   @override
@@ -488,7 +506,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         onTap: () => Navigator.of(context).maybePop(),
         child: Semantics(
           button: true,
-          label: 'Retour',
+          label: t.back,
           // Dix-huit pixels de flèche entre ces marges font la cible de 48 en
           // hauteur; les trente pixels de droite la font en largeur.
           child: Padding(
@@ -508,7 +526,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         header: true,
         namesRoute: true,
         child: Text(
-          'Réglages',
+          t.settingsTitle,
           style: SafeText.screenTitle.copyWith(color: tokens.ink),
         ),
       ),
@@ -544,8 +562,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ListTile(
             key: const Key('change-password'),
             leading: const Icon(Icons.key_outlined, size: 18),
-            title: const Text('Changer le mot de passe maître'),
-            subtitle: const Text('Le coffre est entièrement ré-chiffré'),
+            title: Text(t.settingsChangePassword),
+            subtitle: Text(t.settingsChangePasswordSubtitle),
             enabled: !_busy,
             onTap: _changePassword,
           ),
@@ -558,21 +576,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
             // Ne pas le retirer d'ici sous prétexte que l'accueil en a un.
             key: const Key('lock'),
             leading: const Icon(Icons.lock_outline, size: 18),
-            title: const Text('Verrouiller maintenant'),
-            subtitle: const Text(
-              'Referme le coffre et efface la clef de la mémoire',
-            ),
+            title: Text(t.settingsLockNow),
+            subtitle: Text(t.settingsLockNowSubtitle),
             enabled: !_busy,
             onTap: widget.session.lock,
           ),
           _filet(tokens),
           ListTile(
             leading: const Icon(Icons.timer_outlined, size: 18),
-            title: const Text('Verrouillage automatique'),
+            title: Text(t.settingsAutoLock),
             // Les deux affichages tirent du même champ: sinon le sous-titre
             // annonçait un délai que la liste ne montrait pas.
             subtitle: Text(
-              'Après ${_label(_settings.autoLockDelay)} sans activité',
+              t.settingsAutoLockSubtitle(_label(t, _settings.autoLockDelay)),
             ),
             trailing: DropdownButton<Duration>(
               key: const Key('auto-lock'),
@@ -593,11 +609,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
               style: SafeText.listTitle.copyWith(color: tokens.secondaryText),
               items: [
                 for (final choice in autoLockChoices)
-                  DropdownMenuItem(value: choice, child: Text(_label(choice))),
+                  DropdownMenuItem(
+                    value: choice,
+                    child: Text(_label(t, choice)),
+                  ),
               ],
               onChanged: (value) {
                 if (value != null) {
                   _setAutoLockDelay(value);
+                }
+              },
+            ),
+          ),
+          _filet(tokens),
+          ListTile(
+            leading: const Icon(Icons.translate, size: 18),
+            title: Text(t.settingsLanguage),
+            subtitle: Text(t.settingsLanguageSubtitle),
+            trailing: DropdownButton<AppLanguage>(
+              key: const Key('language'),
+              value: _settings.language,
+              underline: const SizedBox.shrink(),
+              borderRadius: BorderRadius.circular(SafeMetrics.cardRadius),
+              dropdownColor: tokens.cardSurface,
+              icon: Icon(
+                Icons.expand_more,
+                size: 18,
+                color: tokens.secondaryText,
+              ),
+              style: SafeText.listTitle.copyWith(color: tokens.secondaryText),
+              items: [
+                for (final choix in AppLanguage.values)
+                  DropdownMenuItem(
+                    value: choix,
+                    // Le nom d'une langue s'écrit dans cette langue: un
+                    // « English » traduit en « Anglais » ne se reconnaît pas
+                    // quand on ne lit pas la langue affichée. « Système » n'a
+                    // pas de nom propre et se traduit, lui.
+                    child: Text(choix.endonym ?? t.settingsLanguageSystem),
+                  ),
+              ],
+              onChanged: (value) {
+                if (value != null) {
+                  _setLanguage(value);
                 }
               },
             ),
@@ -610,23 +664,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onChanged: _busy ? null : _setBlockScreenshots,
             activeThumbColor: tokens.onInk,
             activeTrackColor: tokens.accent,
-            title: const Text('Bloquer les captures d\'écran'),
+            title: Text(t.settingsBlockScreenshots),
             subtitle: Text(
               _settings.blockScreenshots
-                  ? 'Captures d\'écran refusées, et vignette vide dans les '
-                        'applications récentes'
-                  : 'Captures d\'écran autorisées: le contenu du coffre '
-                        'apparaîtra aussi dans les applications récentes',
+                  ? t.settingsBlockScreenshotsOn
+                  : t.settingsBlockScreenshotsOff,
             ),
           ),
           _filet(tokens),
           ListTile(
             key: const Key('restore-backup'),
             leading: const Icon(Icons.restore_outlined, size: 18),
-            title: const Text('Restaurer la sauvegarde précédente'),
-            subtitle: const Text(
-              'Revient à l\'état d\'avant la dernière modification',
-            ),
+            title: Text(t.settingsRestore),
+            subtitle: Text(t.settingsRestoreSubtitle),
             enabled: !_busy,
             onTap: _restore,
           ),
@@ -634,21 +684,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ListTile(
             key: const Key('export'),
             leading: const Icon(Icons.upload_file_outlined, size: 18),
-            title: const Text('Exporter le coffre'),
-            subtitle: const Text(
-              'Fichier chiffré: inutilisable sans le mot de passe. '
-              'Les pièces jointes ne sont pas incluses',
-            ),
+            title: Text(t.settingsExport),
+            subtitle: Text(t.settingsExportSubtitle),
             enabled: transferAvailable && !_busy,
             onTap: _export,
           ),
           ListTile(
             key: const Key('import'),
             leading: const Icon(Icons.download_outlined, size: 18),
-            title: const Text('Importer un coffre'),
-            subtitle: const Text(
-              'Remplace le coffre actuel après vérification',
-            ),
+            title: Text(t.settingsImport),
+            subtitle: Text(t.settingsImportSubtitle),
             enabled: transferAvailable && !_busy,
             onTap: _import,
           ),
@@ -665,11 +710,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _note(SafeTokens tokens) => Padding(
     padding: const EdgeInsets.fromLTRB(2, 20, 2, 0),
     child: Text(
-      'Le mot de passe maître ne peut pas être récupéré. Gardez une '
-      'copie exportée du coffre en lieu sûr: elle reste chiffrée.\n\n'
-      'L\'export ne contient que le nom et le texte de chaque fiche. Les '
-      'pièces jointes vivent dans des fichiers séparés: exportez-les une '
-      'par une depuis la fiche concernée.',
+      t.settingsNote,
       // En encre, et non en texte secondaire: sur le fond crème ce gris tombe
       // à 4,37:1, sous le seuil AA. C'est la seule phrase de l'application qui
       // dit que le mot de passe maître ne se récupère pas — elle ne peut pas
@@ -687,6 +728,8 @@ class _ChangePasswordDialog extends StatefulWidget {
 }
 
 class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
+  L get t => L.of(context);
+
   final _password = TextEditingController();
   final _confirm = TextEditingController();
   String? _error;
@@ -700,11 +743,13 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
 
   void _submit() {
     if (_password.text.length < minMasterPasswordLength) {
-      setState(() => _error = 'Au moins $minMasterPasswordLength caractères');
+      setState(
+        () => _error = t.settingsPasswordTooShort(minMasterPasswordLength),
+      );
       return;
     }
     if (_password.text != _confirm.text) {
-      setState(() => _error = 'Les mots de passe ne correspondent pas');
+      setState(() => _error = t.unlockMismatch);
       return;
     }
     Navigator.of(context).pop(_password.text);
@@ -715,7 +760,7 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
     final tokens = SafeTokens.of(context);
     return _safeDialog(
       context,
-      title: 'Nouveau mot de passe maître',
+      title: t.settingsNewPasswordTitle,
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -723,14 +768,14 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
             tokens,
             key: const Key('new-password'),
             controller: _password,
-            label: 'Nouveau mot de passe',
+            label: t.settingsNewPasswordHint,
             autofocus: true,
           ),
           _champ(
             tokens,
             key: const Key('new-confirm'),
             controller: _confirm,
-            label: 'Confirmation',
+            label: t.settingsConfirmHint,
           ),
           if (_error != null)
             Padding(
@@ -747,12 +792,12 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
         ],
       ),
       cancel: SafeSecondaryButton(
-        label: 'Annuler',
+        label: t.cancel,
         onPressed: () => Navigator.of(context).pop(),
       ),
       confirm: SafePrimaryButton(
         key: const Key('confirm-change'),
-        label: 'Changer',
+        label: t.settingsChange,
         onPressed: _submit,
       ),
     );
@@ -805,6 +850,8 @@ class _ImportPasswordDialog extends StatefulWidget {
 }
 
 class _ImportPasswordDialogState extends State<_ImportPasswordDialog> {
+  L get t => L.of(context);
+
   final _password = TextEditingController();
 
   @override
@@ -816,12 +863,12 @@ class _ImportPasswordDialogState extends State<_ImportPasswordDialog> {
   @override
   Widget build(BuildContext context) => _safeDialog(
     context,
-    title: 'Mot de passe du coffre importé',
+    title: t.settingsImportPasswordTitle,
     content: _champ(
       SafeTokens.of(context),
       key: const Key('import-password'),
       controller: _password,
-      label: 'Mot de passe',
+      label: t.settingsImportPasswordHint,
       autofocus: true,
     ),
     cancel: SafeSecondaryButton(

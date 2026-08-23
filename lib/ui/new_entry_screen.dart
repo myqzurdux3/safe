@@ -3,10 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../l10n/app_localizations.dart';
 import '../model/entry_text.dart';
 import '../model/vault.dart';
 import '../state/vault_session.dart';
 import '../storage/app_settings.dart';
+import 'entry_counts.dart';
 import 'theme/safe_theme.dart';
 import 'widgets/confirm_discard.dart';
 import 'widgets/primary_button.dart';
@@ -101,7 +103,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
       // Dit franchement ce qui vient de se passer: la saisie est perdue, et
       // elle ne peut pas être gardée — ce serait garder du clair à l'écran et
       // en mémoire pendant que le coffre est fermé.
-      _error = 'Le coffre s\'est verrouillé: la saisie a été effacée';
+      _error = L.of(context).newEntryLockedDiscarded;
     });
   }
 
@@ -158,14 +160,12 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
     // d'effacer — enverrait l'utilisateur sur une fausse piste.
     final vault = widget.session.vault;
     if (vault == null) {
-      setState(
-        () => _error = 'Le coffre s\'est verrouillé: rien n\'a été enregistré',
-      );
+      setState(() => _error = L.of(context).newEntryLockedNotSaved);
       return;
     }
     final name = _nameController.text.trim();
     if (name.isEmpty) {
-      setState(() => _error = 'Le nom ne peut pas être vide');
+      setState(() => _error = L.of(context).entryNameEmpty);
       return;
     }
     // Comparaison canonique: sans elle, « Gmail » et « gmail », ou deux
@@ -175,7 +175,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
       (entry) => canonicalKey(entry.key) == canonicalKey(name),
     );
     if (collision) {
-      setState(() => _error = 'Ce nom existe déjà');
+      setState(() => _error = L.of(context).entryNameTaken);
       return;
     }
 
@@ -200,7 +200,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
       if (mounted) {
         setState(() {
           _busy = false;
-          _error = 'Enregistrement impossible: réessayez';
+          _error = L.of(context).newEntrySaveFailed;
         });
       }
       return;
@@ -224,6 +224,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   @override
   Widget build(BuildContext context) {
     final tokens = SafeTokens.of(context);
+    final t = L.of(context);
     return PopScope(
       canPop: !_dirty,
       onPopInvokedWithResult: (didPop, _) async {
@@ -243,7 +244,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _header(tokens),
+                _header(tokens, t),
                 // Le tuto attend les réglages: apparaître à la deuxième image
                 // ferait sauter la carte de saisie sous les yeux.
                 if (_tutorial.visible != null) ...[
@@ -256,19 +257,15 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                     // globale: un « Compris » donné depuis une fiche existante
                     // retire le tuto d'ici aussi, alors que c'est ici qu'on
                     // écrit son premier bloc et qu'on en a le plus besoin.
-                    _syntaxLink(tokens),
+                    _syntaxLink(tokens, t),
                 ],
                 Expanded(
                   child: _tutorial.visible == null
                       ? const SizedBox.shrink()
-                      : _card(tokens),
+                      : _card(tokens, t),
                 ),
                 const SizedBox(height: 12),
-                SafePrimaryButton(
-                  label: 'Enregistrer',
-                  onPressed: _save,
-                  busy: _busy,
-                ),
+                SafePrimaryButton(label: t.save, onPressed: _save, busy: _busy),
                 const SizedBox(height: 12),
               ],
             ),
@@ -278,7 +275,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
     );
   }
 
-  Widget _header(SafeTokens tokens) => Column(
+  Widget _header(SafeTokens tokens, L t) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       GestureDetector(
@@ -296,7 +293,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
               Icon(Icons.arrow_back, size: 18, color: tokens.secondaryText),
               const SizedBox(width: 6),
               Text(
-                'Nouvelle fiche',
+                t.newEntryTitle,
                 style: SafeText.action.copyWith(color: tokens.secondaryText),
               ),
             ],
@@ -320,7 +317,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
           // Assez de marge verticale pour que le champ fasse une cible de
           // doigt: le texte ne bouge pas, seule la zone touchable grandit.
           contentPadding: const EdgeInsets.symmetric(vertical: 10),
-          hintText: 'Nom de la fiche',
+          hintText: t.newEntryNameHint,
           hintStyle: SafeText.screenTitle.copyWith(
             color: tokens.titlePlaceholder,
           ),
@@ -346,7 +343,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   );
 
   /// Le rappel du tuto, aligné à droite comme sur la fiche.
-  Widget _syntaxLink(SafeTokens tokens) => Align(
+  Widget _syntaxLink(SafeTokens tokens, L t) => Align(
     alignment: Alignment.centerRight,
     child: GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -361,7 +358,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
             // cible sans déplacer la lettre d'un pixel.
             padding: const EdgeInsets.only(left: 14),
             child: Text(
-              'Syntaxe',
+              t.syntaxLink,
               style: SafeText.action.copyWith(color: tokens.accent),
             ),
           ),
@@ -371,7 +368,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   );
 
   /// La carte de saisie: le texte, puis son compteur et l'action « Coller ».
-  Widget _card(SafeTokens tokens) => DecoratedBox(
+  Widget _card(SafeTokens tokens, L t) => DecoratedBox(
     decoration: BoxDecoration(
       color: tokens.cardSurface,
       borderRadius: BorderRadius.circular(SafeMetrics.cardRadius),
@@ -386,24 +383,24 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
             child: SafeRawEditor(
               fieldKey: const Key('raw'),
               controller: _rawController,
-              hintText: 'Colle ou tape ici.\nTout est accepté.',
+              hintText: t.newEntryBodyHint,
             ),
           ),
           Divider(height: 1, thickness: 1, color: tokens.hairline),
-          _cardFooter(tokens),
+          _cardFooter(tokens, t),
         ],
       ),
     ),
   );
 
-  Widget _cardFooter(SafeTokens tokens) => SizedBox(
+  Widget _cardFooter(SafeTokens tokens, L t) => SizedBox(
     // La hauteur d'un doigt: c'est elle qui fait la cible de « Coller », dont
     // le libellé ne fait que onze pixels de haut.
     height: SafeMetrics.touchTarget,
     child: Row(
       children: [
         Text(
-          describeGroups(parseEntryText(_rawController.text)),
+          describeGroups(t, parseEntryText(_rawController.text)),
           style: SafeText.counter.copyWith(color: tokens.hintText),
         ),
         const Spacer(),
@@ -418,7 +415,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                 // gauche élargit la cible sans déplacer la lettre d'un pixel.
                 padding: const EdgeInsets.only(left: 16),
                 child: Text(
-                  'Coller',
+                  t.newEntryPaste,
                   style: SafeText.action.copyWith(color: tokens.accent),
                 ),
               ),
