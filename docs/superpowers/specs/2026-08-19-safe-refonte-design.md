@@ -435,7 +435,7 @@ installations `adb install -r`.
 
 ## État à la clôture
 
-Écrit le 2026-08-23, sur la branche `refonte-interface`, 36 commits au-dessus de `master`.
+Écrit le 2026-08-23, sur la branche `refonte-interface`, 39 commits au-dessus de `master`.
 Rien n'est fusionné : l'application installée sur le téléphone du propriétaire ne porte
 aucune de ces modifications.
 
@@ -455,12 +455,12 @@ Les onze tâches du plan, sauf la vérification sur appareil.
 | 8 | `lib/model/vault_search.dart` — noms, intertitres, lignes de valeur |
 | 9 | L'accueil à deux onglets, l'ancienne liste supprimée |
 | 10 | Réglages restylés aux jetons |
-| 11 | Code mort, couverture, documentation — mais **pas** le parcours sur appareil |
+| 11 | Code mort, couverture, documentation, parcours sur l'émulateur |
 | — | Le cadenas de verrouillage manuel dans l'en-tête (décision du propriétaire) |
 
 ### Ce qui a été vérifié, et comment
 
-**424 tests verts**, répartis sur 67 fichiers ; `flutter analyze` et `dart format` propres.
+**427 tests verts**, répartis sur 68 fichiers ; `flutter analyze` et `dart format` propres.
 
 Chaque tâche a été écrite par un agent et relue par un autre, sans lui montrer le rapport
 du premier. Les relectures ont trouvé ce qu'une suite verte ne trouve pas : des assertions
@@ -483,33 +483,70 @@ et non sur le dessin :
   sérialisation ni d'export n'est non couverte, vérifié ligne à ligne. Seul `lib/main.dart`
   est sous 80 % — 75 %, de l'amorçage non couvrable sous horloge simulée.
 
-Le rendu a été regardé sur des PNG rendus hors écran (`RenderRepaintBoundary.toImage` sous
-`runAsync`, vraies polices chargées par `FontLoader`, 411 × 891 à 2,625×). C'est une image
-juste du dessin, pas une preuve du comportement de l'appareil.
+Le rendu a d'abord été regardé sur des PNG rendus hors écran (`RenderRepaintBoundary.toImage`
+sous `runAsync`, vraies polices chargées par `FontLoader`, 411 × 891 à 2,625×) — une image
+juste du dessin, mais pas une preuve du comportement de l'appareil. La section suivante dit
+ce que l'appareil, lui, a montré.
 
-### Ce qui n'a jamais été vérifié sur un écran
+### Ce qui a été vérifié sur un appareil
 
-**Rien de cette refonte n'a été regardé sur un appareil réel ni sur l'émulateur.** Aucun
-n'était branché pendant l'exécution. Les Steps 3, 4 et 6 de la tâche 11 sont donc ouverts,
-et dans cet ordre d'importance :
+Sur l'**émulateur** Pixel 9a (`emulator-5554`, APK *debug*). **Le téléphone réel n'a jamais
+été branché et rien n'y a été installé** : le Step 6 du plan reste entier.
 
-1. **Réimporter une sauvegarde exportée par une version antérieure.** C'est la seule chose
-   qui, si elle est cassée, coûte des données. Le diff ne touche pas d'une ligne
-   `vault_transfer.dart`, `vault_crypto.dart` ni le format de fichier, et la couverture le
-   confirme — mais *personne ne l'a fait*. À faire avant toute installation sur le
-   téléphone réel.
-2. **Le rendu des deux icônes** qui remplacent « ↻ » et « ✓ » (voir plus haut).
-3. **Le cadenas de l'en-tête** : 21 px à côté du cercle des réglages, et son déséquilibre
-   de teinte assumé.
-4. Le reste du parcours : création de fiche à trois blocs, ouverture et fermeture d'un
-   bloc, copie d'une ligne et d'un bloc, mode texte brut, recherche par intertitre puis par
-   valeur, générateur, verrouillage.
+Le point le plus important d'abord. **Une sauvegarde scellée par le code d'avant la
+refonte se réimporte.** Elle a été fabriquée avec le `sealWithPassword` de `master`, puis
+choisie dans le sélecteur de fichiers depuis Réglages → Importer. Résultat : `vault.safe`
+passe à 607 octets, le coffre précédent part en `vault.safe.bak`, l'application se referme
+— le coffre importé a un autre mot de passe — et les quatre fiches reviennent, accents et
+tiret cadratin intacts, valeurs identiques à l'octet, dates de création conservées.
 
-Rappels pour ce jour-là : toujours `adb -s <numéro de série>`, jamais sans — le nom du
-modèle ne distingue plus le téléphone réel de l'émulateur. Jamais d'`adb uninstall`, jamais
-d'`adb install` sans `-r` sur le téléphone réel : le coffre et les pièces jointes seraient
-effacés. Jamais de compilation *debug* sur le téléphone réel — `run-as` rendrait le coffre
-lisible.
+Cette réimportation avait d'ailleurs une preuve statique : `git diff master..HEAD` sur
+`lib/crypto/`, `lib/model/vault.dart`, `lib/storage/vault_file.dart`,
+`lib/storage/vault_transfer.dart` et `lib/storage/blob_store.dart` **ne rend rien**. Pas un
+octet du format, du scellement, de l'écriture disque ni de l'export n'a bougé.
+
+Constaté aussi, pour la première fois :
+
+- **`Icons.refresh` et `Icons.check` s'affichent** — « ✓ Copié » et le bouton rond de
+  régénération. L'écart de police décrit plus haut est levé.
+- **Le cadenas de l'en-tête rend à 21 px et verrouille** depuis l'accueil.
+- **Le blocage des captures d'écran fonctionne** : la toute première capture est revenue
+  entièrement **noire**. Il a fallu poser `blockScreenshots: false` dans le `settings.json`
+  de l'émulateur pour voir quoi que ce soit.
+- **Le presse-papier est bien marqué sensible** : l'aperçu système d'Android affiche des
+  points à la place de la valeur copiée.
+- **`settings.json` est relu du disque** : le pied de page annonce le vrai délai.
+- **`VaultFile.defaultDirectory()` résout correctement** sur Android —
+  `/data/data/dev.safe.safe/app_flutter/safe`. C'était un trou de couverture ; il est
+  constaté en marche, pas comblé par un test.
+- **Une fiche d'avant la refonte s'affiche en clair**, comme une note rattachée par un
+  filet — la conséquence de l'écart de masquage, vue sur l'écran et non plus déduite.
+
+**Ce qui reste sans regard :** le téléphone réel ; une fiche à trois blocs écrite à la
+main ; le mode texte brut ; la recherche tapée au clavier ; les pièces jointes.
+
+Rappels pour le jour du téléphone réel : toujours `adb -s <numéro de série>`, jamais sans —
+le nom du modèle ne distingue plus le téléphone de l'émulateur. Jamais d'`adb uninstall`,
+jamais d'`adb install` sans `-r` : le coffre et les pièces jointes seraient effacés. Jamais
+de compilation *debug* dessus — `run-as` rendrait le coffre lisible.
+
+### Ce que le regard a trouvé
+
+Trois choses qu'aucune suite verte n'avait signalées.
+
+1. **Les invites des champs de mot de passe portaient l'espacement des points.** « Mot de
+   passe maître » s'affichait « M o t  d e  p a s s e  m a î t r e ». Le champ écrit ses
+   caractères en `letter-spacing: .16em` — c'est la maquette — mais Flutter fusionne
+   `hintStyle` par-dessus le style du champ, et ce que `hintStyle` n'écrase pas est hérité.
+   **Corrigé**, avec trois gardes qui lisent le style *rendu* de l'invite.
+2. **Les réglages parlaient encore de « clefs » et de « valeurs ».** Vocabulaire d'avant la
+   refonte, resté parce que le contrat de la tâche 10 gelait les libellés. **Corrigé.**
+3. **La commande des réglages est un cercle vide pâle** et ne dit rien de ce qu'elle
+   ouvre — d'autant moins depuis que le cadenas, lisible, est son voisin immédiat : elle se
+   lit comme une puce décorative. Ce document n'écrit que « commande réglages à droite » ;
+   le cercle vient du handoff. **Non corrigé — décision du propriétaire :** y poser
+   `Icons.settings` comme le cadenas porte `Icons.lock_outline`, encrer le cercle, ou
+   laisser tel quel.
 
 ### Écarts assumés
 
@@ -550,8 +587,10 @@ fausse est la pire panne d'un gestionnaire de mots de passe. Ce n'est pas un oub
 
 ### Ce qui reste faible
 
-- **Aucun test ne garde le style des cinq écrans refaits.** Un sabotage de jeton ne fait
-  tomber personne. `test/ui/settings_style_test.dart` est le premier du genre — et le seul.
+- **Le style des cinq écrans refaits n'est presque pas gardé.** Un sabotage de jeton ne fait
+  tomber personne. Il existe deux fichiers de ce genre — `test/ui/settings_style_test.dart`
+  et `test/ui/unlock_style_test.dart` — et chacun est né d'un défaut déjà constaté, pas
+  d'une couverture systématique.
 - **Trois trous de couverture qui comptent** : `home_screen._copier` (copier une ligne
   depuis un résultat de recherche, avec son repli `MissingPluginException` et ses deux
   toasts) ; le bouton **Annuler** de `confirm_discard.dart`, jamais pressé — s'il renvoyait
@@ -571,7 +610,8 @@ fausse est la pire panne d'un gestionnaire de mots de passe. Ce n'est pas un oub
 
 ### Ce que le propriétaire doit vérifier lui-même
 
-Réimporter une sauvegarde d'avant la refonte, avant tout le reste. Puis regarder les deux
-icônes et le cadenas. Puis trancher les trois symboles morts ci-dessus. L'installation sur
-le Pixel 9a se fait `adb install -r` sur une compilation *release*, et `firstInstallTime`
-doit être inchangé après.
+Trancher le cercle des réglages, et les trois symboles morts ci-dessus. Puis, sur le
+téléphone : l'installation se fait `adb install -r` sur une compilation **release**, et
+`firstInstallTime` doit être inchangé après. Y refaire l'import d'une sauvegarde réelle
+avant de se fier à celui de l'émulateur : c'est le même code, mais ce n'est pas le même
+coffre.
