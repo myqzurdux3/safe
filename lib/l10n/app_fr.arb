@@ -135,6 +135,7 @@
   "@settingsAutoLockSubtitle": { "placeholders": { "delay": { "type": "String" } } },
   "settingsLanguage": "Langue",
   "settingsLanguageSubtitle": "Suit la langue de l'appareil",
+  "settingsLanguageForced": "Choisie, quelle que soit celle de l'appareil",
   "settingsLanguageSystem": "Système",
   "settingsBlockScreenshots": "Bloquer les captures d'écran",
   "settingsBlockScreenshotsOn": "Captures d'écran refusées, et vignette vide dans les applications récentes",

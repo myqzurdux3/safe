@@ -625,7 +625,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ListTile(
             leading: const Icon(Icons.translate, size: 18),
             title: Text(t.settingsLanguage),
-            subtitle: Text(t.settingsLanguageSubtitle),
+            // Le sous-titre décrit ce que fait le réglage, pas ce qu'il
+            // pourrait faire: une fois une langue choisie, « suit la langue de
+            // l'appareil » est exactement ce qu'il ne fait plus.
+            subtitle: Text(
+              _settings.language == AppLanguage.system
+                  ? t.settingsLanguageSubtitle
+                  : t.settingsLanguageForced,
+            ),
             trailing: DropdownButton<AppLanguage>(
               key: const Key('language'),
               value: _settings.language,

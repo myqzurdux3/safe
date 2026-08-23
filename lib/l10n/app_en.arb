@@ -117,6 +117,7 @@
   "settingsAutoLockSubtitle": "After {delay} without activity",
   "settingsLanguage": "Language",
   "settingsLanguageSubtitle": "Follows the device language",
+  "settingsLanguageForced": "Chosen, whatever the device uses",
   "settingsLanguageSystem": "System",
   "settingsBlockScreenshots": "Block screenshots",
   "settingsBlockScreenshotsOn": "Screenshots refused, and a blank thumbnail in the recent apps list",

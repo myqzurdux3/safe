@@ -399,6 +399,10 @@ class LFr extends L {
   String get settingsLanguageSubtitle => 'Suit la langue de l\'appareil';
 
   @override
+  String get settingsLanguageForced =>
+      'Choisie, quelle que soit celle de l\'appareil';
+
+  @override
   String get settingsLanguageSystem => 'Système';
 
   @override

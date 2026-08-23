@@ -397,6 +397,9 @@ class LEn extends L {
   String get settingsLanguageSubtitle => 'Follows the device language';
 
   @override
+  String get settingsLanguageForced => 'Chosen, whatever the device uses';
+
+  @override
   String get settingsLanguageSystem => 'System';
 
   @override

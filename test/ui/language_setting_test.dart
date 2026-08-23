@@ -21,6 +21,37 @@ void main() {
 
     expect(find.byKey(const Key('language')), findsOneWidget);
     expect(find.text('Système'), findsOneWidget);
+    expect(find.text('Suit la langue de l\'appareil'), findsOneWidget);
+    session.lock();
+  });
+
+  testWidgets('une langue forcée ne prétend plus suivre l\'appareil', (
+    tester,
+  ) async {
+    final session = await makeUnlockedSession();
+    await tester.pumpWidget(
+      wrapScreen(
+        SettingsScreen(
+          session: session,
+          settings: MemorySettingsStore(),
+          language: ValueNotifier(AppLanguage.system),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('language')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Français').last);
+    await tester.pumpAndSettle();
+
+    // Le sous-titre décrit ce que fait le réglage. Une fois le français
+    // choisi, « Suit la langue de l'appareil » est faux: c'est justement ce
+    // qu'il ne fait plus.
+    expect(find.text('Suit la langue de l\'appareil'), findsNothing);
+    expect(
+      find.text('Choisie, quelle que soit celle de l\'appareil'),
+      findsOneWidget,
+    );
     session.lock();
   });
 

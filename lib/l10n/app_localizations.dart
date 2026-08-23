@@ -715,6 +715,12 @@ abstract class L {
   /// **'Suit la langue de l\'appareil'**
   String get settingsLanguageSubtitle;
 
+  /// No description provided for @settingsLanguageForced.
+  ///
+  /// In fr, this message translates to:
+  /// **'Choisie, quelle que soit celle de l\'appareil'**
+  String get settingsLanguageForced;
+
   /// No description provided for @settingsLanguageSystem.
   ///
   /// In fr, this message translates to:
