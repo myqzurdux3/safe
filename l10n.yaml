@@ -1,0 +1,9 @@
+# Génération des traductions.
+#
+# Le français est la langue de référence: c'est celle dans laquelle
+# l'application a été écrite, et celle dont les autres fichiers dérivent.
+arb-dir: lib/l10n
+template-arb-file: app_fr.arb
+output-localization-file: app_localizations.dart
+output-class: L
+nullable-getter: false

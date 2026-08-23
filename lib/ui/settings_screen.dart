@@ -79,6 +79,7 @@ class SettingsScreen extends StatefulWidget {
     this.transfer,
     this.screen = const ScreenSecurity(),
     this.saver = const FileSaver(),
+    this.language,
     super.key,
   });
 
@@ -93,6 +94,11 @@ class SettingsScreen extends StatefulWidget {
   final VaultTransfer? transfer;
 
   final ScreenSecurity screen;
+
+  /// La langue choisie. Cet écran est le seul à l'écrire; la lui passer, c'est
+  /// ce qui fait basculer l'application entière sans la relancer. Absente dans
+  /// les tests qui ne touchent pas à ce réglage.
+  final ValueNotifier<AppLanguage>? language;
 
   /// Écriture d'un fichier dans un dossier choisi. Là où il se déclare
   /// compétent — Android —, l'export laisse le choix entre enregistrer et

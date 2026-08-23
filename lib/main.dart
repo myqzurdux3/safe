@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:sodium/sodium_sumo.dart';
 
 import 'crypto/vault_crypto.dart';
+import 'l10n/app_localizations.dart';
 import 'state/vault_session.dart';
 import 'storage/app_settings.dart';
 import 'storage/blob_store.dart';
@@ -52,26 +53,39 @@ Future<void> main() async {
       transfer: VaultTransfer(crypto: crypto, storage: storage),
       clipboard: clipboard,
       settings: settings,
+      // Initialisée depuis le disque: l'application ne doit pas s'afficher une
+      // fraction de seconde dans la mauvaise langue avant de se corriger.
+      language: ValueNotifier(loaded.language),
     ),
   );
 }
 
 class SafeApp extends StatelessWidget {
-  const SafeApp({
+  SafeApp({
     required this.session,
     required this.transfer,
     required this.clipboard,
     this.settings,
+    ValueNotifier<AppLanguage>? language,
     super.key,
-  });
+  }) : language = language ?? ValueNotifier(AppLanguage.system);
 
   final VaultSession session;
   final VaultTransfer transfer;
   final SecureClipboard clipboard;
   final SettingsStore? settings;
 
+  /// La langue choisie, qui peut changer sans quitter l'application: l'écran
+  /// de réglages écrit ici, et tout se redessine.
+  final ValueNotifier<AppLanguage> language;
+
   @override
-  Widget build(BuildContext context) => MaterialApp(
+  Widget build(BuildContext context) => ValueListenableBuilder<AppLanguage>(
+    valueListenable: language,
+    builder: (context, langue, _) => _app(langue),
+  );
+
+  Widget _app(AppLanguage langue) => MaterialApp(
     title: 'safe',
     debugShowCheckedModeBanner: false,
     // Le détecteur d'activité est posé ici, et non dans `VaultGate`: `home:`
@@ -95,6 +109,11 @@ class SafeApp extends StatelessWidget {
         child: child ?? const SizedBox.shrink(),
       ),
     ),
+    // `null` = suivre l'appareil. Une langue ni française ni anglaise retombe
+    // sur la première de `supportedLocales`, le français.
+    locale: langue.locale,
+    localizationsDelegates: L.localizationsDelegates,
+    supportedLocales: L.supportedLocales,
     theme: safeLightTheme(),
     // Clair uniquement: voir la note de safe_theme.dart et la section « ce qui
     // n'est pas fait » de la spec.
@@ -104,6 +123,7 @@ class SafeApp extends StatelessWidget {
       transfer: transfer,
       clipboard: clipboard,
       settings: settings,
+      language: language,
     ),
   );
 }
@@ -119,6 +139,7 @@ class VaultGate extends StatefulWidget {
     required this.transfer,
     required this.clipboard,
     this.settings,
+    this.language,
     super.key,
   });
 
@@ -126,6 +147,9 @@ class VaultGate extends StatefulWidget {
   final VaultTransfer transfer;
   final SecureClipboard clipboard;
   final SettingsStore? settings;
+
+  /// Transmise jusqu'aux réglages, qui sont le seul écran à l'écrire.
+  final ValueNotifier<AppLanguage>? language;
 
   @override
   State<VaultGate> createState() => _VaultGateState();
@@ -204,6 +228,7 @@ class _VaultGateState extends State<VaultGate> with WidgetsBindingObserver {
           clipboard: widget.clipboard,
           transfer: widget.transfer,
           settings: widget.settings,
+          language: widget.language,
         )
       : FutureBuilder<bool>(
           future: _vaultExists,

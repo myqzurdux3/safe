@@ -33,10 +33,14 @@ class HomeScreen extends StatefulWidget {
     this.clipboard,
     this.transfer,
     this.settings,
+    this.language,
     super.key,
   });
 
   final VaultSession session;
+
+  /// Langue choisie, transmise aux réglages — le seul écran qui l'écrit.
+  final ValueNotifier<AppLanguage>? language;
 
   /// Préférences de l'application, transmises aux écrans qui en dépendent.
   final SettingsStore? settings;
@@ -138,6 +142,7 @@ class _HomeScreenState extends State<HomeScreen> {
           session: widget.session,
           transfer: widget.transfer,
           settings: widget.settings,
+          language: widget.language,
         ),
       ),
     );

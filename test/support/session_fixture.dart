@@ -9,6 +9,7 @@ import 'package:safe/state/vault_session.dart';
 import 'package:safe/storage/app_settings.dart';
 import 'package:safe/storage/blob_store.dart';
 import 'package:safe/storage/vault_store.dart';
+import 'package:safe/l10n/app_localizations.dart';
 import 'package:safe/ui/theme/safe_theme.dart';
 import 'package:safe/util/clipboard.dart';
 import 'package:sodium/sodium_sumo.dart';
@@ -189,5 +190,16 @@ Future<VaultSession> makeUnlockedSession({
 }
 
 /// Enveloppe un écran dans le minimum de matériel Flutter.
-Widget wrapScreen(Widget child) =>
-    MaterialApp(theme: safeLightTheme(), home: child);
+/// Monte un écran comme l'application le ferait.
+///
+/// La locale est forcée au **français**: `flutter_test` démarre en `en_US`, et
+/// sans ce verrou chaque test qui cherche un libellé chercherait la traduction
+/// anglaise. Un test qui vise l'anglais construit son propre `MaterialApp`.
+Widget wrapScreen(Widget child, {Locale locale = const Locale('fr')}) =>
+    MaterialApp(
+      theme: safeLightTheme(),
+      locale: locale,
+      localizationsDelegates: L.localizationsDelegates,
+      supportedLocales: L.supportedLocales,
+      home: child,
+    );

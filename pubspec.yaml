@@ -12,6 +12,11 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  # Fourni par flutter_localizations; `any` évite d'épingler une version que le
+  # SDK contredirait à la prochaine mise à jour.
+  intl: any
   path_provider: ^2.1.6
   file_selector: ^1.1.0
   share_plus: ^13.3.0
@@ -32,6 +37,9 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  # Génère `AppLocalizations` depuis lib/l10n/*.arb (voir l10n.yaml).
+  generate: true
 
   assets:
     # Icône de la fenêtre sous Linux, chargée par le lanceur natif.

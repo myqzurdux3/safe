@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
+// `Locale` seul, sans tirer tout le paquet widgets dans la couche stockage.
+import 'dart:ui';
 
 import 'private_directory.dart';
 
@@ -24,6 +26,44 @@ const List<Duration> autoLockChoices = [
 /// un commentaire qui affirmait le contraire.
 const Duration defaultAutoLockDelay = Duration(minutes: 2);
 
+/// La langue de l'interface.
+///
+/// [system] suit la langue de l'appareil et retombe sur le français quand ce
+/// n'est ni du français ni de l'anglais — c'est la langue dans laquelle
+/// l'application a été écrite. Les deux autres forcent, pour qui vit sur un
+/// téléphone dans une langue et préfère lire son coffre dans une autre.
+enum AppLanguage {
+  system('system'),
+  french('fr'),
+  english('en');
+
+  const AppLanguage(this.code);
+
+  /// Ce qui est écrit dans `settings.json`.
+  final String code;
+
+  /// `null` quand il faut suivre l'appareil.
+  Locale? get locale => switch (this) {
+    AppLanguage.system => null,
+    AppLanguage.french => const Locale('fr'),
+    AppLanguage.english => const Locale('en'),
+  };
+
+  /// Le nom de la langue dans cette langue même: un « English » traduit en
+  /// « Anglais » ne se reconnaît pas quand on ne lit pas la langue affichée.
+  /// [system] n'a pas de nom propre et se traduit, lui.
+  String? get endonym => switch (this) {
+    AppLanguage.system => null,
+    AppLanguage.french => 'Français',
+    AppLanguage.english => 'English',
+  };
+
+  static AppLanguage fromCode(Object? code) => values.firstWhere(
+    (l) => l.code == code,
+    orElse: () => AppLanguage.system,
+  );
+}
+
 /// Préférences de l'application.
 ///
 /// Rien de secret ici, d'où un simple fichier JSON en clair à côté du coffre:
@@ -34,6 +74,7 @@ class AppSettings {
     this.blockScreenshots = true,
     this.autoLockDelay = defaultAutoLockDelay,
     this.syntaxTutorialDismissed = false,
+    this.language = AppLanguage.system,
   });
 
   /// Bloquer les captures d'écran et vider la vignette du sélecteur
@@ -53,21 +94,28 @@ class AppSettings {
   /// à `false` — aucune migration.
   final bool syntaxTutorialDismissed;
 
+  /// Langue de l'interface. Absente des fichiers écrits avant, d'où le défaut
+  /// à [AppLanguage.system] — aucune migration.
+  final AppLanguage language;
+
   AppSettings copyWith({
     bool? blockScreenshots,
     Duration? autoLockDelay,
     bool? syntaxTutorialDismissed,
+    AppLanguage? language,
   }) => AppSettings(
     blockScreenshots: blockScreenshots ?? this.blockScreenshots,
     autoLockDelay: autoLockDelay ?? this.autoLockDelay,
     syntaxTutorialDismissed:
         syntaxTutorialDismissed ?? this.syntaxTutorialDismissed,
+    language: language ?? this.language,
   );
 
   Map<String, Object?> toJson() => {
     'blockScreenshots': blockScreenshots,
     'autoLockSeconds': autoLockDelay.inSeconds,
     'syntaxTutorialDismissed': syntaxTutorialDismissed,
+    'language': language.code,
   };
 
   /// Toute valeur absente ou d'un type inattendu retombe sur le défaut, qui
@@ -77,6 +125,9 @@ class AppSettings {
     final seconds = json['autoLockSeconds'];
     final tuto = json['syntaxTutorialDismissed'];
     return AppSettings(
+      // Un code inconnu ou absent retombe sur « suivre l'appareil », qui ne
+      // peut pas rendre l'application illisible.
+      language: AppLanguage.fromCode(json['language']),
       blockScreenshots: blocked is bool ? blocked : true,
       // Absent des fichiers écrits avant la refonte: le tuto s'affiche, ce qui
       // est justement ce dont a besoin quelqu'un qui découvre la syntaxe.

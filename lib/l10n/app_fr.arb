@@ -1,0 +1,5 @@
+{
+  "@@locale": "fr",
+  "appTitle": "safe",
+  "@appTitle": { "description": "Le nom de l'application, qui ne se traduit pas." }
+}
