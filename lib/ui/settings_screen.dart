@@ -584,9 +584,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     child: Text(
       'Le mot de passe maître ne peut pas être récupéré. Gardez une '
       'copie exportée du coffre en lieu sûr: elle reste chiffrée.\n\n'
-      'L\'export ne contient que les clefs et les valeurs. Les pièces '
-      'jointes vivent dans des fichiers séparés: exportez-les une par '
-      'une depuis l\'entrée concernée.',
+      'L\'export ne contient que le nom et le texte de chaque fiche. Les '
+      'pièces jointes vivent dans des fichiers séparés: exportez-les une '
+      'par une depuis la fiche concernée.',
       // En encre, et non en texte secondaire: sur le fond crème ce gris tombe
       // à 4,37:1, sous le seuil AA. C'est la seule phrase de l'application qui
       // dit que le mot de passe maître ne se récupère pas — elle ne peut pas

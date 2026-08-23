@@ -184,6 +184,12 @@ class _UnlockScreenState extends State<UnlockScreen> {
                             hintStyle: TextStyle(
                               fontFamily: safeSans,
                               fontSize: 13.5,
+                              // Remis à zéro: Flutter fusionne ce style
+                              // PAR-DESSUS celui du champ, dont l'espacement
+                              // de .16em est fait pour une suite de points.
+                              // Hérité, il écarte les lettres d'un mot
+                              // français jusqu'à le rendre pénible à lire.
+                              letterSpacing: 0,
                               color: tokens.hintText,
                             ),
                             border: InputBorder.none,
@@ -230,6 +236,10 @@ class _UnlockScreenState extends State<UnlockScreen> {
                               hintStyle: TextStyle(
                                 fontFamily: safeSans,
                                 fontSize: 13.5,
+                                // Voir le champ ci-dessus: sans cette remise
+                                // à zéro, l'invite hérite de l'espacement des
+                                // points.
+                                letterSpacing: 0,
                                 color: tokens.hintText,
                               ),
                               border: InputBorder.none,
