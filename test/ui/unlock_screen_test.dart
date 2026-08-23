@@ -1,6 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:safe/state/vault_session.dart';
+import 'package:safe/ui/theme/safe_theme.dart';
 import 'package:safe/ui/unlock_screen.dart';
+import 'package:safe/ui/widgets/primary_button.dart';
+import 'package:safe/util/clipboard.dart';
 
 import '../support/session_fixture.dart';
 
@@ -87,6 +93,82 @@ void main() {
     await tester.pumpAndSettle();
     expect(session.isUnlocked, isTrue);
     expect(session.vault!.entries.single.key, 'gmail');
+    session.lock();
+  });
+
+  testWidgets('le pied de page annonce le vrai délai de verrouillage', (
+    tester,
+  ) async {
+    final session = await makeTestSession(autoLock: const Duration(minutes: 2));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: safeLightTheme(),
+        home: UnlockScreen(session: session, isCreation: false),
+      ),
+    );
+    expect(find.textContaining('2 min'), findsOneWidget);
+    expect(find.textContaining('5 min'), findsNothing);
+  });
+
+  testWidgets('le sous-titre n\'annonce aucun nombre de fiches', (
+    tester,
+  ) async {
+    // Coffre fermé: le compte est chiffré, l'annoncer supposerait de l'écrire
+    // en clair à côté.
+    final session = await makeTestSession();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: safeLightTheme(),
+        home: UnlockScreen(session: session, isCreation: false),
+      ),
+    );
+    expect(find.textContaining('fiches attendent'), findsNothing);
+    expect(find.text('Content de te revoir.'), findsOneWidget);
+  });
+
+  testWidgets('le bouton de déverrouillage est le bouton pilule', (
+    tester,
+  ) async {
+    final session = await makeTestSession();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: safeLightTheme(),
+        home: UnlockScreen(session: session, isCreation: false),
+      ),
+    );
+    expect(find.byType(SafePrimaryButton), findsOneWidget);
+    expect(find.text('Déverrouiller'), findsOneWidget);
+  });
+
+  testWidgets('pendant la dérivation, le bouton montre une roue', (
+    tester,
+  ) async {
+    // Argon2id sur 128 Mio prend plusieurs secondes sur un téléphone: un
+    // bouton simplement grisé ne se distingue pas d'un bouton invalide, et
+    // pousse à taper deux fois. Les paramètres de test dérivent trop vite
+    // pour surprendre l'écran en vol: le magasin est donc verrouillé le
+    // temps de l'observation, comme le fait déjà `concurrent_save_test.dart`.
+    final store = GatedVaultStore()..gate = Completer<void>();
+    final session = VaultSession(
+      crypto: await testCrypto(),
+      storage: store,
+      blobs: MemoryBlobStore(),
+      clipboard: SecureClipboard(),
+      autoLockDelay: const Duration(minutes: 10),
+      kdfParams: testKdfParams,
+    );
+    addTearDown(session.dispose);
+    await tester.pumpWidget(
+      wrapScreen(UnlockScreen(session: session, isCreation: true)),
+    );
+    await tester.enterText(find.byKey(const Key('password')), testPassword);
+    await tester.enterText(find.byKey(const Key('confirm')), testPassword);
+    await tester.tap(find.byKey(const Key('submit')));
+    await tester.pump();
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    store.gate!.complete();
+    await tester.pumpAndSettle();
+    expect(session.isUnlocked, isTrue);
     session.lock();
   });
 }

@@ -55,4 +55,36 @@ void main() {
     expect(contenu.contains('motdepasse'), isFalse);
     expect(contenu, contains('blockScreenshots'));
   });
+
+  test('le tuto de syntaxe est affiché par défaut', () {
+    expect(const AppSettings().syntaxTutorialDismissed, isFalse);
+  });
+
+  test('un settings.json écrit avant la refonte reste lisible', () {
+    // Champ absent: aucune migration, le tuto s'affiche.
+    final settings = AppSettings.fromJson({
+      'blockScreenshots': true,
+      'autoLockSeconds': 120,
+    });
+    expect(settings.syntaxTutorialDismissed, isFalse);
+  });
+
+  test('la préférence de tuto fait l\'aller-retour par le JSON', () {
+    final settings = const AppSettings().copyWith(
+      syntaxTutorialDismissed: true,
+    );
+    expect(
+      AppSettings.fromJson(settings.toJson()).syntaxTutorialDismissed,
+      isTrue,
+    );
+  });
+
+  test('une valeur de tuto d\'un type inattendu retombe sur le défaut', () {
+    expect(
+      AppSettings.fromJson({
+        'syntaxTutorialDismissed': 'oui',
+      }).syntaxTutorialDismissed,
+      isFalse,
+    );
+  });
 }

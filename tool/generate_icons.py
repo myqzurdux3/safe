@@ -1,5 +1,18 @@
 #!/usr/bin/env python3
-"""Génère les icônes de safe: bouclier clair, serrure évidée, fond vert.
+"""Génère les icônes de safe: le fermoir, sur fond vert.
+
+C'est la même marque que celle dessinée à l'écran par `lib/ui/safe_logo.dart`
+— deux équerres qui s'emboîtent sans se toucher, marque `C` de la planche `1a`
+du handoff. Le lanceur et l'application montrent donc le même signe.
+
+Le tracé est celui du handoff, dans un carré de 48:
+
+    M32 7 H16 A9 9 0 0 0 7 16 V26      l'équerre du haut
+    M16 41 H32 A9 9 0 0 0 41 32 V22    celle du bas
+
+Sur le fond vert sombre du lanceur, les deux traits prennent la déclinaison
+claire du handoff (`#7ee0a8` et `#eef2ef`) et non celle du fond clair: un
+`#183a2b` sur `#255C42` serait un trait invisible.
 
 Le dessin est vectoriel-par-calcul puis rendu en supersampling x4, ce qui donne
 des bords nets à toutes les tailles sans dépendre d'un rasteriseur SVG.
@@ -15,6 +28,7 @@ des bords nets à toutes les tailles sans dépendre d'un rasteriseur SVG.
 
 from __future__ import annotations
 
+import math
 import os
 from PIL import Image, ImageDraw
 
@@ -23,10 +37,21 @@ SS = 4  # facteur de supersampling
 # Vert de l'application (graine du thème Material), décliné en dégradé.
 BG_TOP = (47, 111, 78)
 BG_BOTTOM = (20, 62, 44)
-SHIELD = (242, 251, 245)
+
+# La déclinaison claire du fermoir, celle que le handoff pose sur fond sombre.
+MARK_TOP = (126, 224, 168)  # #7ee0a8
+MARK_BOTTOM = (238, 242, 239)  # #eef2ef
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RES = os.path.join(HERE, "android", "app", "src", "main", "res")
+
+# Le carré de référence du tracé, et l'épaisseur du trait dedans.
+BOX = 48.0
+STROKE = 7.0
+
+# Le signe déborde du tracé de la moitié du trait, de chaque côté: il va donc
+# de 7 - 3.5 = 3.5 à 41 + 3.5 = 44.5, soit 41 unités de large.
+SPAN = 41.0
 
 LEGACY_SIZES = {
     "mipmap-mdpi": 48,
@@ -47,83 +72,70 @@ ADAPTIVE_SIZES = {
 }
 
 
-def quadratic(p0, p1, p2, steps=64):
-    """Points d'une bézier quadratique — PIL ne sait pas tracer de courbes."""
+def arc(cx, cy, r, start_deg, end_deg, steps=48):
+    """Points d'un arc de cercle — PIL ne sait pas tracer de courbes.
+
+    Les angles sont en degrés, dans le repère de l'image (y vers le bas), et
+    l'arc va de `start_deg` à `end_deg` dans le sens du signe de la différence.
+    """
     points = []
     for i in range(steps + 1):
         t = i / steps
-        u = 1 - t
-        points.append(
-            (
-                u * u * p0[0] + 2 * u * t * p1[0] + t * t * p2[0],
-                u * u * p0[1] + 2 * u * t * p1[1] + t * t * p2[1],
-            )
-        )
+        a = math.radians(start_deg + (end_deg - start_deg) * t)
+        points.append((cx + r * math.cos(a), cy + r * math.sin(a)))
     return points
 
 
-def shield_polygon(cx, cy, w, h):
-    """Silhouette du bouclier: épaules droites, flancs qui filent vers la pointe."""
-    left = cx - w / 2
-    right = cx + w / 2
-    top = cy - h / 2
-    bottom = cy + h / 2
-    shoulder = top + h * 0.40  # là où les flancs commencent à se resserrer
-    corner = w * 0.30
-
-    points = [(left + corner, top)]
-    points += quadratic((left + corner, top), (left, top), (left, top + corner))
-    points.append((left, shoulder))
-    # Flanc gauche vers la pointe basse.
-    points += quadratic(
-        (left, shoulder), (left + w * 0.02, bottom - h * 0.22), (cx, bottom)
-    )
-    # Flanc droit, en remontant.
-    points += quadratic(
-        (cx, bottom), (right - w * 0.02, bottom - h * 0.22), (right, shoulder)
-    )
-    points.append((right, top + corner))
-    points += quadratic((right, top + corner), (right, top), (right - corner, top))
-    return points
+def upper_bracket():
+    """`M32 7 H16 A9 9 0 0 0 7 16 V26`, en coordonnées du carré de 48."""
+    # L'arc va du haut (270°) à la gauche (180°) du cercle centré en (16, 16).
+    return [(32.0, 7.0)] + arc(16.0, 16.0, 9.0, 270.0, 180.0) + [(7.0, 26.0)]
 
 
-def keyhole_polygon(cx, cy, w, h):
-    """Tige de la serrure: un trapèze qui s'évase vers le bas."""
-    top_half = w * 0.30
-    bottom_half = w * 0.62
-    return [
-        (cx - top_half, cy),
-        (cx + top_half, cy),
-        (cx + bottom_half, cy + h),
-        (cx - bottom_half, cy + h),
-    ]
+def lower_bracket():
+    """`M16 41 H32 A9 9 0 0 0 41 32 V22` — la même, tournée d'un demi-tour."""
+    return [(16.0, 41.0)] + arc(32.0, 32.0, 9.0, 90.0, 0.0) + [(41.0, 22.0)]
 
 
-def draw_shield(size, coverage):
-    """Bouclier seul, serrure évidée (alpha nul), sur fond transparent."""
+def stroke(draw, points, color, width):
+    """Trace une polyligne à bouts et jointures ronds.
+
+    PIL n'a ni `stroke-linecap` ni `stroke-linejoin`: `draw.line(width=...)`
+    pose un rectangle par segment et, avec `joint="curve"`, une ellipse par
+    sommet — ce qui laisse des coutures visibles EN TRAVERS du trait, une par
+    point d'échantillonnage de l'arc. Une brosse tamponnée le long du chemin
+    n'a pas ce défaut: le disque est à la fois le bout, la jointure et le
+    corps du trait.
+    """
+    r = width / 2
+    step = 0.4  # en pixels du canevas supersamplé
+    for (x0, y0), (x1, y1) in zip(points, points[1:]):
+        n = max(int(math.hypot(x1 - x0, y1 - y0) / step), 1)
+        for i in range(n + 1):
+            t = i / n
+            x = x0 + (x1 - x0) * t
+            y = y0 + (y1 - y0) * t
+            draw.ellipse([x - r, y - r, x + r, y + r], fill=color)
+
+
+def draw_mark(size, coverage):
+    """Le fermoir seul, sur fond transparent.
+
+    `coverage` est la part du canevas qu'occupe le signe, bord de trait
+    compris — pas le tracé nu.
+    """
     s = size * SS
     layer = Image.new("RGBA", (s, s), (0, 0, 0, 0))
     draw = ImageDraw.Draw(layer)
 
-    w = s * coverage
-    h = w * 1.22
-    cx, cy = s / 2, s / 2
-    draw.polygon(shield_polygon(cx, cy, w, h), fill=SHIELD)
+    scale = coverage * s / SPAN
 
-    # Serrure: disque + tige, percés dans le bouclier.
-    hole = Image.new("L", (s, s), 0)
-    hole_draw = ImageDraw.Draw(hole)
-    r = w * 0.165
-    hole_cy = cy - h * 0.07
-    hole_draw.ellipse(
-        [cx - r, hole_cy - r, cx + r, hole_cy + r], fill=255
-    )
-    hole_draw.polygon(
-        keyhole_polygon(cx, hole_cy + r * 0.30, r * 1.30, h * 0.24), fill=255
-    )
-    alpha = layer.getchannel("A")
-    alpha.paste(0, mask=hole)
-    layer.putalpha(alpha)
+    def place(points):
+        # Le centre du carré de 48 tombe sur le centre du canevas.
+        return [(s / 2 + (x - BOX / 2) * scale, s / 2 + (y - BOX / 2) * scale) for x, y in points]
+
+    stroke(draw, place(upper_bracket()), MARK_TOP, STROKE * scale)
+    stroke(draw, place(lower_bracket()), MARK_BOTTOM, STROKE * scale)
     return layer.resize((size, size), Image.LANCZOS)
 
 
@@ -154,7 +166,7 @@ def gradient_background(size, radius_ratio=0.22, circular=False):
 
 def full_icon(size, circular=False):
     icon = gradient_background(size, circular=circular)
-    icon.alpha_composite(draw_shield(size, coverage=0.56))
+    icon.alpha_composite(draw_mark(size, coverage=0.56))
     return icon
 
 
@@ -172,10 +184,10 @@ def main():
             full_icon(size, circular=True),
         )
     for folder, size in ADAPTIVE_SIZES.items():
-        # Le bouclier reste dans la zone sûre centrale (66/108 du canevas).
+        # Le signe reste dans la zone sûre centrale (66/108 du canevas).
         write(
             os.path.join(RES, folder, "ic_launcher_foreground.png"),
-            draw_shield(size, coverage=0.40),
+            draw_mark(size, coverage=0.44),
         )
     for size in (512, 256, 128, 64):
         write(

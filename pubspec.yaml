@@ -36,3 +36,25 @@ flutter:
   assets:
     # Icône de la fenêtre sous Linux, chargée par le lanceur natif.
     - assets/icon/safe_256.png
+    - assets/fonts/OFL-InstrumentSans.txt
+    - assets/fonts/OFL-JetBrainsMono.txt
+
+  fonts:
+    # Interface. Embarquées plutôt que chargées depuis Google: l'application est
+    # hors ligne et ne doit contacter personne au démarrage.
+    - family: InstrumentSans
+      fonts:
+        - asset: assets/fonts/InstrumentSans-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/InstrumentSans-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/InstrumentSans-SemiBold.ttf
+          weight: 600
+    # Tout ce qui est une donnée stockée s'affiche en chasse fixe, jamais en
+    # linéale: une valeur doit se relire caractère par caractère.
+    - family: JetBrainsMono
+      fonts:
+        - asset: assets/fonts/JetBrainsMono-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/JetBrainsMono-Medium.ttf
+          weight: 500

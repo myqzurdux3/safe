@@ -6,22 +6,29 @@ class _CharacterClass {
 
   final String characters;
 
-  static const lower = _CharacterClass('abcdefghijklmnopqrstuvwxyz');
-  static const upper = _CharacterClass('ABCDEFGHIJKLMNOPQRSTUVWXYZ');
-  static const digits = _CharacterClass('0123456789');
+  /// Les minuscules sans « l », qui se confond avec « 1 » et « I ».
+  static const lower = _CharacterClass('abcdefghijkmnopqrstuvwxyz');
 
-  /// Toute la ponctuation ASCII imprimable, sans l'espace: c'est le jeu le plus
-  /// large qu'acceptent la quasi-totalité des formulaires.
-  static const symbols = _CharacterClass(
-    r'''!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~''',
-  );
+  /// Les majuscules sans « I » ni « O ».
+  static const upper = _CharacterClass('ABCDEFGHJKLMNPQRSTUVWXYZ');
+
+  /// Les chiffres sans « 0 » ni « 1 ».
+  static const digits = _CharacterClass('23456789');
+
+  /// Une ponctuation restreinte, celle que le handoff retient.
+  ///
+  /// Le jeu complet passe de 94 à 67 caractères, soit 6,07 bits par position
+  /// au lieu de 6,55 — un demi-bit de moins, 121 bits à vingt caractères. Ce
+  /// qu'on gagne: des mots de passe que les formulaires acceptent, et qui se
+  /// recopient à la main sans erreur.
+  static const symbols = _CharacterClass(r'!#$%&*+-?@');
 }
 
 /// Jeux de caractères proposés par le générateur.
 enum CharacterSet {
   letters('Lettres'),
-  lettersDigits('Lettres et chiffres'),
-  all('Lettres, chiffres et symboles');
+  lettersDigits('+ chiffres'),
+  all('+ symboles');
 
   const CharacterSet(this.label);
 
@@ -51,9 +58,10 @@ enum CharacterSet {
   String get alphabet => _classes.map((c) => c.characters).join();
 }
 
-/// Longueurs acceptées, bornes comprises.
+/// Longueurs acceptées, bornes comprises. Le curseur du générateur va de l'une
+/// à l'autre.
 const int minPasswordLength = 8;
-const int maxPasswordLength = 128;
+const int maxPasswordLength = 48;
 
 /// Tire un mot de passe aléatoire.
 ///

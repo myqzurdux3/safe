@@ -22,27 +22,33 @@ Future<VaultSession> monter(WidgetTester tester, MemoryVaultStore store) async {
   return session;
 }
 
+/// Le retour de la nouvelle fiche est un contrôle propre à l'écran, pas la
+/// flèche d'une `AppBar`: `pageBack` ne le trouverait pas.
+Future<void> retourner(WidgetTester tester) async {
+  await tester.tap(find.byIcon(Icons.arrow_back));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   testWidgets('quitter une saisie en cours demande confirmation', (
     tester,
   ) async {
     final session = await monter(tester, MemoryVaultStore());
 
-    await tester.tap(find.byIcon(Icons.add));
+    await tester.tap(find.byKey(const Key('add')));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('key')), 'banque');
+    await tester.enterText(find.byKey(const Key('name')), 'banque');
     await tester.pumpAndSettle();
 
     // Retour arrière: la saisie ne doit pas partir sans un mot.
-    await tester.pageBack();
-    await tester.pumpAndSettle();
+    await retourner(tester);
 
     expect(find.text('Abandonner les modifications ?'), findsOneWidget);
-    expect(find.byKey(const Key('key')), findsOneWidget);
+    expect(find.byKey(const Key('name')), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('confirm-discard')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('key')), findsNothing);
+    expect(find.byKey(const Key('name')), findsNothing);
     session.lock();
   });
 
@@ -51,13 +57,12 @@ void main() {
   ) async {
     final session = await monter(tester, MemoryVaultStore());
 
-    await tester.tap(find.byIcon(Icons.add));
+    await tester.tap(find.byKey(const Key('add')));
     await tester.pumpAndSettle();
-    await tester.pageBack();
-    await tester.pumpAndSettle();
+    await retourner(tester);
 
     expect(find.text('Abandonner les modifications ?'), findsNothing);
-    expect(find.byKey(const Key('key')), findsNothing);
+    expect(find.byKey(const Key('name')), findsNothing);
     session.lock();
   });
 
@@ -66,9 +71,9 @@ void main() {
   ) async {
     final session = await monter(tester, MemoryVaultStore());
 
-    await tester.tap(find.byIcon(Icons.add));
+    await tester.tap(find.byKey(const Key('add')));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('value')), 'secret-en-clair');
+    await tester.enterText(find.byKey(const Key('raw')), 'secret-en-clair');
     await tester.pumpAndSettle();
 
     session.lock();
@@ -77,7 +82,28 @@ void main() {
     // La confirmation ne doit surtout pas retenir l'écran: son contenu en clair
     // resterait affiché par-dessus l'écran de verrou.
     expect(find.text('Abandonner les modifications ?'), findsNothing);
-    expect(find.byKey(const Key('value')), findsNothing);
+    expect(find.byKey(const Key('raw')), findsNothing);
     expect(find.text('secret-en-clair'), findsNothing);
+  });
+
+  testWidgets('enregistrer sort de l\'écran sans rien demander', (
+    tester,
+  ) async {
+    final session = await monter(tester, MemoryVaultStore());
+
+    await tester.tap(find.byKey(const Key('add')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('name')), 'banque');
+    await tester.enterText(find.byKey(const Key('raw')), 'courrier:\nsecret');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Enregistrer'));
+    await tester.pumpAndSettle();
+
+    // La garde de sortie ne doit pas se déclencher sur un enregistrement: la
+    // saisie n'est plus « en cours », elle est au coffre.
+    expect(find.text('Abandonner les modifications ?'), findsNothing);
+    expect(find.byKey(const Key('name')), findsNothing);
+    expect(session.vault!.entries.map((e) => e.key), contains('banque'));
+    session.lock();
   });
 }

@@ -193,7 +193,7 @@ compteur) pour qu'un fichier unique à branches devienne illisible.
 
 Logo 34 px, 26 px d'espace, titre « Content de te revoir. » 600 30 px/1.15. Champ sans
 boîte, filet bas `1.5px #183a2b`, valeur en mono 500 16 px `letter-spacing: .16em`, caret
-`#2f7d5b`. Bouton œil à droite. Bouton primaire pleine largeur 52 px, rayon 26 px. Pied de
+`#2f7d5b`. Bouton œil à droite. Bouton primaire pleine largeur 50 px, rayon 25 px. Pied de
 page rappelant le délai de verrouillage.
 
 **Le sous-titre ne peut pas annoncer le nombre de fiches.** La maquette affiche « 14 fiches
@@ -217,7 +217,8 @@ Onglet Coffre : champ de recherche pilule `#eae7e1` hauteur 44 px, puis liste d�
 Ligne : puce 8 px, nom 500 14.5 px, hairline bas, `padding: 15px 0`, troncature.
 
 Onglet Générateur : carte blanche rayon 18 px, valeur en mono 400 19 px/1.55, hauteur
-minimale 62 px ; « Copier » (48 px, devient « Copié ✓ » 1,6 s) et régénérer 48 × 48 px ;
+minimale 62 px ; « Copier » (48 px, devient « Copié » précédé d'une coche 1,6 s — voir
+« Deux signes de la maquette n'existent pas dans les polices ») et régénérer 48 × 48 px ;
 curseur de longueur 8–48 ; trois pastilles de jeu ; historique « GÉNÉRÉ AVANT » de trois
 valeurs avec la mention « Effacé au verrouillage. Jamais écrit sur le disque. »
 
@@ -366,15 +367,30 @@ toast (`0 6px 18px rgba(0,0,0,.18)`). Aucune ombre de carte.
 
 ### Logo
 
-Monogramme S géométrique, tracé unique de deux demi-cercles, dans un `viewBox` de 48 :
+Le **fermoir** — marque `C` de la planche `1a` du handoff. Deux équerres qui s'emboîtent
+sans se toucher, dans un `viewBox` de 48 :
 
 ```
-M34 14 A10 10 0 1 0 24 24 A10 10 0 1 1 14 34
+M32 7 H16 A9 9 0 0 0 7 16 V26      trait #2f7d5b
+M16 41 H32 A9 9 0 0 0 41 32 V22    trait #183a2b
 ```
 
-Trait 7, extrémités arrondies, sans remplissage, couleur `#2f7d5b` (version foncée
-`#183a2b`). Tailles : 34 px au déverrouillage, 17 px en en-tête d'accueil, jamais moins de
-16 px. Logotype « safe » en Instrument Sans 600, `-0.03em`, `#183a2b`, à 9–12 px du signe.
+Trait 7, extrémités arrondies, sans remplissage. Le centre du carré reste **vide** : c'est
+ce que le dessin dit — verrouillé quand les deux équerres s'alignent, entrouvert quand
+elles glissent —, et c'est aussi ce qui le distingue à coup sûr du monogramme S.
+Tailles : 34 px au déverrouillage, 17 px en en-tête d'accueil, jamais moins de 16 px.
+Logotype « safe » en Instrument Sans 600, `-0.03em`, `#183a2b`, à 9–12 px du signe.
+
+Pour une version une-couleur — barre système, gabarit foncé — les deux traits prennent
+`#183a2b`.
+
+**Décision du propriétaire, 2026-08-23 :** le monogramme S (marque `B`), retenu par le
+handoff dans tous ses écrans validés et implémenté jusque-là, est remplacé par le fermoir.
+Les autres écrans ne bougent pas ; seul le signe change. L'**icône de lancement** suit :
+`tool/generate_icons.py` ne dessine plus le bouclier à serrure évidée mais le même fermoir,
+si bien que le lanceur et l'application montrent désormais la même marque. Sur le fond vert
+sombre du lanceur, les traits prennent la déclinaison claire du handoff — `#7ee0a8` et
+`#eef2ef` — parce que `#183a2b` sur `#255C42` serait un trait invisible.
 
 ## Écarts imposés par la plateforme
 
@@ -403,6 +419,16 @@ Le handoff visait GTK4/libadwaita ; la pile est Flutter.
   structure et ses fonctions : le designer le renvoie explicitement à un second temps.
 - **Nombre de fiches au déverrouillage.** Impossible sans divulguer une métadonnée en
   clair. Voir la section Déverrouillage.
+- **Deux signes de la maquette n'existent pas dans les polices.** La maquette écrit « ↻ »
+  (U+21BB) sur le bouton régénérer et « Copié ✓ » (U+2713) sur le retour de copie. Ni
+  Instrument Sans ni JetBrains Mono ne portent ces deux caractères — leurs tables `cmap`
+  ont été lues, et ce sont les deux seuls trous : tous les autres signes non-ASCII de
+  l'application y sont. La maquette est une page HTML, où les fontes du système les
+  fournissent ; l'application, elle, n'embarque que ces deux familles. Android se
+  rabattrait sur une autre fonte au milieu du texte, et un appareil sans repli afficherait
+  un carré vide. L'application pose donc `Icons.refresh` et `Icons.check`, qui viennent de
+  MaterialIcons, livrée avec elle. Le sens et la durée (1,6 s) ne changent pas ; seul le
+  dessin du signe est celui de Material et non celui de la maquette.
 
 ## Ce qui ne bouge pas
 
@@ -421,3 +447,198 @@ réécrits, jamais supprimés.
 Vérification sur l'émulateur Pixel 9a (`emulator-5554`) après chaque écran, captures à
 l'appui. Le téléphone réel porte le coffre de l'utilisateur et ne sert qu'aux
 installations `adb install -r`.
+
+## État à la clôture
+
+Écrit le 2026-08-23, sur la branche `refonte-interface`, 44 commits au-dessus de `master`.
+Rien n'est fusionné : l'application installée sur le téléphone du propriétaire ne porte
+aucune de ces modifications.
+
+### Ce qui a été fait
+
+Les onze tâches du plan, sauf la vérification sur appareil.
+
+| Tâche | Résultat |
+|---|---|
+| 1 | `lib/model/entry_text.dart` — la découpe en blocs et en notes |
+| 2 | Polices embarquées, jetons de couleur, de texte et d'espacement, `safeLightTheme()` |
+| 3 | Le monogramme redessiné au trait |
+| 4 | Déverrouillage restylé, sans compteur de fiches |
+| 5 | Générateur : bornes 8–48, jeux sans caractères ambigus, état de session |
+| 6 | La fiche : blocs masqués, notes en clair, mode texte brut, tuto de syntaxe |
+| 7 | La nouvelle fiche, et le titre rendu modifiable (décision du propriétaire) |
+| 8 | `lib/model/vault_search.dart` — noms, intertitres, lignes de valeur |
+| 9 | L'accueil à deux onglets, l'ancienne liste supprimée |
+| 10 | Réglages restylés aux jetons |
+| 11 | Code mort, couverture, documentation, parcours sur l'émulateur |
+| — | Le cadenas de verrouillage manuel dans l'en-tête (décision du propriétaire) |
+| — | Le logo passé du monogramme S au fermoir, écran **et** lanceur (décision du propriétaire) |
+
+### Ce qui a été vérifié, et comment
+
+**431 tests verts**, répartis sur 68 fichiers ; `flutter analyze` et `dart format` propres.
+
+Chaque tâche a été écrite par un agent et relue par un autre, sans lui montrer le rapport
+du premier. Les relectures ont trouvé ce qu'une suite verte ne trouve pas : des assertions
+vraies par construction, une cible tactile tombée à 24 px, un écran qui ne s'annonçait
+plus, et la seule phrase disant que le mot de passe maître ne se récupère pas passée sous
+le seuil de contraste AA. Chaque garde a été prouvée par **sabotage exécuté** — casser le
+code, lancer la suite, citer la ligne rouge, restaurer.
+
+Deux trouvailles hors plan méritent d'être nommées, parce qu'elles portent sur la sécurité
+et non sur le dessin :
+
+- **Deux fils du verrouillage automatique n'étaient gardés par rien** (`main.dart:87-88`
+  et `153-155`). Débranchés, la suite restait verte. Or, sans le premier, le coffre se
+  verrouille sous les doigts de qui remplit une fiche au clavier, et la saisie non
+  enregistrée part avec lui ; sans le second, un coffre laissé en arrière-plan pendant
+  qu'Android gèle le processus **revient ouvert**. `test/ui/app_wiring_test.dart` les tient
+  désormais.
+- **Couverture globale 2248/2358 lignes, 95,34 %** (`lcov` étant absent de la machine, les
+  enregistrements `DA:` ont été comptés à la main). Aucune ligne de déchiffrement, de
+  sérialisation ni d'export n'est non couverte, vérifié ligne à ligne. Seul `lib/main.dart`
+  est sous 80 % — 75 %, de l'amorçage non couvrable sous horloge simulée.
+
+Le rendu a d'abord été regardé sur des PNG rendus hors écran (`RenderRepaintBoundary.toImage`
+sous `runAsync`, vraies polices chargées par `FontLoader`, 411 × 891 à 2,625×) — une image
+juste du dessin, mais pas une preuve du comportement de l'appareil. La section suivante dit
+ce que l'appareil, lui, a montré.
+
+### Ce qui a été vérifié sur un appareil
+
+Sur l'**émulateur** Pixel 9a (`emulator-5554`, APK *debug*), puis sur le **téléphone réel**
+(`5A101JEBF39259`, APK *release*) le 2026-08-23.
+
+L'installation sur le téléphone a suivi le Step 6 du plan, avec ses vérifications avant :
+le certificat de signature de l'APK neuf et celui du paquet déjà installé ont été extraits
+et comparés — mêmes empreintes SHA-256, la clef *debug* d'Android — et l'APK a été confirmé
+**non débogable**. Sans cette égalité, `install -r` aurait échoué et la seule « issue »
+aurait été une désinstallation, c'est-à-dire la perte du coffre. Après l'installation,
+`firstInstallTime` est **inchangé** (2026-08-14 18:51:03) : c'était bien une mise à jour.
+L'application relancée affiche « Content de te revoir. / Ton coffre est fermé. », la branche
+« coffre existant » — le coffre a survécu. Il n'a pas été ouvert.
+
+Le point le plus important d'abord. **Une sauvegarde scellée par le code d'avant la
+refonte se réimporte.** Elle a été fabriquée avec le `sealWithPassword` de `master`, puis
+choisie dans le sélecteur de fichiers depuis Réglages → Importer. Résultat : `vault.safe`
+passe à 607 octets, le coffre précédent part en `vault.safe.bak`, l'application se referme
+— le coffre importé a un autre mot de passe — et les quatre fiches reviennent, accents et
+tiret cadratin intacts, valeurs identiques à l'octet, dates de création conservées.
+
+Cette réimportation avait d'ailleurs une preuve statique : `git diff master..HEAD` sur
+`lib/crypto/`, `lib/model/vault.dart`, `lib/storage/vault_file.dart`,
+`lib/storage/vault_transfer.dart` et `lib/storage/blob_store.dart` **ne rend rien**. Pas un
+octet du format, du scellement, de l'écriture disque ni de l'export n'a bougé.
+
+Constaté aussi, pour la première fois :
+
+- **`Icons.refresh` et `Icons.check` s'affichent** — « ✓ Copié » et le bouton rond de
+  régénération. L'écart de police décrit plus haut est levé.
+- **Le cadenas de l'en-tête rend à 21 px et verrouille** depuis l'accueil.
+- **Le blocage des captures d'écran fonctionne** : la toute première capture est revenue
+  entièrement **noire**. Il a fallu poser `blockScreenshots: false` dans le `settings.json`
+  de l'émulateur pour voir quoi que ce soit.
+- **Le presse-papier est bien marqué sensible** : l'aperçu système d'Android affiche des
+  points à la place de la valeur copiée.
+- **`settings.json` est relu du disque** : le pied de page annonce le vrai délai.
+- **`VaultFile.defaultDirectory()` résout correctement** sur Android —
+  `/data/data/dev.safe.safe/app_flutter/safe`. C'était un trou de couverture ; il est
+  constaté en marche, pas comblé par un test.
+- **Une fiche d'avant la refonte s'affiche en clair**, comme une note rattachée par un
+  filet — la conséquence de l'écart de masquage, vue sur l'écran et non plus déduite.
+
+**Ce qui reste sans regard :** une fiche à trois blocs écrite à la main ; le mode texte
+brut ; la recherche tapée au clavier ; les pièces jointes. Et, sur le téléphone réel, tout
+ce qui se trouve derrière le mot de passe maître : il n'est jamais demandé.
+
+Rappels pour le jour du téléphone réel : toujours `adb -s <numéro de série>`, jamais sans —
+le nom du modèle ne distingue plus le téléphone de l'émulateur. Jamais d'`adb uninstall`,
+jamais d'`adb install` sans `-r` : le coffre et les pièces jointes seraient effacés. Jamais
+de compilation *debug* dessus — `run-as` rendrait le coffre lisible.
+
+### Ce que le regard a trouvé
+
+Trois choses qu'aucune suite verte n'avait signalées.
+
+1. **Les invites des champs de mot de passe portaient l'espacement des points.** « Mot de
+   passe maître » s'affichait « M o t  d e  p a s s e  m a î t r e ». Le champ écrit ses
+   caractères en `letter-spacing: .16em` — c'est la maquette — mais Flutter fusionne
+   `hintStyle` par-dessus le style du champ, et ce que `hintStyle` n'écrase pas est hérité.
+   **Corrigé**, avec trois gardes qui lisent le style *rendu* de l'invite.
+2. **Les réglages parlaient encore de « clefs » et de « valeurs ».** Vocabulaire d'avant la
+   refonte, resté parce que le contrat de la tâche 10 gelait les libellés. **Corrigé.**
+3. **La commande des réglages était un cercle vide pâle** et ne disait rien de ce qu'elle
+   ouvre — d'autant moins depuis que le cadenas, lisible, est son voisin immédiat : elle se
+   lisait comme une puce décorative, au point d'être signalée comme « l'image qui ne
+   s'affiche pas ». Ce document n'écrit que « commande réglages à droite » ; le cercle
+   venait du handoff. **Corrigé** sur décision du propriétaire : `Icons.settings_outlined`,
+   à la taille et à l'encre du cadenas, pour que les deux commandes de l'en-tête se lisent
+   comme une paire.
+
+### Écarts assumés
+
+Ceux qui touchent le dessin ou le contenu sont décrits plus haut dans ce document. Résumé,
+avec ce que chacun coûte :
+
+| Écart | Conséquence |
+|---|---|
+| Les notes sans titre s'affichent en clair | Une entrée d'avant la refonte, d'une seule ligne, est aujourd'hui masquée et ne le sera plus. Ajouter une ligne `nom:` au-dessus la remasque, et le tuto le dit |
+| La recherche indexe les valeurs | Une ligne de valeur peut apparaître surlignée dans les résultats sans qu'aucun bloc ait été ouvert |
+| `Icons.refresh` / `Icons.check` au lieu de « ↻ » et « ✓ » | Le dessin est celui de Material, pas celui de la maquette |
+| L'`AppBar` des réglages remplacée par l'en-tête maison | Une `AppBar` ne sait poser ni la gouttière de 24 ni `screenTitle`, tous deux exigés par le plan. Le retour fait toujours `Navigator.maybePop()` et s'annonce « Retour » |
+| Le cadenas de l'en-tête est plus sombre que le cercle des réglages voisin | 4,37:1 contre 1,35:1. Le cercle est un décor que le handoff dessine pâle ; un cadenas aussi pâle serait invisible. **Jamais vu à l'œil** |
+| Pas de compteur de fiches au déverrouillage | Impossible sans divulguer une métadonnée en clair |
+| `CommentBlock` rattache la note par un filet vertical, sans l'encadrer | Le handoff nomme une « surface carte secondaire » ; elle a été supprimée comme jeton mort. La remettre, c'est `block_card.dart:177` |
+| `SafeText.sectionLabel` inutilisé | Inventer « SÉCURITÉ » et « SAUVEGARDE » aurait ajouté des mots à un écran dont le brief gèle les libellés |
+
+### Une perte d'ergonomie consentie
+
+**Copier une valeur depuis la liste demandait une tape ; il en faut trois** (ouvrir la
+fiche, ouvrir le bloc, copier). Le propriétaire du dépôt l'a décidé en connaissance de
+cause : le nouveau modèle de contenu est fait pour des fiches à plusieurs valeurs, où une
+commande unique par ligne devrait deviner laquelle copier — et une copie silencieusement
+fausse est la pire panne d'un gestionnaire de mots de passe. Ce n'est pas un oubli.
+
+### Décisions encore en attente
+
+- **`Vault.search`** (`vault.dart:301`) est mort dans `lib/` — `VaultTab` passe par
+  `searchVault` — mais retenu par `vault_test` et `unicode_keys_test`.
+- **`VaultCrypto.sealWithPassword`** (`vault_crypto.dart:326`) est dans le même cas, avec
+  20 sites de test. **Il touche au chiffrement** : c'est le seul chemin de scellement par
+  mot de passe, celui qui fabrique les octets qu'un export doit rester capable de rouvrir.
+  Ne rien y toucher avant le parcours d'import réel.
+- **`minAutoLockDelay` / `maxAutoLockDelay`** (`app_settings.dart:23-24`) : leur commentaire
+  affirme qu'elles valident ce qui est relu du disque, ce qui est devenu faux —
+  `_clampDelay` ramène tout à `autoLockChoices`. Soit supprimer les constantes et la garde,
+  soit corriger le commentaire.
+
+### Ce qui reste faible
+
+- **Le style des cinq écrans refaits n'est presque pas gardé.** Un sabotage de jeton ne fait
+  tomber personne. Il existe deux fichiers de ce genre — `test/ui/settings_style_test.dart`
+  et `test/ui/unlock_style_test.dart` — et chacun est né d'un défaut déjà constaté, pas
+  d'une couverture systématique.
+- **Trois trous de couverture qui comptent** : `home_screen._copier` (copier une ligne
+  depuis un résultat de recherche, avec son repli `MissingPluginException` et ses deux
+  toasts) ; le bouton **Annuler** de `confirm_discard.dart`, jamais pressé — s'il renvoyait
+  `true`, une saisie serait perdue en croyant la garder ; `VaultFile.defaultDirectory()`,
+  où se tromper de dossier revient à ouvrir le mauvais coffre.
+- **Le focus directionnel ignore les commandes des en-têtes** — cadenas, réglages, flèche
+  de retour. Ce sont des `GestureDetector` : pas de `Focus`, pas d'infobulle, pas de retour
+  d'encre au toucher. Défaut préexistant, non aggravé, non corrigé.
+- **Titres sans `header` ni `namesRoute`** dans `entry_screen.dart` et
+  `new_entry_screen.dart` — le défaut exact corrigé dans les réglages. Préexistant.
+- **Mineurs différés**, relevés en relecture et jugés sans conséquence : la liste rendue par
+  `parseEntryText` est croissable ; `length` compte des unités UTF-16 et non des graphèmes ;
+  deux titres consécutifs sans ligne entre eux gardent un groupe vide ; le pied de page
+  ancré au clavier n'est figé par aucun test durable ; le test « chaque classe présente »
+  pour le jeu « Lettres » a une marge de détection faible ; un test de recherche promet plus
+  qu'il ne prouve ; quatre cibles tactiles entre 29 et 46 px dans la fiche.
+
+### Ce que le propriétaire doit vérifier lui-même
+
+Ouvrir le coffre sur le téléphone et parcourir quelques fiches réelles : la refonte y est
+installée depuis le 2026-08-23, mais rien de ce qui est derrière le mot de passe maître n'a
+été vu. Y refaire l'import d'une sauvegarde réelle avant de se fier à celui de l'émulateur :
+c'est le même code, mais ce n'est pas le même coffre. Et trancher les trois symboles morts
+ci-dessus.

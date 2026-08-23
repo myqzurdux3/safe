@@ -33,6 +33,7 @@ class AppSettings {
   const AppSettings({
     this.blockScreenshots = true,
     this.autoLockDelay = defaultAutoLockDelay,
+    this.syntaxTutorialDismissed = false,
   });
 
   /// Bloquer les captures d'écran et vider la vignette du sélecteur
@@ -45,15 +46,28 @@ class AppSettings {
   /// Inactivité tolérée avant verrouillage.
   final Duration autoLockDelay;
 
-  AppSettings copyWith({bool? blockScreenshots, Duration? autoLockDelay}) =>
-      AppSettings(
-        blockScreenshots: blockScreenshots ?? this.blockScreenshots,
-        autoLockDelay: autoLockDelay ?? this.autoLockDelay,
-      );
+  /// Le tuto de syntaxe de la fiche a-t-il été écarté ?
+  ///
+  /// Une fois « Compris », il ne revient pas de lui-même: le lien « Syntaxe »
+  /// le rappelle. Absent des fichiers écrits avant la refonte, d'où le défaut
+  /// à `false` — aucune migration.
+  final bool syntaxTutorialDismissed;
+
+  AppSettings copyWith({
+    bool? blockScreenshots,
+    Duration? autoLockDelay,
+    bool? syntaxTutorialDismissed,
+  }) => AppSettings(
+    blockScreenshots: blockScreenshots ?? this.blockScreenshots,
+    autoLockDelay: autoLockDelay ?? this.autoLockDelay,
+    syntaxTutorialDismissed:
+        syntaxTutorialDismissed ?? this.syntaxTutorialDismissed,
+  );
 
   Map<String, Object?> toJson() => {
     'blockScreenshots': blockScreenshots,
     'autoLockSeconds': autoLockDelay.inSeconds,
+    'syntaxTutorialDismissed': syntaxTutorialDismissed,
   };
 
   /// Toute valeur absente ou d'un type inattendu retombe sur le défaut, qui
@@ -61,8 +75,12 @@ class AppSettings {
   factory AppSettings.fromJson(Map<String, Object?> json) {
     final blocked = json['blockScreenshots'];
     final seconds = json['autoLockSeconds'];
+    final tuto = json['syntaxTutorialDismissed'];
     return AppSettings(
       blockScreenshots: blocked is bool ? blocked : true,
+      // Absent des fichiers écrits avant la refonte: le tuto s'affiche, ce qui
+      // est justement ce dont a besoin quelqu'un qui découvre la syntaxe.
+      syntaxTutorialDismissed: tuto is bool ? tuto : false,
       // `num` et non `int`: un fichier édité à la main peut contenir `120.0`,
       // et certains décodeurs rendent un `double` pour un entier.
       autoLockDelay: seconds is num

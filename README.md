@@ -1,32 +1,73 @@
 # safe
 
-Coffre clef/valeur chiffré, minimaliste, pour Android et Linux. L'utilisateur
-enregistre des paires clef/valeur; tout est chiffré en bloc par un mot de passe
-maître, et rien ne quitte l'appareil.
+Coffre chiffré, minimaliste, pour Android et Linux. Une fiche porte un nom et
+un bloc de texte libre — plusieurs services, des codes, des notes; tout est
+chiffré en bloc par un mot de passe maître, et rien ne quitte l'appareil.
 
 ## Ce qu'il fait
 
 - Créer un coffre protégé par un mot de passe maître
-- Ajouter, modifier, supprimer, rechercher des entrées
-- Valeurs sur plusieurs lignes (notes, clefs SSH, adresses)
+- Ajouter, modifier, supprimer, rechercher des fiches
+- Une fiche tient plusieurs services: son texte se découpe tout seul en blocs
+  titrés et en notes, sans rien réécrire de ce qui a été tapé (voir plus bas)
+- Les lignes d'un bloc titré restent masquées jusqu'à ce qu'on ouvre le bloc;
+  une note sans titre s'affiche en clair, c'est une note, pas un secret
+- Chercher dans les noms de fiches, les intertitres de blocs **et les lignes de
+  valeur**, avec la ligne trouvée montrée en contexte
 - Joindre des photos et des documents, chiffrés un par fichier, 25 Mio maximum
-- Générer des valeurs aléatoires (12 à 64 caractères), toute la ponctuation
-  ASCII, avec au moins un caractère de chaque classe demandée
-- Copier une valeur; le presse-papier est effacé 30 s plus tard
+- Générer des valeurs aléatoires (8 à 48 caractères, 20 par défaut), lettres
+  seules, avec chiffres, ou avec dix symboles `!#$%&*+-?@`; les caractères
+  ambigus `l I O 0 1` sont exclus et chaque classe demandée est garantie
+  présente. Les trois valeurs précédentes restent consultables en mémoire, et
+  disparaissent au verrouillage
+- Copier une ligne, ou un bloc entier d'un coup, depuis la fiche; le
+  presse-papier est effacé 30 s plus tard
 - Bloquer les captures d'écran et vider la vignette des applications récentes
   (Android). Actif par défaut, désactivable dans les réglages
+- Verrouiller à la main, depuis le cadenas de l'en-tête de l'accueil ou depuis
+  les réglages
 - Verrouiller automatiquement après inactivité (30 s, 1, 2 ou 5 min; 2 min par
   défaut, choix conservé d'un lancement à l'autre).
   Le temps passé en arrière-plan compte comme de l'inactivité, mais changer
   d'application ne verrouille pas en soi. Frappes et gestes comptent comme une
-  activité, sur tous les écrans. Le verrouillage ferme les écrans ouverts et
-  efface une saisie en cours
+  activité, sur tous les écrans. Le verrouillage ferme les écrans ouverts,
+  referme les blocs, vide l'historique du générateur et efface une saisie en
+  cours
 - Exporter et importer le coffre chiffré, pour transférer entre appareils
 - Restaurer l'état d'avant la dernière modification, depuis la copie conservée
   à côté du coffre
 
 Pas de compte, pas de serveur, pas de synchronisation automatique, pas de
 remplissage de formulaires.
+
+## Comment s'écrit une fiche
+
+Le texte d'une fiche est libre. Il se lit ainsi, ligne par ligne:
+
+1. Une ligne de 44 caractères ou moins qui finit par `:` ouvre un **bloc**, et
+   ce qui la précède devient son intertitre.
+2. Les lignes suivantes appartiennent à ce bloc, et restent masquées tant qu'il
+   n'est pas ouvert.
+3. Une ligne vide ferme le bloc courant.
+4. Une ligne qui n'appartient à aucun bloc est une **note**, affichée en clair.
+5. L'ordre est celui du document: une note écrite entre deux blocs s'affiche
+   entre ces deux blocs.
+
+```
+courrier:
+personne@example.invalid
+correcthorsebattery
+
+pense-bête: cette boîte sert aussi de secours pour la banque
+
+banque:
+titulaire@example.invalid
+```
+
+Deux blocs, une note, dans cet ordre. Rien de tout cela n'est écrit sur le
+disque: le coffre garde le texte tel qu'il a été tapé, la découpe est refaite à
+l'affichage. Ajouter une ligne `nom:` au-dessus d'une valeur suffit donc à la
+masquer, et la retirer suffit à la remontrer.
 
 ## Sécurité
 
@@ -35,7 +76,7 @@ remplissage de formulaires.
 | Dérivation de clé | Argon2id, 3 passes, 128 Mio, sel aléatoire de 16 octets |
 | Chiffrement | XChaCha20-Poly1305 (AEAD), nonce de 24 octets tiré à chaque sauvegarde |
 | Bibliothèque | libsodium, via `package:sodium` (FFI) |
-| Portée du chiffrement | Le coffre entier: **les noms de clefs sont chiffrés eux aussi** |
+| Portée du chiffrement | Le coffre entier: **les noms de fiches sont chiffrés eux aussi** |
 | Pièces jointes | Un fichier chiffré par pièce (`blobs/<id>.blob`), nonce propre, identifiant aléatoire sans rapport avec le nom |
 | Intégrité | L'en-tête en clair sert de données associées: le modifier invalide le tag |
 | Écriture | Fichier temporaire, puis `rename` atomique, avec sauvegarde `.bak` — supprimée lors d'un changement de mot de passe, que l'ancien ouvrirait encore |
@@ -90,7 +131,7 @@ Un seul dossier, cinq choses dedans:
 
 | Fichier | Contenu | Chiffré |
 |---|---|---|
-| `vault.safe` | le coffre: clefs, valeurs, métadonnées des pièces jointes | oui |
+| `vault.safe` | le coffre: noms de fiches, textes, métadonnées des pièces jointes | oui |
 | `vault.safe.bak` | l'état précédant la dernière sauvegarde | oui |
 | `blobs/<id>.blob` | le contenu d'une pièce jointe | oui |
 | `blobs/orphelins/` | pièces jointes qu'aucune entrée ne référence plus | oui |
@@ -144,9 +185,16 @@ python3 tool/generate_icons.py
 
 Le script produit les mipmaps Android (héritées, rondes, adaptatives) et les
 PNG `assets/icon/`. Modifier les couleurs ou la géométrie se fait dans
-`tool/generate_icons.py`, puis on relance la commande. Le même bouclier est
-redessiné à l'écran par `lib/ui/safe_logo.dart`, en vectoriel, pour suivre la
-couleur du thème.
+`tool/generate_icons.py`, puis on relance la commande.
+
+**C'est la même marque partout.** Le lanceur et l'application montrent le
+« fermoir »: deux équerres qui s'emboîtent sans se toucher. Le script la
+rastérise pour Android et Linux; `lib/ui/safe_logo.dart` la redessine à
+l'écran, en vectoriel, pour suivre la couleur du thème. Les deux partent du même
+tracé, écrit dans les deux fichiers.
+
+Sur le fond vert sombre du lanceur, les traits prennent la déclinaison claire
+(`#7ee0a8` et `#eef2ef`): les teintes du fond clair y seraient invisibles.
 
 Sous Linux, l'icône de fenêtre est chargée par le lanceur natif depuis les
 ressources empaquetées. Pour une installation système, `linux/packaging/safe.desktop`
@@ -167,20 +215,27 @@ absolu, à préférer.
 ```
 lib/
   crypto/vault_crypto.dart   Argon2id, XChaCha20-Poly1305, format de fichier
-  model/vault.dart           Entrées et sérialisation JSON
+  model/vault.dart           Fiches et sérialisation JSON
+  model/entry_text.dart      Découpe du texte libre en blocs et en notes
+  model/vault_search.dart    Recherche: noms, intertitres, lignes de valeur
   storage/vault_store.dart   Interface de stockage
   storage/vault_file.dart    Fichier sur disque, écriture atomique
   storage/vault_transfer.dart Export et import vérifié
   storage/blob_store.dart    Pièces jointes chiffrées sur disque
   storage/app_settings.dart  Préférences en clair, bornées à la relecture
   state/vault_session.dart   Verrouillé / déverrouillé, auto-lock
-  ui/                        Verrou, liste, édition, réglages
+  state/generator_session.dart  Longueur, jeu, historique en mémoire
+  ui/                        Verrou, accueil à deux onglets, fiche, réglages
+  ui/theme/safe_theme.dart   Jetons de couleur, de texte et d'espacement
+  ui/widgets/                Blocs, pilules, bouton, toast, tuto de syntaxe
   ui/safe_logo.dart          Logo vectoriel, dessiné au trait
   util/                      Générateur, presse-papier auto-effacé
 tool/generate_icons.py       Génération des icônes Android et Linux
 docs/superpowers/
-  specs/2026-08-14-safe-design.md   Conception et modèle de menace
-  plans/2026-08-14-safe.md          Plan d'implémentation
+  specs/2026-08-14-safe-design.md          Conception et modèle de menace
+  specs/2026-08-19-safe-refonte-design.md  Refonte de l'interface
+  plans/2026-08-14-safe.md                 Plan d'implémentation
+  plans/2026-08-19-safe-refonte.md         Plan de la refonte
 ```
 
 ## Compiler et installer

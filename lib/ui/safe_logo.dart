@@ -1,78 +1,108 @@
 import 'package:flutter/material.dart';
 
-/// Le logo de safe, dessiné plutôt qu'importé.
+import 'theme/safe_theme.dart';
+
+/// Le logo de safe: le « fermoir », deux équerres qui s'emboîtent.
 ///
-/// Même géométrie que l'icône de lancement (`tool/generate_icons.py`): un
-/// bouclier percé d'une serrure. Dessiné au trait, il reste net à toutes les
-/// tailles et prend la couleur du thème, ce qu'une image figée ne ferait pas.
+/// C'est la marque **C** de la planche `1a` du handoff, préférée au
+/// monogramme S (marque B) qu'elle remplace. Deux équerres qui s'emboîtent
+/// sans se toucher: verrouillé quand elles s'alignent, entrouvert quand elles
+/// glissent. Le centre du carré reste vide — c'est ce qui la distingue du S,
+/// dont les deux arcs se rejoignaient précisément là.
+///
+/// Dessinée plutôt qu'importée: le trait reste net à toutes les tailles et
+/// prend les couleurs qu'on lui donne, ce qu'une image figée ne ferait pas.
+///
+/// Le tracé du handoff, dans un carré de 48:
+///
+///     M32 7 H16 A9 9 0 0 0 7 16 V26      (accent)
+///     M16 41 H32 A9 9 0 0 0 41 32 V22    (encre)
 class SafeLogo extends StatelessWidget {
-  const SafeLogo({this.size = 72, super.key});
+  const SafeLogo({this.size = 34, this.color, this.secondColor, super.key});
 
   final double size;
 
+  /// Trait de l'équerre du haut. Par défaut l'accent du thème.
+  final Color? color;
+
+  /// Trait de l'équerre du bas. Par défaut l'encre.
+  ///
+  /// Pour une version une-couleur — une barre système, un gabarit foncé —
+  /// passer la même valeur aux deux.
+  final Color? secondColor;
+
   @override
-  Widget build(BuildContext context) => SizedBox(
-    width: size,
-    height: size,
-    child: CustomPaint(
-      painter: _SafeLogoPainter(Theme.of(context).colorScheme.primary),
-      isComplex: false,
-    ),
-  );
+  Widget build(BuildContext context) {
+    final tokens = SafeTokens.of(context);
+    return SizedBox(
+      width: size,
+      height: size,
+      child: CustomPaint(
+        painter: SafeLogoPainter(
+          color ?? tokens.accent,
+          secondColor ?? tokens.ink,
+        ),
+        isComplex: false,
+      ),
+    );
+  }
 }
 
-class _SafeLogoPainter extends CustomPainter {
-  const _SafeLogoPainter(this.color);
+/// Public pour que les tests puissent lire les couleurs effectivement peintes.
+class SafeLogoPainter extends CustomPainter {
+  const SafeLogoPainter(this.color, this.secondColor);
 
   final Color color;
+  final Color secondColor;
+
+  /// Côté du carré de référence du tracé.
+  static const double _box = 48;
+
+  /// Épaisseur du trait, exprimée dans ce même carré.
+  static const double _stroke = 7;
+
+  /// `M32 7 H16 A9 9 0 0 0 7 16 V26` — l'équerre du haut.
+  static Path equerreHaute() => Path()
+    ..moveTo(32, 7)
+    ..lineTo(16, 7)
+    // A9 9 0 0 0 7 16: petit arc, sweep 0, donc `clockwise: false`.
+    ..arcToPoint(
+      const Offset(7, 16),
+      radius: const Radius.circular(9),
+      clockwise: false,
+    )
+    ..lineTo(7, 26);
+
+  /// `M16 41 H32 A9 9 0 0 0 41 32 V22` — celle du bas, par symétrie centrale.
+  static Path equerreBasse() => Path()
+    ..moveTo(16, 41)
+    ..lineTo(32, 41)
+    ..arcToPoint(
+      const Offset(41, 32),
+      radius: const Radius.circular(9),
+      clockwise: false,
+    )
+    ..lineTo(41, 22);
 
   @override
   void paint(Canvas canvas, Size size) {
-    final w = size.width * 0.86;
-    final h = w * 1.22;
-    final cx = size.width / 2;
-    final cy = size.height / 2;
-    final left = cx - w / 2;
-    final right = cx + w / 2;
-    final top = cy - h / 2;
-    final bottom = cy + h / 2;
-    final shoulder = top + h * 0.40;
-    final corner = w * 0.30;
+    final scale = size.shortestSide / _box;
+    canvas.save();
+    canvas.scale(scale);
 
-    final shield = Path()
-      ..moveTo(left + corner, top)
-      ..quadraticBezierTo(left, top, left, top + corner)
-      ..lineTo(left, shoulder)
-      ..quadraticBezierTo(left + w * 0.02, bottom - h * 0.22, cx, bottom)
-      ..quadraticBezierTo(right - w * 0.02, bottom - h * 0.22, right, shoulder)
-      ..lineTo(right, top + corner)
-      ..quadraticBezierTo(right, top, right - corner, top)
-      ..close();
+    Paint trait(Color c) => Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = _stroke
+      ..strokeCap = StrokeCap.round
+      ..color = c
+      ..isAntiAlias = true;
 
-    // La serrure est un trou, pas un dessin par-dessus: le fond de l'écran la
-    // traverse, comme sur l'icône.
-    final radius = w * 0.165;
-    final holeCy = cy - h * 0.07;
-    final stemTop = holeCy + radius * 0.30;
-    final stemHeight = h * 0.24;
-    final keyhole = Path()
-      ..addOval(Rect.fromCircle(center: Offset(cx, holeCy), radius: radius))
-      ..addPolygon([
-        Offset(cx - radius * 0.39, stemTop),
-        Offset(cx + radius * 0.39, stemTop),
-        Offset(cx + radius * 0.81, stemTop + stemHeight),
-        Offset(cx - radius * 0.81, stemTop + stemHeight),
-      ], true);
-
-    canvas.drawPath(
-      Path.combine(PathOperation.difference, shield, keyhole),
-      Paint()
-        ..color = color
-        ..isAntiAlias = true,
-    );
+    canvas.drawPath(equerreHaute(), trait(color));
+    canvas.drawPath(equerreBasse(), trait(secondColor));
+    canvas.restore();
   }
 
   @override
-  bool shouldRepaint(_SafeLogoPainter oldDelegate) =>
-      oldDelegate.color != color;
+  bool shouldRepaint(SafeLogoPainter oldDelegate) =>
+      oldDelegate.color != color || oldDelegate.secondColor != secondColor;
 }

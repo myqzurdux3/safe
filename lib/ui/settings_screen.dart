@@ -10,7 +10,62 @@ import '../state/vault_session.dart';
 import '../storage/app_settings.dart';
 import '../storage/vault_transfer.dart';
 import '../util/screen_security.dart';
+import 'theme/safe_theme.dart';
 import 'unlock_screen.dart';
+import 'widgets/primary_button.dart';
+
+/// Le paragraphe de glose de la refonte.
+///
+/// La même linéale de 13,5 px sur 1,6 que l'écran de déverrouillage, qui est
+/// le seul autre endroit où l'application explique quelque chose en plusieurs
+/// phrases. [SafeText] ne lui donne pas de nom; le reprendre au caractère près
+/// vaut mieux qu'inventer une taille de plus.
+const TextStyle _paragraph = TextStyle(
+  fontFamily: safeSans,
+  fontWeight: FontWeight.w400,
+  fontSize: 13.5,
+  height: 1.6,
+);
+
+/// La forme commune aux trois boîtes de cet écran.
+///
+/// Elles gardent leurs mots, leurs clefs et leur ordre — annuler à gauche,
+/// valider à droite; seuls la carte du handoff, ses polices et ses deux
+/// pilules remplacent l'habillage Material par défaut.
+AlertDialog _safeDialog(
+  BuildContext context, {
+  required String title,
+  required Widget content,
+  required Widget cancel,
+  required Widget confirm,
+}) {
+  final tokens = SafeTokens.of(context);
+  return AlertDialog(
+    backgroundColor: tokens.cardSurface,
+    // Sans quoi Material repose un voile de teinte sur la carte blanche.
+    surfaceTintColor: tokens.cardSurface,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(SafeMetrics.cardRadius),
+    ),
+    titleTextStyle: SafeText.wordmark.copyWith(color: tokens.ink),
+    contentTextStyle: _paragraph.copyWith(color: tokens.secondaryText),
+    title: Text(title),
+    content: content,
+    actionsPadding: const EdgeInsets.fromLTRB(24, 4, 24, 20),
+    actions: [
+      // Les deux pilules côte à côte, à parts égales: `actions` est une
+      // `OverflowBar`, qui ne sait pas partager sa largeur — la rangée le
+      // fait à sa place, et les libellés sont courts.
+      Row(
+        children: [
+          Expanded(child: cancel),
+          const SizedBox(width: 10),
+          Expanded(child: confirm),
+        ],
+      ),
+    ],
+  );
+}
 
 /// Réglages: mot de passe maître, délai de verrouillage, export et import.
 class SettingsScreen extends StatefulWidget {
@@ -150,8 +205,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final currentCount = widget.session.vault?.entries.length ?? 0;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Restaurer la sauvegarde ?'),
+      builder: (context) => _safeDialog(
+        context,
+        title: 'Restaurer la sauvegarde ?',
         content: Text(
           'La sauvegarde contient $entryCount entrée(s); le coffre actuel en a '
           '$currentCount.\n\nLe coffre actuel devient à son tour la sauvegarde: '
@@ -159,18 +215,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           'jointes ne sont pas concernées; celles qui ne seraient plus '
           'référencées partent dans le dossier des orphelins.',
         ),
-        actions: [
-          TextButton(
-            key: const Key('cancel-restore'),
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Annuler'),
-          ),
-          FilledButton(
-            key: const Key('confirm-restore'),
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Restaurer'),
-          ),
-        ],
+        cancel: SafeSecondaryButton(
+          key: const Key('cancel-restore'),
+          label: 'Annuler',
+          onPressed: () => Navigator.of(context).pop(false),
+        ),
+        confirm: SafePrimaryButton(
+          key: const Key('confirm-restore'),
+          label: 'Restaurer',
+          onPressed: () => Navigator.of(context).pop(true),
+        ),
       ),
     );
     if (!(confirmed ?? false) || !mounted) {
@@ -271,11 +325,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  /// Le message d'échec, en bas de l'écran.
+  ///
+  /// Reste un `SnackBar` et non la pilule de [showSafeToast]: celle-ci tient
+  /// 1,5 s et une ligne, quand ces messages-ci sont des phrases entières qu'il
+  /// faut avoir le temps de lire. Seuls sa couleur, sa forme et sa police
+  /// rejoignent la pilule.
   void _tell(String message) {
     if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
+      final tokens = SafeTokens.of(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: tokens.ink,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(SafeMetrics.cardRadius),
+          ),
+          content: Text(
+            message,
+            style: SafeText.action.copyWith(
+              fontSize: 12.5,
+              height: 1.45,
+              fontWeight: FontWeight.w500,
+              color: tokens.onInk,
+            ),
+          ),
+        ),
+      );
     }
   }
 
@@ -284,22 +360,131 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = SafeTokens.of(context);
     final transferAvailable = widget.transfer != null;
     return Scaffold(
-      appBar: AppBar(title: const Text('Réglages')),
-      body: ListView(
+      backgroundColor: tokens.pageBackground,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: SafeMetrics.gutter),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _enTete(tokens),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.only(bottom: 28),
+                  children: [
+                    // Une seule carte, dans l'ordre exact d'avant: les filets
+                    // qui séparaient les lignes sont devenus les filets
+                    // intérieurs de la carte, et le dernier — celui qui
+                    // séparait la liste de la note — est devenu son bord bas.
+                    _carte(tokens, transferAvailable),
+                    _note(tokens),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Le retour et le titre, calés comme sur la fiche.
+  ///
+  /// La flèche seule, sans le mot qui l'accompagne ailleurs: nommer la
+  /// destination serait ajouter un libellé à un écran dont le brief gèle les
+  /// mots. Elle reste annoncée « Retour » à la synthèse vocale, ce que la
+  /// flèche de l'`AppBar` faisait avant elle.
+  Widget _enTete(SafeTokens tokens) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => Navigator.of(context).maybePop(),
+        child: Semantics(
+          button: true,
+          label: 'Retour',
+          // Dix-huit pixels de flèche entre ces marges font la cible de 48 en
+          // hauteur; les trente pixels de droite la font en largeur.
+          child: Padding(
+            padding: const EdgeInsets.only(top: 10, bottom: 20, right: 30),
+            child: Icon(
+              Icons.arrow_back,
+              size: 18,
+              color: tokens.secondaryText,
+            ),
+          ),
+        ),
+      ),
+      // `header` et `namesRoute`: l'`AppBar` les posait toute seule. Sans le
+      // second, la synthèse vocale n'annonce rien quand l'écran s'ouvre; sans
+      // le premier, la navigation par en-têtes ne s'arrête plus sur le titre.
+      Semantics(
+        header: true,
+        namesRoute: true,
+        child: Text(
+          'Réglages',
+          style: SafeText.screenTitle.copyWith(color: tokens.ink),
+        ),
+      ),
+      const SizedBox(height: 16),
+    ],
+  );
+
+  /// Les six réglages, dans une seule carte blanche.
+  ///
+  /// `Material` et non un simple `DecoratedBox`: une carte posée au-dessus du
+  /// matériau de l'écran masquerait l'onde des lignes qu'on touche, que ce
+  /// matériau-là peint sous ses enfants.
+  Widget _carte(SafeTokens tokens, bool transferAvailable) => Material(
+    color: tokens.cardSurface,
+    borderRadius: BorderRadius.circular(SafeMetrics.cardRadius),
+    clipBehavior: Clip.antiAlias,
+    child: ListTileTheme(
+      // Les styles des lignes sont posés ici et non ligne par ligne: écrits
+      // sur chaque `ListTile`, ils prendraient le pas sur la couleur d'inactif
+      // que Material applique à « Exporter » et « Importer » quand le
+      // transfert est absent, et les deux lignes mortes paraîtraient vives.
+      data: ListTileThemeData(
+        iconColor: tokens.secondaryText,
+        titleTextStyle: SafeText.listTitle.copyWith(color: tokens.ink),
+        subtitleTextStyle: SafeText.meta.copyWith(color: tokens.secondaryText),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+        minVerticalPadding: 14,
+        minLeadingWidth: 20,
+        horizontalTitleGap: 14,
+      ),
+      child: Column(
         children: [
           ListTile(
             key: const Key('change-password'),
-            leading: const Icon(Icons.key_outlined),
+            leading: const Icon(Icons.key_outlined, size: 18),
             title: const Text('Changer le mot de passe maître'),
             subtitle: const Text('Le coffre est entièrement ré-chiffré'),
             enabled: !_busy,
             onTap: _changePassword,
           ),
-          const Divider(height: 1),
+          _filet(tokens),
           ListTile(
-            leading: const Icon(Icons.timer_outlined),
+            // Le verrouillage manuel est ici ET dans l'en-tête de l'accueil,
+            // décision du propriétaire: le cadenas de l'accueil est le geste
+            // pressé, celui-ci est le pendant du délai automatique, juste
+            // au-dessous, où on le cherche quand on règle les deux ensemble.
+            // Ne pas le retirer d'ici sous prétexte que l'accueil en a un.
+            key: const Key('lock'),
+            leading: const Icon(Icons.lock_outline, size: 18),
+            title: const Text('Verrouiller maintenant'),
+            subtitle: const Text(
+              'Referme le coffre et efface la clef de la mémoire',
+            ),
+            enabled: !_busy,
+            onTap: widget.session.lock,
+          ),
+          _filet(tokens),
+          ListTile(
+            leading: const Icon(Icons.timer_outlined, size: 18),
             title: const Text('Verrouillage automatique'),
             // Les deux affichages tirent du même champ: sinon le sous-titre
             // annonçait un délai que la liste ne montrait pas.
@@ -309,6 +494,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
             trailing: DropdownButton<Duration>(
               key: const Key('auto-lock'),
               value: _settings.autoLockDelay,
+              // Le handoff ne dessine pas de boîte de contrôle: le trait de
+              // Material sous la valeur n'a rien à faire dans une carte.
+              underline: const SizedBox.shrink(),
+              // Pas de `isDense`: il ramène la cible à 24 px, la moitié d'un
+              // doigt, et c'est le seul contrôle de l'écran qu'on ouvre sans
+              // le voir grandir.
+              borderRadius: BorderRadius.circular(SafeMetrics.cardRadius),
+              dropdownColor: tokens.cardSurface,
+              icon: Icon(
+                Icons.expand_more,
+                size: 18,
+                color: tokens.secondaryText,
+              ),
+              style: SafeText.listTitle.copyWith(color: tokens.secondaryText),
               items: [
                 for (final choice in autoLockChoices)
                   DropdownMenuItem(value: choice, child: Text(_label(choice))),
@@ -320,12 +519,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               },
             ),
           ),
-          const Divider(height: 1),
+          _filet(tokens),
           SwitchListTile(
             key: const Key('block-screenshots'),
-            secondary: const Icon(Icons.screenshot_monitor_outlined),
+            secondary: const Icon(Icons.screenshot_monitor_outlined, size: 18),
             value: _settings.blockScreenshots,
             onChanged: _busy ? null : _setBlockScreenshots,
+            activeThumbColor: tokens.onInk,
+            activeTrackColor: tokens.accent,
             title: const Text('Bloquer les captures d\'écran'),
             subtitle: Text(
               _settings.blockScreenshots
@@ -335,10 +536,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         'apparaîtra aussi dans les applications récentes',
             ),
           ),
-          const Divider(height: 1),
+          _filet(tokens),
           ListTile(
             key: const Key('restore-backup'),
-            leading: const Icon(Icons.restore_outlined),
+            leading: const Icon(Icons.restore_outlined, size: 18),
             title: const Text('Restaurer la sauvegarde précédente'),
             subtitle: const Text(
               'Revient à l\'état d\'avant la dernière modification',
@@ -346,10 +547,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             enabled: !_busy,
             onTap: _restore,
           ),
-          const Divider(height: 1),
+          _filet(tokens),
           ListTile(
             key: const Key('export'),
-            leading: const Icon(Icons.upload_file_outlined),
+            leading: const Icon(Icons.upload_file_outlined, size: 18),
             title: const Text('Exporter le coffre'),
             subtitle: const Text(
               'Fichier chiffré: inutilisable sans le mot de passe. '
@@ -360,7 +561,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           ListTile(
             key: const Key('import'),
-            leading: const Icon(Icons.download_outlined),
+            leading: const Icon(Icons.download_outlined, size: 18),
             title: const Text('Importer un coffre'),
             subtitle: const Text(
               'Remplace le coffre actuel après vérification',
@@ -368,21 +569,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
             enabled: transferAvailable && !_busy,
             onTap: _import,
           ),
-          const Divider(height: 1),
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text(
-              'Le mot de passe maître ne peut pas être récupéré. Gardez une '
-              'copie exportée du coffre en lieu sûr: elle reste chiffrée.\n\n'
-              'L\'export ne contient que les clefs et les valeurs. Les pièces '
-              'jointes vivent dans des fichiers séparés: exportez-les une par '
-              'une depuis l\'entrée concernée.',
-            ),
-          ),
         ],
       ),
-    );
-  }
+    ),
+  );
+
+  /// Le filet qui séparait deux lignes, à la couleur du handoff.
+  Widget _filet(SafeTokens tokens) =>
+      Divider(height: 1, thickness: 1, color: tokens.hairline);
+
+  /// L'avertissement de pied de page, mot pour mot.
+  Widget _note(SafeTokens tokens) => Padding(
+    padding: const EdgeInsets.fromLTRB(2, 20, 2, 0),
+    child: Text(
+      'Le mot de passe maître ne peut pas être récupéré. Gardez une '
+      'copie exportée du coffre en lieu sûr: elle reste chiffrée.\n\n'
+      'L\'export ne contient que le nom et le texte de chaque fiche. Les '
+      'pièces jointes vivent dans des fichiers séparés: exportez-les une '
+      'par une depuis la fiche concernée.',
+      // En encre, et non en texte secondaire: sur le fond crème ce gris tombe
+      // à 4,37:1, sous le seuil AA. C'est la seule phrase de l'application qui
+      // dit que le mot de passe maître ne se récupère pas — elle ne peut pas
+      // être le texte le plus pâle de la page.
+      style: _paragraph.copyWith(color: tokens.ink),
+    ),
+  );
 }
 
 class _ChangePasswordDialog extends StatefulWidget {
@@ -417,47 +628,91 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Nouveau mot de passe maître'),
-    content: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        TextField(
-          key: const Key('new-password'),
-          controller: _password,
-          obscureText: true,
-          autofocus: true,
-          decoration: const InputDecoration(labelText: 'Nouveau mot de passe'),
-        ),
-        TextField(
-          key: const Key('new-confirm'),
-          controller: _confirm,
-          obscureText: true,
-          decoration: const InputDecoration(labelText: 'Confirmation'),
-        ),
-        if (_error != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: Text(
-              _error!,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
+  Widget build(BuildContext context) {
+    final tokens = SafeTokens.of(context);
+    return _safeDialog(
+      context,
+      title: 'Nouveau mot de passe maître',
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _champ(
+            tokens,
+            key: const Key('new-password'),
+            controller: _password,
+            label: 'Nouveau mot de passe',
+            autofocus: true,
           ),
-      ],
-    ),
-    actions: [
-      TextButton(
+          _champ(
+            tokens,
+            key: const Key('new-confirm'),
+            controller: _confirm,
+            label: 'Confirmation',
+          ),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Text(
+                _error!,
+                // La couleur d'erreur reste celle du schéma: le handoff n'en
+                // donne pas, et en choisir une serait inventer une teinte.
+                style: SafeText.meta.copyWith(
+                  color: Theme.of(context).colorScheme.error,
+                ),
+              ),
+            ),
+        ],
+      ),
+      cancel: SafeSecondaryButton(
+        label: 'Annuler',
         onPressed: () => Navigator.of(context).pop(),
-        child: const Text('Annuler'),
       ),
-      FilledButton(
+      confirm: SafePrimaryButton(
         key: const Key('confirm-change'),
+        label: 'Changer',
         onPressed: _submit,
-        child: const Text('Changer'),
       ),
-    ],
-  );
+    );
+  }
 }
+
+/// Le champ masqué des deux boîtes, dessiné comme celui du déverrouillage.
+///
+/// Chasse fixe et lettres espacées: c'est un mot de passe qu'on relit
+/// caractère par caractère, et le filet remplace la boîte de Material — le
+/// handoff ne dessine pas de boîte.
+Widget _champ(
+  SafeTokens tokens, {
+  required Key key,
+  required TextEditingController controller,
+  required String label,
+  bool autofocus = false,
+}) => TextField(
+  key: key,
+  controller: controller,
+  obscureText: true,
+  autofocus: autofocus,
+  style: TextStyle(
+    fontFamily: safeMono,
+    fontWeight: FontWeight.w500,
+    fontSize: 16,
+    letterSpacing: 2.56,
+    color: tokens.ink,
+  ),
+  cursorColor: tokens.accent,
+  cursorWidth: 2,
+  decoration: InputDecoration(
+    labelText: label,
+    labelStyle: _paragraph.copyWith(color: tokens.hintText),
+    floatingLabelStyle: SafeText.meta.copyWith(color: tokens.tertiaryText),
+    enabledBorder: UnderlineInputBorder(
+      borderSide: BorderSide(color: tokens.controlBorder, width: 1.5),
+    ),
+    focusedBorder: UnderlineInputBorder(
+      borderSide: BorderSide(color: tokens.ink, width: 1.5),
+    ),
+  ),
+);
 
 class _ImportPasswordDialog extends StatefulWidget {
   const _ImportPasswordDialog();
@@ -476,25 +731,24 @@ class _ImportPasswordDialogState extends State<_ImportPasswordDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Mot de passe du coffre importé'),
-    content: TextField(
+  Widget build(BuildContext context) => _safeDialog(
+    context,
+    title: 'Mot de passe du coffre importé',
+    content: _champ(
+      SafeTokens.of(context),
       key: const Key('import-password'),
       controller: _password,
-      obscureText: true,
+      label: 'Mot de passe',
       autofocus: true,
-      decoration: const InputDecoration(labelText: 'Mot de passe'),
     ),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.of(context).pop(),
-        child: const Text('Annuler'),
-      ),
-      FilledButton(
-        key: const Key('confirm-import'),
-        onPressed: () => Navigator.of(context).pop(_password.text),
-        child: const Text('Importer'),
-      ),
-    ],
+    cancel: SafeSecondaryButton(
+      label: 'Annuler',
+      onPressed: () => Navigator.of(context).pop(),
+    ),
+    confirm: SafePrimaryButton(
+      key: const Key('confirm-import'),
+      label: 'Importer',
+      onPressed: () => Navigator.of(context).pop(_password.text),
+    ),
   );
 }

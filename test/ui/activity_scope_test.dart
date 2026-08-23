@@ -50,16 +50,16 @@ void main() {
 
     // Repère: une tape sur l'écran de base compte, ça a toujours marché.
     session.touches = 0;
-    await tester.tap(find.byIcon(Icons.add));
+    await tester.tap(find.byKey(const Key('add')));
     await tester.pumpAndSettle();
     expect(session.touches, greaterThan(0));
 
-    // L'écran d'édition est maintenant empilé par-dessus. Une tape dedans doit
+    // L'écran de création est maintenant empilé par-dessus. Une tape dedans doit
     // compter elle aussi: sinon le coffre se verrouille sous les doigts de qui
     // remplit un formulaire sans taper au clavier.
-    expect(find.byKey(const Key('key')), findsOneWidget);
+    expect(find.byKey(const Key('name')), findsOneWidget);
     final avant = session.touches;
-    await tester.tap(find.byKey(const Key('key')));
+    await tester.tap(find.byKey(const Key('name')));
     await tester.pumpAndSettle();
     expect(
       session.touches,

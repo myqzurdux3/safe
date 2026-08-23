@@ -4,8 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:safe/model/vault.dart';
 import 'package:safe/state/vault_session.dart';
-import 'package:safe/ui/entries_screen.dart';
-import 'package:safe/ui/entry_edit_screen.dart';
+import 'package:safe/ui/entry_screen.dart';
+import 'package:safe/ui/new_entry_screen.dart';
+import 'package:safe/ui/vault_tab.dart';
 
 import '../support/session_fixture.dart';
 
@@ -28,32 +29,48 @@ void main() {
     return session;
   }
 
-  testWidgets('masquée, la valeur n\'est pas modifiable; révélée, elle est '
-      'multiligne', (tester) async {
-    final session = await makeUnlockedSession(keys: ['gmail']);
-    final entry = session.vault!.entries.single;
-    await tester.pumpWidget(
-      wrapScreen(EntryEditScreen(session: session, existing: entry)),
-    );
-    // Un champ masqué serait forcément sur une ligne, donc destructeur pour
-    // une valeur multiligne: masquée, la valeur n'est pas un champ du tout.
-    expect(find.byKey(const Key('value')), findsNothing);
-    expect(find.byKey(const Key('value-masked')), findsOneWidget);
+  Widget fiche(VaultSession session) => wrapScreen(
+    EntryScreen(
+      session: session,
+      entry: session.vault!.entries.single,
+      settings: MemorySettingsStore(),
+    ),
+  );
 
-    await tester.tap(find.byKey(const Key('toggle-value')));
+  /// Les pièces jointes de la fiche vivent dans une feuille modale.
+  Future<void> ouvrirLesPiecesJointes(WidgetTester tester) async {
+    await tester.tap(find.text('Pièce jointe'));
     await tester.pumpAndSettle();
-    final champ = tester.widget<TextField>(find.byKey(const Key('value')));
+  }
+
+  testWidgets('en lecture, la valeur n\'est pas modifiable; en texte brut, '
+      'elle est multiligne', (tester) async {
+    final session = await makeUnlockedSession(keys: ['gmail']);
+    await tester.pumpWidget(fiche(session));
+    await tester.pumpAndSettle();
+    // La fiche s'ouvre en lecture: il n'y a pas de champ du tout, donc rien
+    // qu'un geste malheureux puisse écraser.
+    expect(find.byKey(const Key('raw')), findsNothing);
+
+    await tester.tap(find.text('Texte brut'));
+    await tester.pumpAndSettle();
+    final champ = tester.widget<TextField>(find.byKey(const Key('raw')));
     expect(champ.maxLines, isNull);
     expect(champ.controller!.text, 'p4ss-gmail');
     session.lock();
   });
 
-  testWidgets('en création, la valeur est directement saisissable', (
+  testWidgets('en création, le texte est directement saisissable', (
     tester,
   ) async {
     final session = await makeUnlockedSession();
-    await tester.pumpWidget(wrapScreen(EntryEditScreen(session: session)));
-    expect(find.byKey(const Key('value')), findsOneWidget);
+    await tester.pumpWidget(
+      wrapScreen(
+        NewEntryScreen(session: session, settings: MemorySettingsStore()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('raw')), findsOneWidget);
     session.lock();
   });
 
@@ -61,42 +78,48 @@ void main() {
     tester,
   ) async {
     final session = await makeUnlockedSession();
-    await tester.pumpWidget(wrapScreen(EntryEditScreen(session: session)));
-    await tester.enterText(find.byKey(const Key('key')), 'note');
+    await tester.pumpWidget(
+      wrapScreen(
+        NewEntryScreen(session: session, settings: MemorySettingsStore()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('name')), 'note');
     await tester.enterText(
-      find.byKey(const Key('value')),
+      find.byKey(const Key('raw')),
       'ligne 1\nligne 2\nligne 3',
     );
-    await tester.tap(find.byKey(const Key('save')));
+    await tester.tap(find.text('Enregistrer'));
     await tester.pumpAndSettle();
     expect(session.vault!.entries.single.value, 'ligne 1\nligne 2\nligne 3');
     session.lock();
   });
 
-  testWidgets('la liste ne montre que la première ligne', (tester) async {
+  testWidgets('la fiche garde les lignes d\'un texte multiligne', (
+    tester,
+  ) async {
+    // La liste n'aperçoit plus rien: c'est la fiche qui porte le texte, et
+    // elle le porte entier. L'aperçu rogné à la première ligne n'a plus lieu
+    // d'être, mais les lignes suivantes, elles, ne doivent pas se perdre.
     final session = await makeUnlockedSession();
     await session.save(
       session.vault!.upsert(
         VaultEntry.now(key: 'note', value: 'première\nseconde\ntroisième'),
       ),
     );
-    await tester.pumpWidget(wrapScreen(EntriesScreen(session: session)));
-    await tester.tap(find.byKey(const Key('reveal-note')));
+    await tester.pumpWidget(fiche(session));
     await tester.pumpAndSettle();
     expect(find.textContaining('première'), findsOneWidget);
-    expect(find.textContaining('seconde'), findsNothing);
-    expect(find.textContaining('+2 lignes'), findsOneWidget);
+    expect(find.textContaining('seconde'), findsOneWidget);
+    expect(find.textContaining('troisième'), findsOneWidget);
     session.lock();
   });
 
-  testWidgets('les pièces jointes apparaissent dans l\'écran d\'édition', (
-    tester,
-  ) async {
+  testWidgets('les pièces jointes apparaissent dans la fiche', (tester) async {
     final session = await sessionAvecPieceJointe();
-    final entry = session.vault!.entries.single;
-    await tester.pumpWidget(
-      wrapScreen(EntryEditScreen(session: session, existing: entry)),
-    );
+    await tester.pumpWidget(fiche(session));
+    await tester.pumpAndSettle();
+    await ouvrirLesPiecesJointes(tester);
     expect(find.text('photo.jpg'), findsOneWidget);
     expect(find.textContaining('2,0 ko'), findsOneWidget);
     session.lock();
@@ -107,11 +130,10 @@ void main() {
   ) async {
     final blobs = MemoryBlobStore();
     final session = await sessionAvecPieceJointe(blobs: blobs);
-    final entry = session.vault!.entries.single;
-    final attachment = entry.attachments.single;
-    await tester.pumpWidget(
-      wrapScreen(EntryEditScreen(session: session, existing: entry)),
-    );
+    final attachment = session.vault!.entries.single.attachments.single;
+    await tester.pumpWidget(fiche(session));
+    await tester.pumpAndSettle();
+    await ouvrirLesPiecesJointes(tester);
     await tester.tap(find.byKey(Key('detach-${attachment.id}')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('confirm-detach')));
@@ -125,14 +147,12 @@ void main() {
     tester,
   ) async {
     final session = await sessionAvecPieceJointe();
-    final entry = session.vault!.entries.single;
-    await tester.pumpWidget(
-      wrapScreen(EntryEditScreen(session: session, existing: entry)),
-    );
-    await tester.tap(find.byKey(const Key('toggle-value')));
+    await tester.pumpWidget(fiche(session));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('value')), 'nouvelle valeur');
-    await tester.tap(find.byKey(const Key('save')));
+    await tester.tap(find.text('Texte brut'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('raw')), 'nouvelle valeur');
+    await tester.tap(find.text('Enregistrer'));
     await tester.pumpAndSettle();
     expect(session.vault!.entries.single.value, 'nouvelle valeur');
     expect(session.vault!.entries.single.attachments, hasLength(1));
@@ -143,15 +163,18 @@ void main() {
     tester,
   ) async {
     final session = await sessionAvecPieceJointe();
-    final entry = session.vault!.entries.single;
-    await tester.pumpWidget(
-      wrapScreen(EntryEditScreen(session: session, existing: entry)),
-    );
-    await tester.enterText(find.byKey(const Key('key')), 'papiers');
-    await tester.tap(find.byKey(const Key('save')));
+    final avant = session.vault!.entries.single;
+    await tester.pumpWidget(fiche(session));
     await tester.pumpAndSettle();
-    expect(session.vault!.entries.single.key, 'papiers');
-    expect(session.vault!.entries.single.attachments, hasLength(1));
+    await tester.enterText(find.byKey(const Key('name')), 'papiers');
+    await tester.tap(find.text('Enregistrer'));
+    await tester.pumpAndSettle();
+
+    final apres = session.vault!.entries.single;
+    expect(apres.key, 'papiers');
+    expect(apres.attachments, hasLength(1));
+    // La date de création suit la fiche: un renommage n'est pas une naissance.
+    expect(apres.created, avant.created);
     session.lock();
   });
 
@@ -159,7 +182,13 @@ void main() {
     tester,
   ) async {
     final session = await sessionAvecPieceJointe();
-    await tester.pumpWidget(wrapScreen(EntriesScreen(session: session)));
+    await tester.pumpWidget(
+      wrapScreen(
+        Scaffold(
+          body: VaultTab(session: session, onOpen: (_) {}),
+        ),
+      ),
+    );
     expect(find.byKey(const Key('has-attachments-passeport')), findsOneWidget);
     session.lock();
   });
@@ -169,8 +198,9 @@ void main() {
   ) async {
     final blobs = MemoryBlobStore();
     final session = await sessionAvecPieceJointe(blobs: blobs);
-    await tester.pumpWidget(wrapScreen(EntriesScreen(session: session)));
-    await tester.tap(find.byKey(const Key('delete-passeport')));
+    await tester.pumpWidget(fiche(session));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('delete-entry')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('confirm-delete')));
     await tester.pumpAndSettle();

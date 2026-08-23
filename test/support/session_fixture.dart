@@ -9,6 +9,7 @@ import 'package:safe/state/vault_session.dart';
 import 'package:safe/storage/app_settings.dart';
 import 'package:safe/storage/blob_store.dart';
 import 'package:safe/storage/vault_store.dart';
+import 'package:safe/ui/theme/safe_theme.dart';
 import 'package:safe/util/clipboard.dart';
 import 'package:sodium/sodium_sumo.dart';
 
@@ -188,4 +189,5 @@ Future<VaultSession> makeUnlockedSession({
 }
 
 /// Enveloppe un écran dans le minimum de matériel Flutter.
-Widget wrapScreen(Widget child) => MaterialApp(home: child);
+Widget wrapScreen(Widget child) =>
+    MaterialApp(theme: safeLightTheme(), home: child);
