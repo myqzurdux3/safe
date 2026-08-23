@@ -9,6 +9,7 @@ import '../crypto/vault_crypto.dart';
 import '../state/vault_session.dart';
 import '../storage/app_settings.dart';
 import '../storage/vault_transfer.dart';
+import '../util/file_saver.dart';
 import '../util/screen_security.dart';
 import 'theme/safe_theme.dart';
 import 'unlock_screen.dart';
@@ -67,6 +68,9 @@ AlertDialog _safeDialog(
   );
 }
 
+/// Les deux façons de sortir le coffre de l'appareil.
+enum _Export { enregistrer, partager }
+
 /// Réglages: mot de passe maître, délai de verrouillage, export et import.
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
@@ -74,6 +78,7 @@ class SettingsScreen extends StatefulWidget {
     required this.settings,
     this.transfer,
     this.screen = const ScreenSecurity(),
+    this.saver = const FileSaver(),
     super.key,
   });
 
@@ -88,6 +93,11 @@ class SettingsScreen extends StatefulWidget {
   final VaultTransfer? transfer;
 
   final ScreenSecurity screen;
+
+  /// Écriture d'un fichier dans un dossier choisi. Là où il se déclare
+  /// compétent — Android —, l'export laisse le choix entre enregistrer et
+  /// partager; ailleurs il garde son sélecteur d'enregistrement habituel.
+  final FileSaver saver;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -248,10 +258,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (transfer == null) {
       return;
     }
+    // Le choix est demandé AVANT de déchiffrer quoi que ce soit: renoncer à la
+    // feuille ne doit pas laisser les octets du coffre traîner en mémoire.
+    var partager = Platform.isAndroid || Platform.isIOS;
+    if (widget.saver.isSupported) {
+      final choix = await _commentExporter();
+      if (choix == null) {
+        return;
+      }
+      partager = choix == _Export.partager;
+    }
+    if (!mounted) {
+      return;
+    }
     setState(() => _busy = true);
     try {
       final bytes = await transfer.exportBytes();
-      if (Platform.isAndroid || Platform.isIOS) {
+      if (widget.saver.isSupported && !partager) {
+        final nom = await widget.saver.save(
+          suggestedName: 'vault.safe',
+          bytes: bytes,
+        );
+        // `null` = l'utilisateur a renoncé. Annoncer un export qui n'a pas eu
+        // lieu ferait croire à une sauvegarde qui n'existe pas.
+        if (nom != null) {
+          _tell('Coffre exporté vers $nom');
+        }
+      } else if (partager) {
         await SharePlus.instance.share(
           ShareParams(
             files: [
@@ -274,6 +307,50 @@ class _SettingsScreenState extends State<SettingsScreen> {
         setState(() => _busy = false);
       }
     }
+  }
+
+  /// Demande s'il faut enregistrer le fichier ou le passer à une application.
+  Future<_Export?> _commentExporter() {
+    final tokens = SafeTokens.of(context);
+    return showModalBottomSheet<_Export>(
+      context: context,
+      backgroundColor: tokens.cardSurface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (sheet) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 6),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Exporter le coffre',
+                  style: SafeText.listTitle.copyWith(color: tokens.ink),
+                ),
+              ),
+            ),
+            ListTile(
+              key: const Key('export-save'),
+              leading: Icon(Icons.save_alt, color: tokens.secondaryText),
+              title: const Text('Enregistrer un fichier'),
+              subtitle: const Text('Tu choisis le dossier'),
+              onTap: () => Navigator.of(sheet).pop(_Export.enregistrer),
+            ),
+            ListTile(
+              key: const Key('export-share'),
+              leading: Icon(Icons.ios_share, color: tokens.secondaryText),
+              title: const Text('Partager'),
+              subtitle: const Text('Passer le fichier à une application'),
+              onTap: () => Navigator.of(sheet).pop(_Export.partager),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _import() async {
