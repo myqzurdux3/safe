@@ -32,12 +32,6 @@ void main() {
     );
   });
 
-  test('les libellés sont ceux des pastilles', () {
-    expect(CharacterSet.letters.label, 'Lettres');
-    expect(CharacterSet.lettersDigits.label, '+ chiffres');
-    expect(CharacterSet.all.label, '+ symboles');
-  });
-
   test('les bornes vont de 8 à 48', () {
     expect(minPasswordLength, 8);
     expect(maxPasswordLength, 48);

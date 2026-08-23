@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
+
 /// Demande confirmation avant de jeter une saisie en cours.
 ///
 /// Partagée par les deux écrans qui modifient une entrée: le retour arrière est
@@ -7,21 +9,22 @@ import 'package:flutter/material.dart';
 /// du même mot. Rend `false` si la boîte est écartée sans choisir — l'inaction
 /// garde la saisie.
 Future<bool> confirmDiscard(BuildContext context) async {
+  final t = L.of(context);
   final discard = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
-      title: const Text('Abandonner les modifications ?'),
-      content: const Text('La saisie en cours ne sera pas enregistrée.'),
+      title: Text(t.discardTitle),
+      content: Text(t.discardBody),
       actions: [
         TextButton(
           key: const Key('cancel-discard'),
           onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('Continuer la saisie'),
+          child: Text(t.discardKeepEditing),
         ),
         FilledButton(
           key: const Key('confirm-discard'),
           onPressed: () => Navigator.of(context).pop(true),
-          child: const Text('Abandonner'),
+          child: Text(t.discardConfirm),
         ),
       ],
     ),

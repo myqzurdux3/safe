@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../l10n/app_localizations.dart';
 import '../model/vault.dart';
 import '../state/generator_session.dart';
 import '../state/vault_session.dart';
@@ -97,7 +98,7 @@ class _HomeScreenState extends State<HomeScreen> {
     widget.session.touch();
     // Le toast part avant la copie: celle-ci est un aller-retour vers la
     // plateforme, et attendre sa réponse retarderait le retour au doigt.
-    showSafeToast(context, 'Copié');
+    showSafeToast(context, L.of(context).copied);
     try {
       await _clipboard.copy(valeur);
     } on MissingPluginException {
@@ -105,7 +106,7 @@ class _HomeScreenState extends State<HomeScreen> {
       // téléphone. Rien à signaler à l'utilisateur.
     } catch (_) {
       if (mounted) {
-        showSafeToast(context, 'Copie impossible');
+        showSafeToast(context, L.of(context).copyFailed);
       }
     }
   }
@@ -151,6 +152,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final tokens = SafeTokens.of(context);
+    final t = L.of(context);
     return Scaffold(
       backgroundColor: tokens.pageBackground,
       body: SafeArea(
@@ -162,12 +164,12 @@ class _HomeScreenState extends State<HomeScreen> {
               // Vingt-deux pixels visés au-dessus de l'en-tête, moins ce que
               // les commandes de l'en-tête ajoutent au-dessus du logotype.
               const SizedBox(height: 22 - _margeEnTete),
-              _enTete(tokens),
+              _enTete(tokens, t),
               // Aucun écart écrit ici: l'en-tête et la barre d'onglets rendent
               // déjà, à eux deux, un peu plus que les seize pixels visés — et
               // ce reste n'est pas récupérable sans rogner une cible tactile.
               SafePillTabs(
-                labels: const ['Coffre', 'Générateur'],
+                labels: [t.tabVault, t.tabGenerator],
                 selected: _onglet,
                 onSelected: (index) {
                   widget.session.touch();
@@ -192,7 +194,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 padding: const EdgeInsets.fromLTRB(0, 14, 0, 22),
                 child: SafePrimaryButton(
                   key: const Key('add'),
-                  label: 'Nouvelle fiche',
+                  label: t.homeNewEntry,
                   onPressed: _ouvrirCreation,
                 ),
               ),
@@ -203,7 +205,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _enTete(SafeTokens tokens) => Row(
+  Widget _enTete(SafeTokens tokens, L t) => Row(
     children: [
       const SafeLogo(size: 17),
       const SizedBox(width: 10),
@@ -223,7 +225,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Center(
             child: Semantics(
               button: true,
-              label: 'Verrouiller',
+              label: t.homeLock,
               // Un pictogramme, pas un caractère: aucune des deux fontes
               // embarquées ne porte de cadenas, et un carré vide à la place du
               // verrou serait la pire des annonces. `Icons` vient de
@@ -256,7 +258,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Center(
             child: Semantics(
               button: true,
-              label: 'Réglages',
+              label: t.homeSettings,
               // Le handoff dessine ici un cercle vide et pâle. À l'écran il ne
               // dit rien: rien n'y indique qu'il ouvre les réglages, et à côté
               // d'un cadenas lisible il se lit comme une puce décorative. Une

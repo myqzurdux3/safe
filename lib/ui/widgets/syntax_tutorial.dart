@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../storage/app_settings.dart';
 import '../theme/safe_theme.dart';
 
@@ -73,10 +74,15 @@ class SyntaxTutorialPreference extends ChangeNotifier {
 }
 
 /// Les trois règles de la syntaxe, dans l'ordre où on les rencontre.
-const List<(String, String)> _rules = [
-  ('courrier:', 'ouvre un bloc'),
-  ('(ligne vide)', 'le referme'),
-  ('texte seul', 'reste un commentaire, à sa place'),
+///
+/// L'exemple à gauche est du texte tapé par l'utilisateur: `courrier:` ne se
+/// traduit pas plus qu'un mot de passe. Seule la glose se traduit — et
+/// « (ligne vide) » avec elle, puisque ce n'en est pas un, mais sa
+/// description.
+List<(String, String)> _rules(L t) => [
+  ('courrier:', t.syntaxOpensBlock),
+  (t.syntaxEmptyLine, t.syntaxClosesBlock),
+  (t.syntaxPlainText, t.syntaxStaysComment),
 ];
 
 /// Le tuto de syntaxe de la fiche.
@@ -93,6 +99,7 @@ class SyntaxTutorial extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = SafeTokens.of(context);
+    final t = L.of(context);
     return DecoratedBox(
       decoration: BoxDecoration(
         color: tokens.softAccentSurface,
@@ -118,20 +125,20 @@ class SyntaxTutorial extends StatelessWidget {
               ),
             ),
           ),
-          _content(tokens),
+          _content(tokens, t),
         ],
       ),
     );
   }
 
-  Widget _content(SafeTokens tokens) {
+  Widget _content(SafeTokens tokens, L t) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 13, 16, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          for (final (example, gloss) in _rules)
+          for (final (example, gloss) in _rules(t))
             Padding(
               padding: const EdgeInsets.only(bottom: 4),
               child: Row(
@@ -173,7 +180,7 @@ class SyntaxTutorial extends StatelessWidget {
                 // la cible sans déplacer la lettre d'un pixel.
                 padding: const EdgeInsets.only(top: 8, left: 12, bottom: 2),
                 child: Text(
-                  'Compris',
+                  t.syntaxUnderstood,
                   style: SafeText.action.copyWith(
                     fontWeight: FontWeight.w500,
                     color: tokens.accentDark,

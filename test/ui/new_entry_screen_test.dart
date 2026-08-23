@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:safe/l10n/app_localizations.dart';
 import 'package:safe/state/vault_session.dart';
 import 'package:safe/storage/app_settings.dart';
 import 'package:safe/ui/new_entry_screen.dart';
@@ -10,12 +11,24 @@ import '../support/session_fixture.dart';
 
 Widget _ecran(VaultSession session) => MaterialApp(
   theme: safeLightTheme(),
+  // Les délégués, sinon `L.of(context)` lève dès la première
+  // chaîne traduite. La locale est forcée au français comme
+  // dans `wrapScreen`: `flutter_test` démarre en en_US.
+  locale: const Locale('fr'),
+  localizationsDelegates: L.localizationsDelegates,
+  supportedLocales: L.supportedLocales,
   home: NewEntryScreen(session: session, settings: MemorySettingsStore()),
 );
 
 /// Même écran, magasin de réglages choisi par le test.
 Widget _ecranAvec(VaultSession session, SettingsStore settings) => MaterialApp(
   theme: safeLightTheme(),
+  // Les délégués, sinon `L.of(context)` lève dès la première
+  // chaîne traduite. La locale est forcée au français comme
+  // dans `wrapScreen`: `flutter_test` démarre en en_US.
+  locale: const Locale('fr'),
+  localizationsDelegates: L.localizationsDelegates,
+  supportedLocales: L.supportedLocales,
   home: NewEntryScreen(session: session, settings: settings),
 );
 

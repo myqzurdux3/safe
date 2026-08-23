@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../model/entry_text.dart';
 import '../theme/safe_theme.dart';
 import 'block_card.dart';
@@ -35,7 +36,7 @@ class EntryReadingList extends StatelessWidget {
     if (groups.isEmpty) {
       return Center(
         child: Text(
-          'Cette fiche est vide.\nPassez en « Texte brut » pour la remplir.',
+          L.of(context).entryEmpty,
           textAlign: TextAlign.center,
           style: SafeText.meta.copyWith(color: tokens.hintText),
         ),

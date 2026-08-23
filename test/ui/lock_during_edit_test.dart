@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:safe/storage/app_settings.dart';
 import 'package:safe/main.dart';
 import 'package:safe/model/vault.dart';
 import 'package:safe/storage/vault_transfer.dart';
@@ -73,6 +74,9 @@ void main() {
           storage: MemoryVaultStore(),
         ),
         clipboard: SecureClipboard(),
+        // Sans cela l'application suit la plateforme, que
+        // `flutter_test` fixe à en_US: tout s'afficherait en anglais.
+        language: ValueNotifier(AppLanguage.french),
       ),
     );
     await tester.pumpAndSettle();

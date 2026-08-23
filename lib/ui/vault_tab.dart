@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../model/vault.dart';
 import '../model/vault_search.dart';
 import '../state/vault_session.dart';
@@ -73,6 +74,7 @@ class _VaultTabState extends State<VaultTab> {
   @override
   Widget build(BuildContext context) {
     final tokens = SafeTokens.of(context);
+    final t = L.of(context);
     final vault = widget.session.vault;
     final hits = vault == null
         ? const <SearchHit>[]
@@ -80,22 +82,23 @@ class _VaultTabState extends State<VaultTab> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _champ(tokens),
+        _champ(tokens, t),
         const SizedBox(height: 12 - _margeRecherche),
         Expanded(
           child: hits.isEmpty
-              ? _vide(tokens)
+              ? _vide(tokens, t)
               : ListView.builder(
                   padding: EdgeInsets.zero,
                   itemCount: hits.length,
-                  itemBuilder: (context, index) => _ligne(tokens, hits[index]),
+                  itemBuilder: (context, index) =>
+                      _ligne(tokens, t, hits[index]),
                 ),
         ),
       ],
     );
   }
 
-  Widget _champ(SafeTokens tokens) => SizedBox(
+  Widget _champ(SafeTokens tokens, L t) => SizedBox(
     // Le champ se voit sur 44 px et se touche sur 48: les deux pixels de
     // marge, en haut et en bas, sont repris sur l'écart qui suit.
     height: SafeMetrics.touchTarget,
@@ -126,7 +129,7 @@ class _VaultTabState extends State<VaultTab> {
                   isDense: true,
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.zero,
-                  hintText: 'Rechercher',
+                  hintText: t.searchHint,
                   hintStyle: SafeText.listTitle.copyWith(
                     color: tokens.hintText,
                   ),
@@ -145,20 +148,18 @@ class _VaultTabState extends State<VaultTab> {
     ),
   );
 
-  Widget _vide(SafeTokens tokens) => Center(
+  Widget _vide(SafeTokens tokens, L t) => Center(
     child: Padding(
       padding: const EdgeInsets.all(32),
       child: Text(
-        _query.trim().isEmpty
-            ? 'Aucune fiche pour l\'instant.'
-            : 'Aucun résultat.',
+        _query.trim().isEmpty ? t.vaultEmpty : t.searchEmpty,
         textAlign: TextAlign.center,
         style: SafeText.meta.copyWith(color: tokens.hintText),
       ),
     ),
   );
 
-  Widget _ligne(SafeTokens tokens, SearchHit hit) {
+  Widget _ligne(SafeTokens tokens, L t, SearchHit hit) {
     final extrait = hit.matchedTitle ?? hit.matchedLine;
     return GestureDetector(
       key: Key('entry-${hit.entry.key}'),
@@ -208,8 +209,9 @@ class _VaultTabState extends State<VaultTab> {
                       Icons.attach_file,
                       size: 14,
                       color: tokens.tertiaryText,
-                      semanticLabel:
-                          '${hit.entry.attachments.length} pièce(s) jointe(s)',
+                      semanticLabel: t.attachmentCount(
+                        hit.entry.attachments.length,
+                      ),
                     ),
                   ],
                 ],

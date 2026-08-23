@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:safe/l10n/app_localizations.dart';
 import 'package:safe/model/vault.dart';
 import 'package:safe/state/vault_session.dart';
 import 'package:safe/ui/generator_tab.dart';
@@ -12,6 +13,12 @@ import '../support/session_fixture.dart';
 
 Widget _accueil(VaultSession session) => MaterialApp(
   theme: safeLightTheme(),
+  // Les délégués, sinon `L.of(context)` lève dès la première
+  // chaîne traduite. La locale est forcée au français comme
+  // dans `wrapScreen`: `flutter_test` démarre en en_US.
+  locale: const Locale('fr'),
+  localizationsDelegates: L.localizationsDelegates,
+  supportedLocales: L.supportedLocales,
   home: HomeScreen(session: session, settings: MemorySettingsStore()),
 );
 

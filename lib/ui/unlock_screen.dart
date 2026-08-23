@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../crypto/vault_crypto.dart';
 import '../state/vault_session.dart';
 import 'safe_logo.dart';
@@ -48,21 +49,23 @@ class _UnlockScreenState extends State<UnlockScreen> {
     if (_busy) {
       return;
     }
+    // Les libellés sont lus AVANT le premier `await`: après, le contexte a
+    // pu disparaître, et l'analyseur a raison de le refuser.
+    final t = L.of(context);
     final password = _passwordController.text;
     if (widget.isCreation) {
       if (password.length < minMasterPasswordLength) {
         setState(() {
-          _error =
-              'Le mot de passe doit faire au moins $minMasterPasswordLength caractères';
+          _error = t.unlockTooShort(minMasterPasswordLength);
         });
         return;
       }
       if (password != _confirmController.text) {
-        setState(() => _error = 'Les mots de passe ne correspondent pas');
+        setState(() => _error = t.unlockMismatch);
         return;
       }
     } else if (password.isEmpty) {
-      setState(() => _error = 'Mot de passe incorrect');
+      setState(() => _error = t.unlockWrongPassword);
       return;
     }
 
@@ -79,11 +82,11 @@ class _UnlockScreenState extends State<UnlockScreen> {
     } on WrongPasswordException {
       // Même message pour un mauvais mot de passe et pour un fichier altéré:
       // distinguer les deux renseignerait un attaquant sur l'état du coffre.
-      _fail('Mot de passe incorrect');
+      _fail(t.unlockWrongPassword);
     } on FormatException {
-      _fail('Mot de passe incorrect');
+      _fail(t.unlockWrongPassword);
     } catch (error) {
-      _fail('Impossible d\'ouvrir le coffre: $error');
+      _fail(t.unlockOpenFailed('$error'));
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -109,6 +112,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
   @override
   Widget build(BuildContext context) {
     final tokens = SafeTokens.of(context);
+    final t = L.of(context);
     return Scaffold(
       backgroundColor: tokens.pageBackground,
       // Le contenu et le pied de page sont deux enfants distincts: l'un
@@ -135,8 +139,8 @@ class _UnlockScreenState extends State<UnlockScreen> {
                         const SizedBox(height: 26),
                         Text(
                           widget.isCreation
-                              ? 'Bienvenue.'
-                              : 'Content de te revoir.',
+                              ? t.unlockWelcome
+                              : t.unlockWelcomeBack,
                           style: SafeText.screenTitle.copyWith(
                             fontSize: 30,
                             height: 1.15,
@@ -150,10 +154,8 @@ class _UnlockScreenState extends State<UnlockScreen> {
                               // passe oublié rend le coffre définitivement
                               // illisible: cet avertissement ne doit jamais
                               // disparaître de l'écran de création.
-                              ? 'Ce mot de passe est la seule clef du coffre. S\'il '
-                                    'est perdu, il n\'y a aucun moyen de récupérer '
-                                    'son contenu.'
-                              : 'Ton coffre est fermé.',
+                              ? t.unlockCreateSubtitle
+                              : t.unlockSubtitle,
                           style: TextStyle(
                             fontFamily: safeSans,
                             fontWeight: FontWeight.w400,
@@ -180,7 +182,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
                           cursorColor: tokens.accent,
                           cursorWidth: 2,
                           decoration: InputDecoration(
-                            hintText: 'Mot de passe maître',
+                            hintText: t.unlockPasswordHint,
                             hintStyle: TextStyle(
                               fontFamily: safeSans,
                               fontSize: 13.5,
@@ -208,7 +210,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
                                 width: SafeMetrics.touchTarget,
                                 height: SafeMetrics.touchTarget,
                               ),
-                              tooltip: _obscure ? 'Afficher' : 'Masquer',
+                              tooltip: _obscure ? t.unlockShow : t.unlockHide,
                               onPressed: () =>
                                   setState(() => _obscure = !_obscure),
                             ),
@@ -232,7 +234,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
                             cursorColor: tokens.accent,
                             cursorWidth: 2,
                             decoration: InputDecoration(
-                              hintText: 'Confirmation',
+                              hintText: t.unlockConfirmHint,
                               hintStyle: TextStyle(
                                 fontFamily: safeSans,
                                 fontSize: 13.5,
@@ -264,8 +266,8 @@ class _UnlockScreenState extends State<UnlockScreen> {
                         SafePrimaryButton(
                           key: const Key('submit'),
                           label: widget.isCreation
-                              ? 'Créer le coffre'
-                              : 'Déverrouiller',
+                              ? t.unlockCreate
+                              : t.unlockOpen,
                           onPressed: _busy ? null : _submit,
                           // La dérivation Argon2id prend plusieurs secondes:
                           // une roue distingue l'attente d'un simple bouton
@@ -287,8 +289,9 @@ class _UnlockScreenState extends State<UnlockScreen> {
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 420),
                   child: Text(
-                    'Verrouillage auto après '
-                    '${_delaiLisible(widget.session.autoLockDelay)}.',
+                    t.unlockAutoLockFooter(
+                      _delaiLisible(t, widget.session.autoLockDelay),
+                    ),
                     style: SafeText.meta.copyWith(color: tokens.hintText),
                   ),
                 ),
@@ -304,5 +307,6 @@ class _UnlockScreenState extends State<UnlockScreen> {
 /// « 30 s », « 1 min », « 2 min »… La maquette affichait « 5 min » en dur; le
 /// délai est un réglage, et deux vérités pour un même réglage, on en a déjà
 /// corrigé une.
-String _delaiLisible(Duration delay) =>
-    delay.inMinutes >= 1 ? '${delay.inMinutes} min' : '${delay.inSeconds} s';
+String _delaiLisible(L t, Duration delay) => delay.inMinutes >= 1
+    ? t.delayMinutes(delay.inMinutes)
+    : t.delaySeconds(delay.inSeconds);

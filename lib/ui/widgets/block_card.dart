@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../model/entry_text.dart';
 import '../theme/safe_theme.dart';
 
@@ -37,6 +38,7 @@ class BlockCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = SafeTokens.of(context);
+    final t = L.of(context);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       // Repliée, toute la carte ouvre le bloc. Ouverte, seul son en-tête le
@@ -59,17 +61,17 @@ class BlockCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _header(tokens),
+            _header(tokens, t),
             if (open)
               for (var offset = 0; offset < group.lines.length; offset++)
-                _line(tokens, offset),
+                _line(tokens, t, offset),
           ],
         ),
       ),
     );
   }
 
-  Widget _header(SafeTokens tokens) {
+  Widget _header(SafeTokens tokens, L t) {
     final lines = group.lines.length;
     return Row(
       children: [
@@ -110,7 +112,7 @@ class BlockCard extends StatelessWidget {
         ),
         if (open)
           SafeCopyAction(
-            label: 'copier le bloc',
+            label: t.entryCopyBlock,
             onTap: onCopyBlock,
             padding: const EdgeInsets.fromLTRB(8, 20, 8, 9),
           )
@@ -118,7 +120,7 @@ class BlockCard extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(top: 11, right: 8),
             child: Text(
-              '$lines ligne${lines > 1 ? 's' : ''}',
+              t.entryLineCount(lines),
               style: SafeText.counter.copyWith(color: tokens.tertiaryText),
             ),
           ),
@@ -126,7 +128,7 @@ class BlockCard extends StatelessWidget {
     );
   }
 
-  Widget _line(SafeTokens tokens, int offset) {
+  Widget _line(SafeTokens tokens, L t, int offset) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -148,7 +150,7 @@ class BlockCard extends StatelessWidget {
         ),
         SafeCopyAction(
           key: Key('copy-line-${firstLineIndex + offset}'),
-          label: 'copier',
+          label: t.copyAction,
           // La ligne brute, pas celle qui s'affiche: une valeur qui se termine
           // par une espace se collerait sinon amputée, en silence.
           onTap: () => onCopyLine(group.rawLines[offset]),
@@ -173,6 +175,7 @@ class CommentBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = SafeTokens.of(context);
+    final t = L.of(context);
     return Container(
       // Pas de carte: un filet vertical suffit à le rattacher au fil du texte
       // sans lui donner le poids d'un bloc.
@@ -195,7 +198,7 @@ class CommentBlock extends StatelessWidget {
             ),
           ),
           SafeCopyAction(
-            label: 'copier',
+            label: t.copyAction,
             onTap: onCopy,
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 13),
           ),

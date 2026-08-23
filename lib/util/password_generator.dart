@@ -26,13 +26,9 @@ class _CharacterClass {
 
 /// Jeux de caractères proposés par le générateur.
 enum CharacterSet {
-  letters('Lettres'),
-  lettersDigits('+ chiffres'),
-  all('+ symboles');
-
-  const CharacterSet(this.label);
-
-  final String label;
+  letters,
+  lettersDigits,
+  all;
 
   /// Classes qui composent ce jeu; chacune est garantie présente dans un mot de
   /// passe assez long pour les contenir toutes.

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:safe/l10n/app_localizations.dart';
 import 'package:safe/model/vault.dart';
 import 'package:safe/state/vault_session.dart';
 import 'package:safe/storage/app_settings.dart';
@@ -30,6 +31,12 @@ Future<VaultSession> _sessionAvecTexte() async {
 
 Widget _ecran(VaultSession session, {SettingsStore? settings}) => MaterialApp(
   theme: safeLightTheme(),
+  // Les délégués, sinon `L.of(context)` lève dès la première
+  // chaîne traduite. La locale est forcée au français comme
+  // dans `wrapScreen`: `flutter_test` démarre en en_US.
+  locale: const Locale('fr'),
+  localizationsDelegates: L.localizationsDelegates,
+  supportedLocales: L.supportedLocales,
   home: EntryScreen(
     session: session,
     entry: session.vault!.entries.first,
@@ -394,6 +401,12 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: safeLightTheme(),
+        // Les délégués, sinon `L.of(context)` lève dès la première
+        // chaîne traduite. La locale est forcée au français comme
+        // dans `wrapScreen`: `flutter_test` démarre en en_US.
+        locale: const Locale('fr'),
+        localizationsDelegates: L.localizationsDelegates,
+        supportedLocales: L.supportedLocales,
         home: EntryScreen(
           session: session,
           entry: session.vault!.entries.first,
@@ -427,6 +440,12 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: safeLightTheme(),
+        // Les délégués, sinon `L.of(context)` lève dès la première
+        // chaîne traduite. La locale est forcée au français comme
+        // dans `wrapScreen`: `flutter_test` démarre en en_US.
+        locale: const Locale('fr'),
+        localizationsDelegates: L.localizationsDelegates,
+        supportedLocales: L.supportedLocales,
         home: EntryScreen(
           session: session,
           entry: session.vault!.entries.first,
@@ -525,6 +544,12 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: safeLightTheme(),
+        // Les délégués, sinon `L.of(context)` lève dès la première
+        // chaîne traduite. La locale est forcée au français comme
+        // dans `wrapScreen`: `flutter_test` démarre en en_US.
+        locale: const Locale('fr'),
+        localizationsDelegates: L.localizationsDelegates,
+        supportedLocales: L.supportedLocales,
         home: EntryScreen(
           session: session,
           entry: session.vault!.entries.first,

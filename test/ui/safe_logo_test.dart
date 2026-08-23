@@ -2,6 +2,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:safe/l10n/app_localizations.dart';
 import 'package:safe/ui/safe_logo.dart';
 import 'package:safe/ui/theme/safe_theme.dart';
 import 'package:safe/ui/unlock_screen.dart';
@@ -20,6 +21,12 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: safeLightTheme(),
+        // Les délégués, sinon `L.of(context)` lève dès la première
+        // chaîne traduite. La locale est forcée au français comme
+        // dans `wrapScreen`: `flutter_test` démarre en en_US.
+        locale: const Locale('fr'),
+        localizationsDelegates: L.localizationsDelegates,
+        supportedLocales: L.supportedLocales,
         home: const Scaffold(body: SafeLogo()),
       ),
     );
@@ -40,6 +47,12 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: safeLightTheme(),
+        // Les délégués, sinon `L.of(context)` lève dès la première
+        // chaîne traduite. La locale est forcée au français comme
+        // dans `wrapScreen`: `flutter_test` démarre en en_US.
+        locale: const Locale('fr'),
+        localizationsDelegates: L.localizationsDelegates,
+        supportedLocales: L.supportedLocales,
         home: const Scaffold(
           body: SafeLogo(size: 34, color: Color(0xFF183A2B)),
         ),
@@ -55,6 +68,12 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: safeLightTheme(),
+        // Les délégués, sinon `L.of(context)` lève dès la première
+        // chaîne traduite. La locale est forcée au français comme
+        // dans `wrapScreen`: `flutter_test` démarre en en_US.
+        locale: const Locale('fr'),
+        localizationsDelegates: L.localizationsDelegates,
+        supportedLocales: L.supportedLocales,
         home: const Scaffold(body: SafeLogo()),
       ),
     );
@@ -159,6 +178,12 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: safeLightTheme(),
+        // Les délégués, sinon `L.of(context)` lève dès la première
+        // chaîne traduite. La locale est forcée au français comme
+        // dans `wrapScreen`: `flutter_test` démarre en en_US.
+        locale: const Locale('fr'),
+        localizationsDelegates: L.localizationsDelegates,
+        supportedLocales: L.supportedLocales,
         home: const Scaffold(body: SafeLogo()),
       ),
     );

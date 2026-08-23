@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../l10n/app_localizations.dart';
 import '../state/generator_session.dart';
 import '../util/clipboard.dart';
 import '../util/password_generator.dart';
@@ -106,7 +107,7 @@ class _GeneratorTabState extends State<GeneratorTab> {
       // Le bouton annonce déjà une copie faite: le démentir vaut mieux que le
       // laisser mentir pendant que l'erreur file en exception de zone.
       if (mounted) {
-        showSafeToast(context, 'Copie impossible');
+        showSafeToast(context, L.of(context).copyFailed);
       }
     }
   }
@@ -114,6 +115,7 @@ class _GeneratorTabState extends State<GeneratorTab> {
   @override
   Widget build(BuildContext context) {
     final tokens = SafeTokens.of(context);
+    final t = L.of(context);
     return AnimatedBuilder(
       animation: widget.generator,
       builder: (context, _) => SingleChildScrollView(
@@ -124,15 +126,15 @@ class _GeneratorTabState extends State<GeneratorTab> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _carte(tokens),
-            if (widget.generator.history.isNotEmpty) _historique(tokens),
+            _carte(tokens, t),
+            if (widget.generator.history.isNotEmpty) _historique(tokens, t),
           ],
         ),
       ),
     );
   }
 
-  Widget _carte(SafeTokens tokens) => DecoratedBox(
+  Widget _carte(SafeTokens tokens, L t) => DecoratedBox(
     decoration: BoxDecoration(
       color: tokens.cardSurface,
       borderRadius: BorderRadius.circular(SafeMetrics.generatorCardRadius),
@@ -158,9 +160,9 @@ class _GeneratorTabState extends State<GeneratorTab> {
             ),
           ),
           const SizedBox(height: 14),
-          _boutons(tokens),
+          _boutons(tokens, t),
           const SizedBox(height: 16),
-          _longueur(tokens),
+          _longueur(tokens, t),
           Slider(
             value: widget.generator.length.toDouble(),
             // Les bornes du générateur, et pas d'autres: une longueur hors de
@@ -171,13 +173,13 @@ class _GeneratorTabState extends State<GeneratorTab> {
             onChanged: (valeur) => widget.generator.setLength(valeur.round()),
           ),
           const SizedBox(height: 10 - _margePastille),
-          _pastilles(tokens),
+          _pastilles(tokens, t),
         ],
       ),
     ),
   );
 
-  Widget _boutons(SafeTokens tokens) => Row(
+  Widget _boutons(SafeTokens tokens, L t) => Row(
     children: [
       Expanded(
         // Le bouton plein partagé: il fait 50 px et non les 48 du handoff,
@@ -185,7 +187,7 @@ class _GeneratorTabState extends State<GeneratorTab> {
         // 48 px ici ferait deux boutons pleins dans l'application, à deux
         // pixels près, pour rien.
         child: SafePrimaryButton(
-          label: _copie ? 'Copié' : 'Copier',
+          label: _copie ? t.copied : t.copy,
           // Une icône et non « ✓ »: le signe n'a de glyphe dans aucune des
           // deux polices embarquées, et Android le rendrait dans une autre
           // fonte — ou pas du tout.
@@ -196,7 +198,7 @@ class _GeneratorTabState extends State<GeneratorTab> {
       const SizedBox(width: 10),
       Semantics(
         button: true,
-        label: 'Régénérer',
+        label: t.generatorRegenerate,
         child: GestureDetector(
           key: const Key('regenerate'),
           behavior: HitTestBehavior.opaque,
@@ -224,11 +226,11 @@ class _GeneratorTabState extends State<GeneratorTab> {
     ],
   );
 
-  Widget _longueur(SafeTokens tokens) => Row(
+  Widget _longueur(SafeTokens tokens, L t) => Row(
     mainAxisAlignment: MainAxisAlignment.spaceBetween,
     children: [
       Text(
-        'LONGUEUR',
+        t.generatorLength,
         style: SafeText.sectionLabel.copyWith(color: tokens.tertiaryText),
       ),
       Text(
@@ -243,16 +245,26 @@ class _GeneratorTabState extends State<GeneratorTab> {
     ],
   );
 
-  Widget _pastilles(SafeTokens tokens) => Row(
+  Widget _pastilles(SafeTokens tokens, L t) => Row(
     children: [
       for (final jeu in CharacterSet.values) ...[
         if (jeu != CharacterSet.values.first) const SizedBox(width: 7),
-        Expanded(child: _pastille(tokens, jeu)),
+        Expanded(child: _pastille(tokens, t, jeu)),
       ],
     ],
   );
 
-  Widget _pastille(SafeTokens tokens, CharacterSet jeu) {
+  /// Le libellé d'un jeu de caractères.
+  ///
+  /// Il vivait dans l'enum, où il figeait le français dans un module de pure
+  /// logique. Un jeu de caractères n'a pas de libellé: il en a un par langue.
+  static String _libelle(L t, CharacterSet jeu) => switch (jeu) {
+    CharacterSet.letters => t.generatorSetLetters,
+    CharacterSet.lettersDigits => t.generatorSetDigits,
+    CharacterSet.all => t.generatorSetSymbols,
+  };
+
+  Widget _pastille(SafeTokens tokens, L t, CharacterSet jeu) {
     final active = widget.generator.set == jeu;
     return GestureDetector(
       // Opaque, et sur toute la hauteur touchable: sans cela le doigt tomberait
@@ -274,7 +286,7 @@ class _GeneratorTabState extends State<GeneratorTab> {
               borderRadius: BorderRadius.circular(_hauteurPastille / 2),
             ),
             child: Text(
-              jeu.label,
+              _libelle(t, jeu),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
@@ -291,7 +303,7 @@ class _GeneratorTabState extends State<GeneratorTab> {
     );
   }
 
-  Widget _historique(SafeTokens tokens) {
+  Widget _historique(SafeTokens tokens, L t) {
     final valeurs = widget.generator.history;
     return Padding(
       padding: const EdgeInsets.only(top: 18),
@@ -299,7 +311,7 @@ class _GeneratorTabState extends State<GeneratorTab> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'GÉNÉRÉ AVANT',
+            t.generatorHistory,
             style: SafeText.sectionLabel.copyWith(color: tokens.tertiaryText),
           ),
           for (var rang = 0; rang < valeurs.length; rang++)
@@ -317,7 +329,7 @@ class _GeneratorTabState extends State<GeneratorTab> {
                 ),
                 SafeCopyAction(
                   key: Key('copy-history-$rang'),
-                  label: 'copier',
+                  label: t.copyAction,
                   onTap: () => _copier(valeurs[rang]),
                   // La marge verticale est la cible tactile: 18,5 de part et
                   // d'autre d'un libellé de 11 px font exactement 48.
@@ -330,7 +342,7 @@ class _GeneratorTabState extends State<GeneratorTab> {
             ),
           const SizedBox(height: 10),
           Text(
-            'Effacé au verrouillage. Jamais écrit sur le disque.',
+            t.generatorHistoryNote,
             style: SafeText.meta.copyWith(color: tokens.hintText),
           ),
         ],

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:safe/l10n/app_localizations.dart';
 import 'package:safe/state/generator_session.dart';
 import 'package:safe/ui/generator_tab.dart';
 import 'package:safe/ui/theme/safe_theme.dart';
@@ -20,6 +21,12 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: safeLightTheme(),
+        // Les délégués, sinon `L.of(context)` lève dès la première
+        // chaîne traduite. La locale est forcée au français comme
+        // dans `wrapScreen`: `flutter_test` démarre en en_US.
+        locale: const Locale('fr'),
+        localizationsDelegates: L.localizationsDelegates,
+        supportedLocales: L.supportedLocales,
         home: Scaffold(
           body: GeneratorTab(generator: gen, clipboard: clipboard),
         ),
@@ -54,6 +61,12 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: safeLightTheme(),
+        // Les délégués, sinon `L.of(context)` lève dès la première
+        // chaîne traduite. La locale est forcée au français comme
+        // dans `wrapScreen`: `flutter_test` démarre en en_US.
+        locale: const Locale('fr'),
+        localizationsDelegates: L.localizationsDelegates,
+        supportedLocales: L.supportedLocales,
         home: Scaffold(
           body: GeneratorTab(generator: gen, clipboard: clipboard),
         ),
@@ -77,6 +90,12 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: safeLightTheme(),
+        // Les délégués, sinon `L.of(context)` lève dès la première
+        // chaîne traduite. La locale est forcée au français comme
+        // dans `wrapScreen`: `flutter_test` démarre en en_US.
+        locale: const Locale('fr'),
+        localizationsDelegates: L.localizationsDelegates,
+        supportedLocales: L.supportedLocales,
         home: Scaffold(body: GeneratorTab(generator: gen)),
       ),
     );
@@ -104,15 +123,22 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: safeLightTheme(),
+        // Les délégués, sinon `L.of(context)` lève dès la première
+        // chaîne traduite. La locale est forcée au français comme
+        // dans `wrapScreen`: `flutter_test` démarre en en_US.
+        locale: const Locale('fr'),
+        localizationsDelegates: L.localizationsDelegates,
+        supportedLocales: L.supportedLocales,
         home: Scaffold(body: GeneratorTab(generator: gen)),
       ),
     );
 
-    // Défaut: « + symboles ».
-    expect(gen.set.label, '+ symboles');
+    // Défaut: « + symboles ». L'identité du jeu, pas son libellé: celui-ci
+    // dépend de la langue, le jeu de caractères non.
+    expect(gen.set, CharacterSet.all);
     await tester.tap(find.text('Lettres'));
     await tester.pumpAndSettle();
-    expect(gen.set.label, 'Lettres');
+    expect(gen.set, CharacterSet.letters);
     vault.lock();
   });
 
@@ -124,6 +150,12 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: safeLightTheme(),
+        // Les délégués, sinon `L.of(context)` lève dès la première
+        // chaîne traduite. La locale est forcée au français comme
+        // dans `wrapScreen`: `flutter_test` démarre en en_US.
+        locale: const Locale('fr'),
+        localizationsDelegates: L.localizationsDelegates,
+        supportedLocales: L.supportedLocales,
         home: Scaffold(body: GeneratorTab(generator: gen)),
       ),
     );
@@ -145,6 +177,12 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: safeLightTheme(),
+        // Les délégués, sinon `L.of(context)` lève dès la première
+        // chaîne traduite. La locale est forcée au français comme
+        // dans `wrapScreen`: `flutter_test` démarre en en_US.
+        locale: const Locale('fr'),
+        localizationsDelegates: L.localizationsDelegates,
+        supportedLocales: L.supportedLocales,
         home: Scaffold(body: GeneratorTab(generator: gen)),
       ),
     );
@@ -175,6 +213,12 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: safeLightTheme(),
+        // Les délégués, sinon `L.of(context)` lève dès la première
+        // chaîne traduite. La locale est forcée au français comme
+        // dans `wrapScreen`: `flutter_test` démarre en en_US.
+        locale: const Locale('fr'),
+        localizationsDelegates: L.localizationsDelegates,
+        supportedLocales: L.supportedLocales,
         home: Scaffold(body: GeneratorTab(generator: gen)),
       ),
     );
@@ -201,6 +245,12 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: safeLightTheme(),
+        // Les délégués, sinon `L.of(context)` lève dès la première
+        // chaîne traduite. La locale est forcée au français comme
+        // dans `wrapScreen`: `flutter_test` démarre en en_US.
+        locale: const Locale('fr'),
+        localizationsDelegates: L.localizationsDelegates,
+        supportedLocales: L.supportedLocales,
         home: Scaffold(
           body: GeneratorTab(generator: gen, clipboard: clipboard),
         ),
