@@ -88,6 +88,16 @@ Lancer sans installer:
 
 Installer pour l'utilisateur courant (aucun `sudo`):
 
+**Fermer l'application d'abord.** Le `rm -rf` ci-dessous remplace les fichiers
+sous une instance en cours: elle ne plante pas — Linux garde vivants les inodes
+qu'un processus tient ouverts — mais elle continue de tourner sur l'ancienne
+version, et son `/proc/<pid>/exe` pointe vers un fichier « (deleted) ». Sans
+redémarrage, la mise à jour ne se voit pas. Vérifier qu'il ne reste rien:
+
+```bash
+ps -eo pid,comm,args --no-headers | awk '$2=="safe"'   # doit ne rien rendre
+```
+
 ```bash
 rm -rf ~/.local/lib/safe
 mkdir -p ~/.local/lib/safe ~/.local/bin ~/.local/share/applications ~/.local/share/icons/hicolor/256x256/apps
@@ -100,7 +110,7 @@ cat > ~/.local/share/applications/safe.desktop <<EOF
 [Desktop Entry]
 Type=Application
 Name=safe
-Comment=Coffre clef/valeur chiffré
+Comment=Coffre à secrets chiffré
 Exec=$HOME/.local/bin/safe
 Icon=safe
 Terminal=false
@@ -118,8 +128,8 @@ installation système où le binaire est dans le `PATH`, insuffisant ici.
 
 Ensuite: `safe` en ligne de commande, ou l'entrée « safe » du menu.
 
-Mettre à jour plus tard = rejouer le bloc ci-dessus. Le `rm -rf` ne vise que
-le dossier du programme, jamais les données.
+Mettre à jour plus tard = fermer l'application, puis rejouer le bloc ci-dessus.
+Le `rm -rf` ne vise que le dossier du programme, jamais les données.
 
 Désinstaller:
 

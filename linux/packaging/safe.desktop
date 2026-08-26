@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=safe
-Comment=Coffre clef/valeur chiffré
+Comment=Coffre à secrets chiffré
 Exec=safe
 Icon=safe
 Terminal=false
