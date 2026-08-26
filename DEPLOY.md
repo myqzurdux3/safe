@@ -112,7 +112,7 @@ Type=Application
 Name=safe
 Comment=Coffre à secrets chiffré
 Exec=$HOME/.local/bin/safe
-Icon=safe
+Icon=$HOME/.local/share/icons/hicolor/256x256/apps/safe.png
 Terminal=false
 Categories=Utility;Security;
 Keywords=mot de passe;coffre;chiffrement;
@@ -125,6 +125,20 @@ update-desktop-database ~/.local/share/applications 2>/dev/null || true
 n'héritent pas du `PATH` du shell. C'est pourquoi ce bloc ne réutilise pas
 `linux/packaging/safe.desktop`, qui contient `Exec=safe` — bon pour une
 installation système où le binaire est dans le `PATH`, insuffisant ici.
+
+`Icon=` est un chemin absolu pour la même raison, et pour une de plus. Un
+`Icon=safe` passe par la recherche de thème d'icônes, qui s'appuie sur
+`icon-theme.cache`: après une mise à jour, le lanceur continue d'afficher
+l'ancienne image tant que ce cache n'a pas été refait — et
+`gtk-update-icon-cache` sur `~/.local/share/icons/hicolor` produit ici un cache
+vide, plus récent que le dossier, donc *cru sur parole* et pire que pas de cache
+du tout. Un chemin absolu est explicitement permis par la spécification
+freedesktop et ne traverse aucun cache. Le fichier est quand même posé dans
+`hicolor`: c'est là qu'une installation système irait le chercher.
+
+L'icône de la **fenêtre** — celle du dock, celle d'alt-tab — ne vient pas de là
+mais du programme lui-même. Une instance restée ouverte garde donc l'ancienne
+jusqu'à ce qu'on la ferme et la rouvre.
 
 Ensuite: `safe` en ligne de commande, ou l'entrée « safe » du menu.
 
